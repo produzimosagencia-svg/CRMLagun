@@ -5,6 +5,10 @@
 @tailwind components;
 @tailwind utilities;
 
+html, body {
+  background-color: #1a0800;
+}
+
 @keyframes fadeInUp {
   from { opacity: 0; transform: translateY(32px); }
   to   { opacity: 1; transform: translateY(0); }
