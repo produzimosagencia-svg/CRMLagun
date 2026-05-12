@@ -269,7 +269,7 @@ export default function LandingPage() {
                 className="transition-all active:opacity-70 flex items-center justify-center" style={{ width: 66 }}>
                 <img src={logo99} alt="99" width="66" height="66" />
               </a>
-              <a href="https://m.uber.com/ul/?action=setPickup&pickup=my_location&dropoff[formatted_address]=Rua%20Manoel%20Gon%C3%A7alves%20Carneiro%2C%2065%20-%20Praia%20do%20Canto%2C%20Vit%C3%B3ria%20-%20ES%2C%2029055-740&dropoff[nickname]=Lagun" target="_blank" rel="noopener noreferrer"
+              <a href="https://m.uber.com/ul/?action=setPickup&dropoff%5Blatitude%5D=-20.29547&dropoff%5Blongitude%5D=-40.29067&dropoff%5Bnickname%5D=R.+Manoel+Gon%C3%A7alves+Carneiro%2C+65&dropoff%5Bformatted_address%5D=Praia+do+Canto%2C+Vit%C3%B3ria+-+ES%2C+29055-740" target="_blank" rel="noopener noreferrer"
                 className="transition-all active:opacity-70 flex items-center justify-center" style={{ width: 80 }}>
                 <img src="https://cdn.simpleicons.org/uber/F5D470" width="80" height="80" style={{ objectFit: 'contain' }} alt="Uber" />
               </a>
@@ -502,7 +502,7 @@ export default function LandingPage() {
               </p>
               <div className="flex gap-2 mt-1">
                 <a
-                  href="https://m.uber.com/ul/?action=setPickup&pickup=my_location&dropoff[formatted_address]=Rua%20Manoel%20Gon%C3%A7alves%20Carneiro%2C%2065%20-%20Praia%20do%20Canto%2C%20Vit%C3%B3ria%20-%20ES%2C%2029055-740&dropoff[nickname]=Lagun"
+                  href="https://m.uber.com/ul/?action=setPickup&dropoff%5Blatitude%5D=-20.29547&dropoff%5Blongitude%5D=-40.29067&dropoff%5Bnickname%5D=R.+Manoel+Gon%C3%A7alves+Carneiro%2C+65&dropoff%5Bformatted_address%5D=Praia+do+Canto%2C+Vit%C3%B3ria+-+ES%2C+29055-740"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center justify-center transition-all hover:opacity-80"
