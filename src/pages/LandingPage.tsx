@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import simboloGold from '@/assets/simbolo-lagun.png';
 import flamingoSolo from '@/assets/flamingo-solo.png';
 import simboloBranco from '@/assets/simbolo-lagun-branco.png';
@@ -11,6 +11,9 @@ import logo99Desktop from '@/assets/logo-99.jpg';
 import logoMaps from '@/assets/logo-googlemaps.png';
 import logoUber from '@/assets/logo-uber.png';
 import fotoLounge from '@/assets/foto-lounge.jpg';
+import fotoLounge2 from '@/assets/DSC_9565.jpg';
+import fotoLounge3 from '@/assets/DSC_8794.jpg';
+import fotoLounge4 from '@/assets/DSC_9422.jpg';
 import fotoAniversario from '@/assets/foto-aniversario.jpg';
 
 const eventos = [
@@ -46,8 +49,18 @@ const lounges = [
   },
 ];
 
+const loungePhotos = [fotoLounge, fotoLounge2, fotoLounge3, fotoLounge4];
+
 export default function LandingPage() {
   const revealRef = useRef<HTMLDivElement>(null);
+  const [carouselIndex, setCarouselIndex] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCarouselIndex((i) => (i + 1) % loungePhotos.length);
+    }, 3500);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -301,9 +314,9 @@ export default function LandingPage() {
       <section className="reveal hidden md:block px-4 md:px-10 py-20" id="lounges" style={{ backgroundColor: '#140600' }}>
         <div className="max-w-6xl mx-auto">
           <div className="flex flex-col md:flex-row items-center gap-12">
-            {/* Card decorativo com foto — ESQUERDA */}
+            {/* Carrossel de fotos — ESQUERDA */}
             <div
-              className="flex-1 relative overflow-hidden flex items-end w-full"
+              className="flex-1 relative overflow-hidden w-full"
               style={{
                 borderRadius: '20px',
                 minHeight: '420px',
@@ -312,15 +325,35 @@ export default function LandingPage() {
                 boxShadow: '0 12px 48px rgba(0,0,0,0.5)',
               }}
             >
-              <img src={fotoLounge} alt="Lounge Lagun" className="absolute inset-0 w-full h-full object-cover" />
-              <div
-                className="relative z-10 w-full p-6"
-                style={{ background: 'linear-gradient(to top, rgba(26,8,0,0.92) 60%, transparent)' }}
-              >
-                <p className="text-xs tracking-widest uppercase mb-1" style={{ color: '#F5D470' }}>
-                  Ambiente
-                </p>
-                <h3 className="text-lg font-semibold text-white">Conheça a Lagun</h3>
+              {loungePhotos.map((foto, i) => (
+                <img
+                  key={i}
+                  src={foto}
+                  alt="Lounge Lagun"
+                  className="absolute inset-0 w-full h-full object-cover"
+                  style={{
+                    opacity: i === carouselIndex ? 1 : 0,
+                    transition: 'opacity 0.8s ease',
+                  }}
+                />
+              ))}
+              {/* Indicadores */}
+              <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-2 z-10">
+                {loungePhotos.map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setCarouselIndex(i)}
+                    className="transition-all"
+                    style={{
+                      width: i === carouselIndex ? 20 : 6,
+                      height: 6,
+                      borderRadius: 999,
+                      backgroundColor: i === carouselIndex ? '#F5D470' : 'rgba(245,212,112,0.35)',
+                      border: 'none',
+                      cursor: 'pointer',
+                    }}
+                  />
+                ))}
               </div>
             </div>
 
@@ -333,7 +366,7 @@ export default function LandingPage() {
                 className="text-4xl md:text-5xl font-light mt-3 mb-5 leading-tight"
                 style={{ fontFamily: "'Crimson Pro', serif", color: 'white' }}
               >
-                Sua mesa, sua <em style={{ color: '#F5D470' }}>experiência.</em>
+                Seu lounge, sua <em style={{ color: '#F5D470' }}>experiência.</em>
               </h2>
               <p className="text-sm leading-relaxed mb-8 max-w-md" style={{ color: 'rgba(255,255,255,0.55)' }}>
                 Reserve seu espaço com antecedência e garanta atendimento exclusivo durante toda a noite.
@@ -399,7 +432,7 @@ export default function LandingPage() {
                 className="text-4xl md:text-5xl font-light mt-3 mb-5 leading-tight"
                 style={{ fontFamily: "'Crimson Pro', serif", color: 'white' }}
               >
-                Celebre de forma <em style={{ color: '#F5D470' }}>inesquecível.</em>
+                Comemore <em style={{ color: '#F5D470' }}>com a gente!</em>
               </h2>
               <p className="text-sm leading-relaxed mb-8 max-w-md" style={{ color: 'rgba(255,255,255,0.55)' }}>
                 Comemore seu aniversário em grande estilo. Nossa equipe cuida de cada detalhe:
