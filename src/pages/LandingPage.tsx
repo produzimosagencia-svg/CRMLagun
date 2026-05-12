@@ -21,7 +21,7 @@ const eventos = [
     diaSemana: 'Sexta-feira',
     artista: 'Pauly',
     tag: 'EM BREVE',
-    link: '#',
+    link: 'https://zig.tickets/eventos/lagun-friday',
     flyer: flyerNoiteFlamingo,
   },
   {
@@ -31,7 +31,7 @@ const eventos = [
     diaSemana: 'Sábado',
     artista: 'DJ Zag',
     tag: 'EM BREVE',
-    link: '#',
+    link: 'https://zig.tickets/eventos/lagun-saturday',
     flyer: flyerNoiteFlamingo,
   },
 ];
