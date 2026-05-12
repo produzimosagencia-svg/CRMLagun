@@ -16,20 +16,20 @@ import fotoAniversario from '@/assets/foto-aniversario.jpg';
 const eventos = [
   {
     id: 1,
-    nome: 'Pauly',
+    nome: 'Lagun Friday',
     data: '15/05',
     diaSemana: 'Sexta-feira',
-    artista: 'PAULY (RJ)',
+    artista: 'Pauly',
     tag: 'EM BREVE',
     link: '#',
     flyer: flyerNoiteFlamingo,
   },
   {
     id: 2,
-    nome: 'DJ Zag',
+    nome: 'Lagun Saturday',
     data: '16/05',
     diaSemana: 'Sábado',
-    artista: 'DJ ZAG',
+    artista: 'DJ Zag',
     tag: 'EM BREVE',
     link: '#',
     flyer: flyerNoiteFlamingo,
@@ -132,7 +132,8 @@ export default function LandingPage() {
                 {/* Info */}
                 <div className="flex-1 min-w-0">
                   <p className="font-bold text-white text-sm leading-tight truncate">{ev.nome}</p>
-                  <p className="text-[11px] mt-1" style={{ color: 'rgba(255,255,255,0.45)' }}>
+                  <p className="text-sm font-semibold truncate mt-0.5" style={{ color: '#F5D470' }}>{ev.artista}</p>
+                  <p className="text-[11px] mt-0.5" style={{ color: 'rgba(255,255,255,0.45)' }}>
                     <span className="font-bold" style={{ color: 'rgba(255,255,255,0.75)' }}>{ev.data}</span>
                     {' · '}{ev.diaSemana}
                   </p>
@@ -199,9 +200,8 @@ export default function LandingPage() {
                     </span>
                   </div>
                   <div className="flex-1">
-                    <p className="text-[10px] tracking-widest uppercase mb-1" style={{ color: 'rgba(255,255,255,0.35)' }}>Music by</p>
-                    <p className="text-base font-light tracking-wide" style={{ color: '#F5D470' }}>{ev.artista}</p>
-                    <h3 className="text-lg font-semibold mt-1 leading-tight text-white">{ev.nome}</h3>
+                    <h3 className="text-lg font-bold leading-tight text-white">{ev.nome}</h3>
+                    <p className="text-base font-semibold mt-1" style={{ color: '#F5D470' }}>{ev.artista}</p>
                   </div>
                   <a
                     href={ev.link}
