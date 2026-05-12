@@ -103,7 +103,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── SEÇÃO 1 · EVENTOS ───────────────────────────────────────────────── */}
-      <section className="reveal" id="eventos">
+      <section id="eventos">
 
         {/* ── MOBILE: lista linktree ── */}
         <div className="block md:hidden px-4 pb-8">
@@ -219,7 +219,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── MOBILE: botões rápidos + contato ── */}
-      <div className="block md:hidden px-4 pb-10" style={{ backgroundColor: '#1A0800' }}>
+      <div className="reveal block md:hidden px-4 pb-10" style={{ backgroundColor: '#1A0800' }}>
         {/* Botões lounge e aniversário */}
         <div className="flex flex-col gap-3 mb-4">
           <a
