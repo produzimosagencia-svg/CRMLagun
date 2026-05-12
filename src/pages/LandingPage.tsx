@@ -278,7 +278,7 @@ export default function LandingPage() {
           <div className="flex flex-col items-center" style={{ gap: 0 }}>
             <p className="text-[10px] tracking-[0.3em] uppercase" style={{ color: 'rgba(255,255,255,0.35)', marginBottom: '-8px' }}>Localização</p>
             <div className="flex items-center justify-center w-full" style={{ gap: '32px' }}>
-              <a href="https://99app.com/corridas?destination_lat=-20.29547&destination_lng=-40.29067&destination_name=Lagun" target="_blank" rel="noopener noreferrer"
+              <a href="https://99app.com" target="_blank" rel="noopener noreferrer"
                 className="transition-all active:opacity-70 flex items-center justify-center" style={{ width: 66 }}>
                 <img src={logo99} alt="99" width="66" height="66" />
               </a>
@@ -544,7 +544,7 @@ export default function LandingPage() {
                   <img src={logoUber} alt="Uber" style={{ filter: 'invert(1)', width: '100%', height: 'auto', objectFit: 'contain' }} />
                 </a>
                 <a
-                  href="https://99app.com/corridas?destination_lat=-20.29547&destination_lng=-40.29067&destination_name=Lagun"
+                  href="https://99app.com"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center justify-center transition-all hover:opacity-80 overflow-hidden"
