@@ -278,11 +278,11 @@ export default function LandingPage() {
           <div className="flex flex-col items-center" style={{ gap: 0 }}>
             <p className="text-[10px] tracking-[0.3em] uppercase" style={{ color: 'rgba(255,255,255,0.35)', marginBottom: '-8px' }}>Localização</p>
             <div className="flex items-center justify-center w-full" style={{ gap: '32px' }}>
-              <a href="https://99app.com/?address=Rua%20Manoel%20Gon%C3%A7alves%20Carneiro%2C%2065%20-%20Praia%20do%20Canto%2C%20Vit%C3%B3ria%20-%20ES&name=Lagun" target="_blank" rel="noopener noreferrer"
+              <a href="https://99app.com/?lat=-20.29547&lng=-40.29067&name=Lagun" target="_blank" rel="noopener noreferrer"
                 className="transition-all active:opacity-70 flex items-center justify-center" style={{ width: 66 }}>
                 <img src={logo99} alt="99" width="66" height="66" />
               </a>
-              <a href="https://m.uber.com/ul/?action=setPickup&dropoff%5Blatitude%5D=-20.29547&dropoff%5Blongitude%5D=-40.29067&dropoff%5Bnickname%5D=R.+Manoel+Gon%C3%A7alves+Carneiro%2C+65&dropoff%5Bformatted_address%5D=Praia+do+Canto%2C+Vit%C3%B3ria+-+ES%2C+29055-740" target="_blank" rel="noopener noreferrer"
+              <a href="https://m.uber.com/ul/?action=setPickup&dropoff%5Blatitude%5D=-20.29547&dropoff%5Blongitude%5D=-40.29067&dropoff%5Bnickname%5D=R.+Manoel+Gon%C3%A7alves+Carneiro%2C+65&dropoff%5Bformatted_address%5D=Praia+do+Canto%2C+Vit%C3%B3ria+-+ES%2C+29055-740&utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer"
                 className="transition-all active:opacity-70 flex items-center justify-center" style={{ width: 80 }}>
                 <img src="https://cdn.simpleicons.org/uber/F5D470" width="80" height="80" style={{ objectFit: 'contain' }} alt="Uber" />
               </a>
@@ -535,7 +535,7 @@ export default function LandingPage() {
               </p>
               <div className="flex gap-2 mt-1">
                 <a
-                  href="https://m.uber.com/ul/?action=setPickup&dropoff%5Blatitude%5D=-20.29547&dropoff%5Blongitude%5D=-40.29067&dropoff%5Bnickname%5D=R.+Manoel+Gon%C3%A7alves+Carneiro%2C+65&dropoff%5Bformatted_address%5D=Praia+do+Canto%2C+Vit%C3%B3ria+-+ES%2C+29055-740"
+                  href="https://m.uber.com/ul/?action=setPickup&dropoff%5Blatitude%5D=-20.29547&dropoff%5Blongitude%5D=-40.29067&dropoff%5Bnickname%5D=R.+Manoel+Gon%C3%A7alves+Carneiro%2C+65&dropoff%5Bformatted_address%5D=Praia+do+Canto%2C+Vit%C3%B3ria+-+ES%2C+29055-740&utm_source=chatgpt.com"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center justify-center transition-all hover:opacity-80"
@@ -544,7 +544,7 @@ export default function LandingPage() {
                   <img src={logoUber} alt="Uber" style={{ filter: 'invert(1)', width: '100%', height: 'auto', objectFit: 'contain' }} />
                 </a>
                 <a
-                  href="https://99app.com/?address=Rua%20Manoel%20Gon%C3%A7alves%20Carneiro%2C%2065%20-%20Praia%20do%20Canto%2C%20Vit%C3%B3ria%20-%20ES&name=Lagun"
+                  href="https://99app.com/?lat=-20.29547&lng=-40.29067&name=Lagun"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center justify-center transition-all hover:opacity-80 overflow-hidden"
