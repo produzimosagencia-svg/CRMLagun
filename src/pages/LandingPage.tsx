@@ -125,8 +125,8 @@ export default function LandingPage() {
                 }}
               >
                 {/* Thumbnail */}
-                <div className="shrink-0 overflow-hidden" style={{ width: 60, height: 60, borderRadius: '10px' }}>
-                  <img src={ev.flyer} alt={ev.nome} className="w-full h-full object-cover" />
+                <div className="shrink-0 overflow-hidden" style={{ width: 60, height: 60, borderRadius: '10px', backgroundColor: '#3a1500' }}>
+                  <img src={ev.flyer} alt={ev.nome} className="w-full h-full object-cover" loading="eager" />
                 </div>
 
                 {/* Info */}
@@ -219,7 +219,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── MOBILE: botões rápidos + contato ── */}
-      <div className="reveal block md:hidden px-4 pb-10" style={{ backgroundColor: '#1A0800' }}>
+      <div className="reveal block md:hidden px-4 pb-10" style={{ backgroundColor: '#1A0800', animationDelay: '0.3s' }}>
         {/* Botões lounge e aniversário */}
         <div className="flex flex-col gap-3 mb-4">
           <a
@@ -265,15 +265,15 @@ export default function LandingPage() {
           <div className="flex flex-col items-center" style={{ gap: 0 }}>
             <p className="text-[10px] tracking-[0.3em] uppercase" style={{ color: 'rgba(255,255,255,0.35)', marginBottom: '-8px' }}>Localização</p>
             <div className="flex items-center justify-center w-full" style={{ gap: '32px' }}>
-              <a href="https://99app.com/?lat=-20.2815&lng=-40.2969&name=Lagun" target="_blank" rel="noopener noreferrer"
+              <a href="https://99app.com/?address=Rua%20Manoel%20Gon%C3%A7alves%20Carneiro%2C%2065%20-%20Praia%20do%20Canto%2C%20Vit%C3%B3ria%20-%20ES&name=Lagun" target="_blank" rel="noopener noreferrer"
                 className="transition-all active:opacity-70 flex items-center justify-center" style={{ width: 66 }}>
                 <img src={logo99} alt="99" width="66" height="66" />
               </a>
-              <a href="https://m.uber.com/ul/?action=setPickup&pickup=my_location&dropoff[latitude]=-20.2815&dropoff[longitude]=-40.2969&dropoff[nickname]=Lagun" target="_blank" rel="noopener noreferrer"
+              <a href="https://m.uber.com/ul/?action=setPickup&pickup=my_location&dropoff[formatted_address]=Rua%20Manoel%20Gon%C3%A7alves%20Carneiro%2C%2065%20-%20Praia%20do%20Canto%2C%20Vit%C3%B3ria%20-%20ES%2C%2029055-740&dropoff[nickname]=Lagun" target="_blank" rel="noopener noreferrer"
                 className="transition-all active:opacity-70 flex items-center justify-center" style={{ width: 80 }}>
                 <img src="https://cdn.simpleicons.org/uber/F5D470" width="80" height="80" style={{ objectFit: 'contain' }} alt="Uber" />
               </a>
-              <a href="https://www.google.com/maps/dir/?api=1&destination=R.+Manoel+Gon%C3%A7alves+Carneiro,+65+Praia+do+Canto+Vit%C3%B3ria+ES+29055-740" target="_blank" rel="noopener noreferrer"
+              <a href="https://www.google.com/maps/dir/?api=1&destination=Rua+Manoel+Gon%C3%A7alves+Carneiro,+65,+Praia+do+Canto,+Vit%C3%B3ria,+ES,+29055-740" target="_blank" rel="noopener noreferrer"
                 className="transition-all active:opacity-70 flex items-center justify-center" style={{ width: 66 }}>
                 <img src="https://cdn.simpleicons.org/googlemaps/F5D470" width="42" height="42" alt="Maps" />
               </a>
@@ -502,7 +502,7 @@ export default function LandingPage() {
               </p>
               <div className="flex gap-2 mt-1">
                 <a
-                  href="https://m.uber.com/ul/?action=setPickup&pickup=my_location&dropoff[latitude]=-20.2815&dropoff[longitude]=-40.2969&dropoff[nickname]=Lagun"
+                  href="https://m.uber.com/ul/?action=setPickup&pickup=my_location&dropoff[formatted_address]=Rua%20Manoel%20Gon%C3%A7alves%20Carneiro%2C%2065%20-%20Praia%20do%20Canto%2C%20Vit%C3%B3ria%20-%20ES%2C%2029055-740&dropoff[nickname]=Lagun"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center justify-center transition-all hover:opacity-80"
@@ -511,7 +511,7 @@ export default function LandingPage() {
                   <img src={logoUber} alt="Uber" style={{ filter: 'invert(1)', width: '100%', height: 'auto', objectFit: 'contain' }} />
                 </a>
                 <a
-                  href="https://99app.com/?lat=-20.2815&lng=-40.2969&name=Lagun"
+                  href="https://99app.com/?address=Rua%20Manoel%20Gon%C3%A7alves%20Carneiro%2C%2065%20-%20Praia%20do%20Canto%2C%20Vit%C3%B3ria%20-%20ES&name=Lagun"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center justify-center transition-all hover:opacity-80 overflow-hidden"
@@ -520,7 +520,7 @@ export default function LandingPage() {
                   <img src={logo99Desktop} className="w-full h-full object-cover" alt="99" />
                 </a>
                 <a
-                  href="https://www.google.com/maps/dir/?api=1&destination=R.+Manoel+Gon%C3%A7alves+Carneiro,+65+Praia+do+Canto+Vit%C3%B3ria+ES+29055-740"
+                  href="https://www.google.com/maps/dir/?api=1&destination=Rua+Manoel+Gon%C3%A7alves+Carneiro,+65,+Praia+do+Canto,+Vit%C3%B3ria,+ES,+29055-740"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center justify-center transition-all hover:opacity-80"
