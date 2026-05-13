@@ -11,6 +11,7 @@ import {
 import { MetaIcon } from '@/components/icons/MetaIcon';
 import { supabase } from '@/integrations/supabase/client';
 import logoLagun from '@/assets/logo-lagun-entretenimento.png';
+import logoBlueticket from '@/assets/blueticket-icon.png';
 import logoMailchimp from '@/assets/mailchimp-icon.png';
 
 interface EventItem {
