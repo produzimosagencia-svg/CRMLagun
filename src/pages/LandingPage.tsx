@@ -123,7 +123,7 @@ export default function LandingPage() {
 
 
         <img src={flamingoSolo} alt="Lagun" className="h-28 md:h-44 w-auto mb-3 md:mb-6 relative z-10" />
-        <img src={palavraBranco} alt="LAGUN" className="block md:hidden h-8 w-auto mb-4 relative z-10 opacity-80" />
+        <img src={palavraGold} alt="LAGUN" className="block md:hidden h-8 w-auto mb-4 relative z-10" />
         <p className="hidden md:block text-xs tracking-[0.4em] uppercase mb-4 relative z-10" style={{ color: '#F5D470' }}>
           Vitória · Espírito Santo · 2026
         </p>
