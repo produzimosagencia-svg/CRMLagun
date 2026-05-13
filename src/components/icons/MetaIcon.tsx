@@ -14,7 +14,7 @@ export function MetaIcon({ size = 18, className }: MetaIconProps) {
       width={size}
       height={size}
       className={className}
-      style={{ objectFit: 'contain', filter: 'grayscale(1) brightness(0.6) contrast(1.2)' }}
+      style={{ objectFit: 'contain', filter: 'brightness(0) saturate(100%) invert(88%) sepia(34%) saturate(597%) hue-rotate(348deg) brightness(105%)' }}
     />
   );
 }

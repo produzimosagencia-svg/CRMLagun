@@ -11,7 +11,6 @@ import {
 import { MetaIcon } from '@/components/icons/MetaIcon';
 import { supabase } from '@/integrations/supabase/client';
 import logoLagun from '@/assets/logo-lagun-entretenimento.png';
-import logoBlueticket from '@/assets/blueticket-icon.png';
 import logoMailchimp from '@/assets/mailchimp-icon.png';
 
 interface EventItem {
@@ -29,12 +28,10 @@ export default function InternoLayout() {
     return document.documentElement.classList.contains('dark');
   });
   const [whatsappOpen, setWhatsappOpen] = useState(false);
-  const [blueticketOpen, setBluetickOpen] = useState(false);
   const [crmOpen, setCrmOpen] = useState(false);
   const [zigTicketsOpen, setZigTicketsOpen] = useState(false);
   const [adsOpen, setAdsOpen] = useState(false);
   const [designOpen, setDesignOpen] = useState(false);
-  const [onlineEvents, setOnlineEvents] = useState<EventItem[]>([]);
   const [zigEvents, setZigEvents] = useState<EventItem[]>([]);
   const location = useLocation();
   const navigate = useNavigate();
@@ -52,35 +49,22 @@ export default function InternoLayout() {
     supabase
       .from('webhook_logs')
       .select('payload, source')
-      .in('source', ['blueticket', 'zig_tickets'])
+      .eq('source', 'zig_tickets')
       .then(({ data }) => {
         if (!data) return;
-        const btEventsMap = new Map<string, string>();
         const zigEventsMap = new Map<string, string>();
         for (const row of data) {
           const p = (row.payload as any)?.payload;
           if (p?.event?.id && p?.event?.name) {
-            if (row.source === 'blueticket') {
-              btEventsMap.set(String(p.event.id), p.event.name);
-            } else if (row.source === 'zig_tickets') {
-              zigEventsMap.set(String(p.event.id), p.event.name);
-            }
+            zigEventsMap.set(String(p.event.id), p.event.name);
           }
         }
-        const predefined = [{ id: '99901', name: 'Sambinha' }];
-        predefined.forEach(pe => {
-          if (!Array.from(btEventsMap.values()).some(n => n.toLowerCase() === pe.name.toLowerCase())) {
-            btEventsMap.set(pe.id, pe.name);
-          }
-        });
-        setOnlineEvents(Array.from(btEventsMap, ([id, name]) => ({ id, name })));
         setZigEvents(Array.from(zigEventsMap, ([id, name]) => ({ id, name })));
       });
   }, []);
 
   useEffect(() => {
     if (location.pathname.startsWith('/interno/whatsapp')) setWhatsappOpen(true);
-    if (location.pathname.startsWith('/interno/blueticket')) setBluetickOpen(true);
     if (location.pathname.startsWith('/interno/zig-tickets')) setZigTicketsOpen(true);
     if (location.pathname.startsWith('/interno/ads') || location.pathname.startsWith('/interno/trafego-gpt')) setAdsOpen(true);
     if (location.pathname.startsWith('/interno/marketing/design') || location.pathname.startsWith('/interno/marketing/referencias')) setDesignOpen(true);
@@ -115,7 +99,6 @@ export default function InternoLayout() {
   const canSeeHome = isFullAccess;
   const canSeeCRM = isFullAccess;
   const canSeeWhatsApp = isFullAccess || hasTrafegoRole;
-  const canSeeBluetick = isFullAccess;
   const canSeeZigTickets = isFullAccess;
   const canSeeAds = isFullAccess || hasTrafegoRole;
   const canSeeEmail = isFullAccess;
@@ -141,7 +124,6 @@ export default function InternoLayout() {
     if (location.pathname === '/interno/tarefas') return 'Tarefas';
     if (location.pathname === '/interno/whatsapp/chat') return 'Chat';
     if (location.pathname.startsWith('/interno/whatsapp')) return 'WhatsApp';
-    if (location.pathname.startsWith('/interno/blueticket')) return 'Blueticket';
     if (location.pathname.startsWith('/interno/zig-tickets')) return 'Zig Tickets';
     if (location.pathname.startsWith('/interno/marketing/design')) return 'Design';
     if (location.pathname.startsWith('/interno/marketing/referencias')) return 'Referências';
@@ -355,43 +337,6 @@ export default function InternoLayout() {
             </>
           )}
 
-          {/* 4. Blueticket */}
-          {canSeeBluetick && (
-            <>
-              <button
-                onClick={() => {
-                  if (collapsed) { navigate('/interno/blueticket'); }
-                  else { setBluetickOpen(!blueticketOpen); }
-                }}
-                className={navLinkClass(isActiveRoute('/interno/blueticket'))}
-                title={collapsed ? 'Blueticket' : undefined}
-              >
-                <div className={`flex items-center justify-center ${collapsed ? '' : 'mr-2'}`}>
-                  <img src={logoBlueticket} alt="Blueticket" width={18} height={18} style={{ objectFit: 'contain', filter: 'grayscale(1) brightness(2) sepia(1) saturate(0.5) hue-rotate(5deg) opacity(0.7)' }} />
-                </div>
-                {!collapsed && (
-                  <>
-                    <span className="text-sm font-medium flex-1 text-left">Blueticket</span>
-                    <ChevronRight size={14} className={`text-[#F5D470]/60 transition-transform duration-200 ${blueticketOpen ? 'rotate-90' : ''}`} />
-                  </>
-                )}
-              </button>
-              {blueticketOpen && !collapsed && (
-                <div className="space-y-0.5">
-                  {onlineEvents.length === 0 && (
-                    <span className="block px-3 pl-9 text-[11px] text-[#F5D470]/40 py-1">Nenhum evento online</span>
-                  )}
-                  {onlineEvents.map((ev) => (
-                    <NavLink key={ev.id} to={`/interno/blueticket/${ev.id}`} onClick={() => setSidebarOpen(false)} className={({ isActive }) => subItemClass(isActive)}>
-                      <Ticket size={14} className="mr-2 shrink-0" />
-                      <span className="truncate">{ev.name}</span>
-                    </NavLink>
-                  ))}
-                </div>
-              )}
-            </>
-          )}
-
           {/* 5. Zig Tickets */}
           {canSeeZigTickets && (
             <>
@@ -481,7 +426,7 @@ export default function InternoLayout() {
               title={collapsed ? 'Mailchimp' : undefined}
             >
               <div className={`flex items-center justify-center ${collapsed ? '' : 'mr-2'}`}>
-                <img src={logoMailchimp} alt="Mailchimp" width={18} height={18} className="object-contain" style={{ filter: 'grayscale(1) brightness(2) sepia(1) saturate(0.5) opacity(0.7)' }} />
+                <img src={logoMailchimp} alt="Mailchimp" width={18} height={18} className="object-contain" style={{ filter: 'brightness(0) saturate(100%) invert(88%) sepia(34%) saturate(597%) hue-rotate(348deg) brightness(105%)' }} />
               </div>
               {!collapsed && <span className="text-sm font-medium">Mailchimp</span>}
             </NavLink>
