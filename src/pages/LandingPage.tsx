@@ -6,6 +6,7 @@ import palavraGold from '@/assets/palavra-lagun.png';
 import palavraBranco from '@/assets/palavra-lagun-branco.png';
 import flyerNoiteFlamingo from '@/assets/flyer-noite-flamingo.png';
 import videoLagun from '@/assets/video-lagun.mp4';
+import videoLagun2 from '@/assets/video-lagun-2.mp4';
 import logo99 from '@/assets/logo-99-gold.svg';
 import logo99Desktop from '@/assets/logo-99.jpg';
 import logoMaps from '@/assets/logo-googlemaps.png';
@@ -86,9 +87,20 @@ export default function LandingPage() {
 
   return (
     <div
-      className="min-h-screen text-white"
+      className="min-h-screen text-white relative"
       style={{ backgroundColor: '#1A0800', fontFamily: "'DM Sans', sans-serif", minHeight: '100dvh' }}
     >
+      {/* Vídeo de fundo fixo — mobile only */}
+      <video
+        autoPlay
+        muted
+        loop
+        playsInline
+        className="block md:hidden fixed inset-0 w-full h-full object-cover pointer-events-none z-0"
+        style={{ opacity: 0.05 }}
+      >
+        <source src={videoLagun2} type="video/mp4" />
+      </video>
       {/* ── NAV ─────────────────────────────────────────────────────────────── */}
       <nav className="hidden md:flex items-center justify-center px-6 py-6">
         <img src={palavraBranco} alt="LAGUN" className="h-5 w-auto" />
@@ -96,7 +108,7 @@ export default function LandingPage() {
 
       {/* ── HERO ────────────────────────────────────────────────────────────── */}
       <section className="relative flex flex-col items-center justify-center text-center pt-16 md:pt-8 pb-8 px-4">
-        {/* Vídeo de fundo — só desktop */}
+        {/* Vídeo de fundo — desktop */}
         <video
           autoPlay
           muted
@@ -108,6 +120,7 @@ export default function LandingPage() {
           <source src={videoLagun} type="video/mp4" />
         </video>
         <div className="hidden md:block absolute inset-0 pointer-events-none" style={{ backgroundColor: 'rgba(26,8,0,0.55)' }} />
+
 
         <img src={flamingoSolo} alt="Lagun" className="h-28 md:h-44 w-auto mb-3 md:mb-6 relative z-10" />
         <img src={palavraBranco} alt="LAGUN" className="block md:hidden h-8 w-auto mb-4 relative z-10 opacity-80" />
