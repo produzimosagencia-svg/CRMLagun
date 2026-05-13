@@ -41,7 +41,7 @@ const eventos = [
 
 const lounges = [
   {
-    nome: 'Camarote VIP',
+    nome: 'Lounge',
     capacidade: 'até 15 pessoas',
     descricao: 'Espaço privativo com serviço de mordomo, cardápio selecionado e localização privilegiada.',
     icone: '◈',
@@ -223,8 +223,15 @@ export default function LandingPage() {
                   </div>
                   <a
                     href={ev.link}
-                    className="block text-center text-xs tracking-widest py-3 transition-all hover:opacity-80"
-                    style={{ backgroundColor: '#F5D470', color: '#1A0800', fontWeight: 700, borderRadius: '10px' }}
+                    className="block text-center text-xs tracking-widest py-3 transition-all hover:opacity-90 active:scale-95"
+                    style={{
+                      background: 'linear-gradient(135deg, #F5D470 0%, #e8b830 50%, #F5D470 100%)',
+                      color: '#1A0800',
+                      fontWeight: 700,
+                      borderRadius: '10px',
+                      boxShadow: '0 0 20px rgba(245,212,112,0.45), 0 4px 14px rgba(245,212,112,0.25)',
+                      border: '1px solid rgba(255,235,130,0.6)',
+                    }}
                   >
                     COMPRAR INGRESSO
                   </a>
@@ -403,16 +410,14 @@ export default function LandingPage() {
                       href="https://wa.me/+5527997789988?text=Ol%C3%A1%2C%20gostaria%20de%20garantir%20o%20meu%20lounge!"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-xs tracking-widest py-2.5 text-center transition-all self-start px-6"
-                      style={lounge.destaque ? {
-                        backgroundColor: '#F5D470',
+                      className="text-xs tracking-widest py-2.5 text-center transition-all self-start px-6 hover:opacity-90 active:scale-95"
+                      style={{
+                        background: 'linear-gradient(135deg, #F5D470 0%, #e8b830 50%, #F5D470 100%)',
                         color: '#1A0800',
                         borderRadius: '10px',
                         fontWeight: 700,
-                      } : {
-                        border: '1px solid rgba(245,212,112,0.35)',
-                        color: '#F5D470',
-                        borderRadius: '10px',
+                        boxShadow: '0 0 20px rgba(245,212,112,0.45), 0 4px 14px rgba(245,212,112,0.25)',
+                        border: '1px solid rgba(255,235,130,0.6)',
                       }}
                     >
                       RESERVAR
@@ -449,8 +454,14 @@ export default function LandingPage() {
                 href="https://wa.me/+5527997789988?text=Ol%C3%A1%2C%20gostaria%20de%20comemorar%20o%20meu%20anivers%C3%A1rio!"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-block px-10 py-4 text-xs tracking-widest font-semibold transition-all hover:opacity-85"
-                style={{ backgroundColor: '#F5D470', color: '#1A0800', borderRadius: '12px' }}
+                className="inline-block px-10 py-4 text-xs tracking-widest font-semibold transition-all hover:opacity-90 active:scale-95"
+                style={{
+                  background: 'linear-gradient(135deg, #F5D470 0%, #e8b830 50%, #F5D470 100%)',
+                  color: '#1A0800',
+                  borderRadius: '12px',
+                  boxShadow: '0 0 24px rgba(245,212,112,0.5), 0 4px 16px rgba(245,212,112,0.3)',
+                  border: '1px solid rgba(255,235,130,0.6)',
+                }}
               >
                 AGENDAR ANIVERSÁRIO
               </a>
