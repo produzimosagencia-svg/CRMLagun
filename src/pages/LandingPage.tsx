@@ -5,6 +5,8 @@ import simboloBranco from '@/assets/simbolo-lagun-branco.png';
 import palavraGold from '@/assets/palavra-lagun.png';
 import palavraBranco from '@/assets/palavra-lagun-branco.png';
 import flyerNoiteFlamingo from '@/assets/flyer-noite-flamingo.png';
+import flyerSabadoMobile from '@/assets/flyer-sabado-mobile.png';
+import flyerSabadoWeb from '@/assets/flyer-sabado-web.png';
 import videoLagun from '@/assets/video-lagun.mp4';
 import videoLagun2 from '@/assets/video-lagun-2.mp4';
 import logo99 from '@/assets/logo-99-gold.svg';
@@ -26,7 +28,8 @@ const eventos = [
     artista: 'Pauly',
     tag: 'EM BREVE',
     link: 'https://zig.tickets/eventos/lagun-friday',
-    flyer: flyerNoiteFlamingo,
+    flyerMobile: flyerNoiteFlamingo,
+    flyerDesktop: flyerNoiteFlamingo,
   },
   {
     id: 2,
@@ -36,7 +39,8 @@ const eventos = [
     artista: 'DJ Zag',
     tag: 'EM BREVE',
     link: 'https://zig.tickets/eventos/lagun-saturday',
-    flyer: flyerNoiteFlamingo,
+    flyerMobile: flyerSabadoMobile,
+    flyerDesktop: flyerSabadoWeb,
   },
 ];
 
@@ -157,7 +161,7 @@ export default function LandingPage() {
               >
                 {/* Thumbnail */}
                 <div className="shrink-0 overflow-hidden" style={{ width: 60, height: 60, borderRadius: '10px', backgroundColor: '#3a1500' }}>
-                  <img src={ev.flyer} alt={ev.nome} className="w-full h-full object-cover" loading="eager" />
+                  <img src={ev.flyerMobile} alt={ev.nome} className="w-full h-full object-cover" loading="eager" />
                 </div>
 
                 {/* Info */}
@@ -210,9 +214,9 @@ export default function LandingPage() {
               >
                 <div
                   className="relative w-full flex items-center justify-center overflow-hidden"
-                  style={{ aspectRatio: '800 / 300', backgroundColor: '#1A0800', borderBottom: '1px solid rgba(245,212,112,0.1)' }}
+                  style={{ aspectRatio: '1696 / 624', backgroundColor: '#1A0800', borderBottom: '1px solid rgba(245,212,112,0.1)' }}
                 >
-                  <img src={ev.flyer} alt={ev.nome} className="w-full h-full object-cover" />
+                  <img src={ev.flyerDesktop} alt={ev.nome} className="w-full h-full object-cover" />
                 </div>
                 <div className="flex flex-col flex-1 p-5 gap-4">
                   <div className="flex justify-between items-start">
