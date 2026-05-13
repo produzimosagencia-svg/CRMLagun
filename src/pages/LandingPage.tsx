@@ -56,6 +56,11 @@ export default function LandingPage() {
   const [carouselIndex, setCarouselIndex] = useState(0);
 
   useEffect(() => {
+    document.body.style.backgroundColor = '#1A0800';
+    return () => { document.body.style.backgroundColor = ''; };
+  }, []);
+
+  useEffect(() => {
     const interval = setInterval(() => {
       setCarouselIndex((i) => (i + 1) % loungePhotos.length);
     }, 3500);
@@ -82,7 +87,7 @@ export default function LandingPage() {
   return (
     <div
       className="min-h-screen text-white"
-      style={{ backgroundColor: '#1A0800', fontFamily: "'DM Sans', sans-serif" }}
+      style={{ backgroundColor: '#1A0800', fontFamily: "'DM Sans', sans-serif", minHeight: '100dvh' }}
     >
       {/* ── NAV ─────────────────────────────────────────────────────────────── */}
       <nav className="hidden md:flex items-center justify-center px-6 py-6">
