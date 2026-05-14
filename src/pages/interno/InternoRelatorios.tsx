@@ -198,7 +198,7 @@ export default function InternoRelatorios() {
       try {
         const { data: session } = await supabase.auth.getSession();
         const token = session?.session?.access_token;
-        const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+        const projectId = 'xwxiijbovreucnrbyput';
         const resp = await fetch(
           `https://${projectId}.supabase.co/functions/v1/meta-ads-api?action=accounts`,
           { headers: { Authorization: `Bearer ${token}` } }
@@ -232,7 +232,7 @@ export default function InternoRelatorios() {
       try {
         const { data: session } = await supabase.auth.getSession();
         const token = session?.session?.access_token;
-        const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+        const projectId = 'xwxiijbovreucnrbyput';
         const resp = await fetch(
           `https://${projectId}.supabase.co/functions/v1/meta-ads-api?action=insights&account_id=${selectedAccount}&date_preset=${datePreset}`,
           { headers: { Authorization: `Bearer ${token}` } }
