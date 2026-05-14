@@ -527,7 +527,7 @@ export default function InternoRelatorios() {
             <ArrowLeft size={16} className="mr-1" /> Marketing
           </Button>
           <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-            Relatórios · Tríade Entretenimento
+            Relatórios · Lagun
           </h2>
         </div>
 
