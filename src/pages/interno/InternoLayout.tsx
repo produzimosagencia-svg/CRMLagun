@@ -6,7 +6,7 @@ import {
   ChevronsRight, Ticket, Radio, MessageCircle, Send,
   ChevronDown, ChevronRight, Settings, User, Moon, Sun, Zap, Sparkles,
   Megaphone, BarChart3, Trophy, Users, ClipboardList, Palette, Image, Cake,
-  Database, Plus,
+  Database, Plus, CalendarDays,
 } from 'lucide-react';
 import { MetaIcon } from '@/components/icons/MetaIcon';
 import { supabase } from '@/integrations/supabase/client';
@@ -72,7 +72,8 @@ export default function InternoLayout() {
       location.pathname === '/interno/eventos' ||
       location.pathname.startsWith('/interno/aniversariantes') ||
       location.pathname.startsWith('/interno/divulgadores') ||
-      location.pathname.startsWith('/interno/superclientes')
+      location.pathname.startsWith('/interno/superclientes') ||
+      location.pathname.startsWith('/interno/clientes')
     ) setCrmOpen(true);
   }, [location.pathname]);
 
@@ -120,6 +121,7 @@ export default function InternoLayout() {
     if (location.pathname === '/interno/ads/criar') return 'Nova Campanha';
     if (location.pathname === '/interno/ads/pixel') return 'Pixel & Públicos';
     if (location.pathname.startsWith('/interno/ads')) return 'Ads';
+    if (location.pathname === '/interno/eventos-dashboard') return 'Eventos';
     if (location.pathname === '/interno/eventos') return 'CRM';
     if (location.pathname === '/interno/tarefas') return 'Tarefas';
     if (location.pathname === '/interno/whatsapp/chat') return 'Chat';
@@ -215,6 +217,19 @@ export default function InternoLayout() {
               </NavLink>
             </>
           )}
+
+          {/* 1. Eventos Dashboard */}
+          <NavLink
+            to="/interno/eventos-dashboard"
+            onClick={() => setSidebarOpen(false)}
+            className={({ isActive }) => navLinkClass(isActive)}
+            title={collapsed ? 'Eventos' : undefined}
+          >
+            <div className={`flex items-center justify-center ${collapsed ? '' : 'mr-2'}`}>
+              <CalendarDays size={18} />
+            </div>
+            {!collapsed && <span className="text-sm font-medium">Eventos</span>}
+          </NavLink>
 
           {/* 2. CRM (com sub-itens) */}
           {canSeeCRM && (
@@ -399,9 +414,6 @@ export default function InternoLayout() {
                 <div className="space-y-0.5">
                   <NavLink to="/interno/ads/campanhas" onClick={() => setSidebarOpen(false)} className={({ isActive }) => subItemClass(isActive)}>
                     <BarChart3 size={14} className="mr-2" /> Campanhas
-                  </NavLink>
-                  <NavLink to="/interno/ads/criar" onClick={() => setSidebarOpen(false)} className={({ isActive }) => subItemClass(isActive)}>
-                    <Plus size={14} className="mr-2" /> Criar Campanha
                   </NavLink>
                   <NavLink to="/interno/ads/pixel" onClick={() => setSidebarOpen(false)} className={({ isActive }) => subItemClass(isActive)}>
                     <Radio size={14} className="mr-2" /> Pixel & Públicos

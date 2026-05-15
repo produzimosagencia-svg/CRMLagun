@@ -8,6 +8,7 @@ import "./index.css";
 const InternoLogin = lazy(() => import("./pages/InternoLogin.tsx"));
 const InternoLayout = lazy(() => import("./pages/interno/InternoLayout.tsx"));
 const InternoEventos = lazy(() => import("./pages/interno/InternoEventos.tsx"));
+const InternoEventosDashboard = lazy(() => import("./pages/interno/InternoEventosDashboard.tsx"));
 const InternoTrafegoGPT = lazy(() => import("./pages/interno/InternoTrafegoGPT.tsx"));
 const CrmCustomers = lazy(() => import("./pages/crm/CrmCustomers.tsx"));
 const CrmCustomerForm = lazy(() => import("./pages/crm/CrmCustomerForm.tsx"));
@@ -56,7 +57,8 @@ createRoot(document.getElementById("root")!).render(
         <Route path="/interno/login" element={<InternoLogin />} />
         <Route path="/interno/trafego-gpt" element={<InternoTrafegoGPT />} />
         <Route path="/interno" element={<InternoLayout />}>
-          <Route index element={<Navigate to="/interno/eventos" replace />} />
+          <Route index element={<Navigate to="/interno/eventos-dashboard" replace />} />
+          <Route path="eventos-dashboard" element={<InternoEventosDashboard />} />
           <Route path="eventos" element={<InternoEventos />} />
           <Route path="clientes" element={<CrmCustomers />} />
           <Route path="clientes/novo" element={<CrmCustomerForm />} />
