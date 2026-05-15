@@ -179,16 +179,14 @@ function EventCard({ event, onEdit }: { event: LagunEvent; onEdit: (e: LagunEven
     <div className="rounded-2xl overflow-hidden border border-gray-200 bg-white shadow-sm">
       {/* Desktop */}
       <div className="hidden md:flex">
-        {/* Imagem 5:4 */}
-        <div className="shrink-0" style={{ width: 156 }}>
-          <div className="relative" style={{ paddingTop: '80%' }}>
-            {event.imagem_url
-              ? <img src={event.imagem_url} alt={event.nome} className="absolute inset-0 w-full h-full object-cover" />
-              : <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
-                  <CalendarDays size={24} className="text-gray-300" />
-                </div>
-            }
-          </div>
+        {/* Imagem — preenche toda a altura do card */}
+        <div className="shrink-0 self-stretch" style={{ width: 180 }}>
+          {event.imagem_url
+            ? <img src={event.imagem_url} alt={event.nome} className="w-full h-full object-cover" />
+            : <div className="w-full h-full flex items-center justify-center bg-gray-100">
+                <CalendarDays size={24} className="text-gray-300" />
+              </div>
+          }
         </div>
         {InfoSide}
         {StatsSide}
