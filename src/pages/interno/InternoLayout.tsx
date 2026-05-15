@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import { MetaIcon } from '@/components/icons/MetaIcon';
 import { supabase } from '@/integrations/supabase/client';
-import logoLagun from '@/assets/palavra-lagun-branco.png';
+import logoLagun from '@/assets/palavra-lagun-escuro.png';
 import logoMailchimp from '@/assets/mailchimp-icon.png';
 
 interface EventItem {
@@ -79,8 +79,8 @@ export default function InternoLayout() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#FAF5EB]">
-        <div className="h-8 w-8 border-2 border-[#C8960C] border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="h-8 w-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -142,25 +142,25 @@ export default function InternoLayout() {
   };
 
   const navLinkClass = (active: boolean) =>
-    `relative flex h-10 w-full items-center rounded-md transition-all duration-200 ${
+    `relative flex h-9 w-full items-center rounded-lg transition-all duration-150 ${
       collapsed ? 'justify-center px-0' : 'px-3'
     } ${
       active
-        ? 'bg-[#F5D470]/15 text-[#F5D470] shadow-sm border-l-2 border-[#F5D470]'
-        : 'text-[#F5D470]/70 hover:bg-[#F5D470]/10 hover:text-[#F5D470]'
+        ? 'bg-indigo-50 text-indigo-700 font-semibold border-l-2 border-indigo-500'
+        : 'text-gray-500 hover:bg-gray-100 hover:text-gray-800'
     }`;
 
   const subItemClass = (active: boolean) =>
-    `flex h-8 w-full items-center rounded-md px-3 pl-9 text-xs font-medium transition-all duration-200 ${
+    `flex h-8 w-full items-center rounded-lg px-3 pl-9 text-xs font-medium transition-all duration-150 ${
       active
-        ? 'text-[#F5D470] bg-[#F5D470]/10'
-        : 'text-[#F5D470]/60 hover:text-[#F5D470] hover:bg-[#F5D470]/10'
+        ? 'text-indigo-700 bg-indigo-50'
+        : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'
     }`;
 
   const isHome = location.pathname === '/interno';
 
   return (
-    <div className="min-h-screen flex bg-[#FAF5EB]">
+    <div className="min-h-screen flex bg-gray-50">
       {sidebarOpen && !isHome && (
         <div
           className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40 lg:hidden"
@@ -169,12 +169,12 @@ export default function InternoLayout() {
       )}
 
       <aside
-        className={`fixed lg:sticky lg:top-0 inset-y-0 left-0 z-50 flex flex-col h-screen bg-[#1A0800] border-r border-[#F5D470]/20 transition-all duration-300 lg:translate-x-0
+        className={`fixed lg:sticky lg:top-0 inset-y-0 left-0 z-50 flex flex-col h-screen bg-white border-r border-gray-200 transition-all duration-300 lg:translate-x-0
           ${isHome ? '-translate-x-full lg:-translate-x-full lg:hidden' : sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
           ${collapsed ? 'w-[60px]' : 'w-[225px]'}
         `}
       >
-        <div className={`mb-1 border-b border-[#F5D470]/20 p-3 flex justify-center`}>
+        <div className="mb-1 border-b border-gray-100 p-3 flex justify-center">
           <div className="flex items-center justify-center">
             <img
               src={logoLagun}
@@ -182,7 +182,7 @@ export default function InternoLayout() {
               className={`transition-all ${collapsed ? 'h-5 w-auto object-contain' : 'h-6 w-auto'}`}
             />
           </div>
-          <button onClick={() => setSidebarOpen(false)} className="lg:hidden absolute top-3 right-3 text-[#F5D470]/60 hover:text-[#F5D470]">
+          <button onClick={() => setSidebarOpen(false)} className="lg:hidden absolute top-3 right-3 text-gray-400 hover:text-gray-600">
             <X size={18} />
           </button>
         </div>
@@ -435,7 +435,7 @@ export default function InternoLayout() {
               title={collapsed ? 'Mailchimp' : undefined}
             >
               <div className={`flex items-center justify-center ${collapsed ? '' : 'mr-2'}`}>
-                <img src={logoMailchimp} alt="Mailchimp" width={18} height={18} className="object-contain" style={{ filter: 'brightness(0) saturate(100%) invert(88%) sepia(34%) saturate(597%) hue-rotate(348deg) brightness(105%)' }} />
+                <img src={logoMailchimp} alt="Mailchimp" width={18} height={18} className="object-contain" />
               </div>
               {!collapsed && <span className="text-sm font-medium">Mailchimp</span>}
             </NavLink>
@@ -458,7 +458,7 @@ export default function InternoLayout() {
                 {!collapsed && (
                   <>
                     <span className="text-sm font-medium flex-1 text-left">Design</span>
-                    <ChevronRight size={14} className={`text-[#F5D470]/60 transition-transform duration-200 ${designOpen ? 'rotate-90' : ''}`} />
+                    <ChevronRight size={14} className={`text-gray-400 transition-transform duration-200 ${designOpen ? 'rotate-90' : ''}`} />
                   </>
                 )}
               </button>
@@ -505,38 +505,33 @@ export default function InternoLayout() {
         </nav>
 
         {/* Bottom section */}
-        <div className="border-t border-[#F5D470]/20">
+        <div className="border-t border-gray-100">
           {!collapsed && (
             <div className="px-3 py-3">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-[#C8960C] to-[#F5D470] text-[#1A0800] text-xs font-bold">
-                    {userName.charAt(0).toUpperCase()}
-                  </div>
-                  <div>
-                    <span className="block text-xs font-medium text-[#F5D470]">{userName}</span>
-                    <span className="block text-[10px] text-[#F5D470]/60">
-                      {isAdmin ? 'Admin' : hasDesignRole ? 'Design' : hasTrafegoRole ? 'Gestor de Tráfego' : 'Parceiro'}
-                    </span>
-                  </div>
+              <div className="flex items-center gap-2 mb-2">
+                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-indigo-100 text-indigo-700 text-xs font-bold">
+                  {userName.charAt(0).toUpperCase()}
+                </div>
+                <div>
+                  <span className="block text-xs font-semibold text-gray-800">{userName}</span>
+                  <span className="block text-[10px] text-gray-400">
+                    {isAdmin ? 'Admin' : hasDesignRole ? 'Design' : hasTrafegoRole ? 'Gestor de Tráfego' : 'Parceiro'}
+                  </span>
                 </div>
               </div>
-              <div className="flex gap-1">
-                <button
-                  onClick={signOut}
-                  className="flex-1 flex items-center justify-center gap-1.5 rounded-md border border-[#F5D470]/30 px-2 py-1.5 text-xs text-[#F5D470]/70 hover:bg-red-900/30 hover:text-red-400 hover:border-red-700 transition-colors"
-                >
-                  <LogOut size={12} />
-                  Sair
-                </button>
-              </div>
+              <button
+                onClick={signOut}
+                className="w-full flex items-center justify-center gap-1.5 rounded-lg border border-gray-200 px-2 py-1.5 text-xs text-gray-500 hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors"
+              >
+                <LogOut size={12} /> Sair
+              </button>
             </div>
           )}
 
-          <div className={`flex items-center border-t border-[#F5D470]/20 ${collapsed ? 'flex-col' : ''}`}>
+          <div className={`flex items-center border-t border-gray-100 ${collapsed ? 'flex-col' : ''}`}>
             <button
               onClick={() => setIsDark(!isDark)}
-              className={`flex items-center justify-center gap-1.5 text-[#F5D470]/60 hover:text-[#F5D470] transition-colors ${
+              className={`flex items-center justify-center gap-1.5 text-gray-400 hover:text-gray-600 transition-colors ${
                 collapsed ? 'w-full py-2.5' : 'flex-1 py-2.5'
               }`}
               title={isDark ? 'Modo claro' : 'Modo escuro'}
@@ -546,8 +541,8 @@ export default function InternoLayout() {
             </button>
             <button
               onClick={() => setCollapsed(!collapsed)}
-              className={`hidden lg:flex items-center justify-center text-[#F5D470]/60 hover:text-[#F5D470] transition-colors ${
-                collapsed ? 'w-full py-2.5' : 'flex-1 py-2.5 border-l border-[#F5D470]/20'
+              className={`hidden lg:flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors ${
+                collapsed ? 'w-full py-2.5' : 'flex-1 py-2.5 border-l border-gray-100'
               }`}
               title={collapsed ? 'Expandir' : 'Recolher'}
             >
@@ -560,11 +555,11 @@ export default function InternoLayout() {
       {/* Main content */}
       <div className="flex-1 flex flex-col min-w-0">
         {!isHome && (
-          <header className="sticky top-0 z-30 bg-[#FAF5EB]/90 backdrop-blur-sm border-b border-[#C8960C]/20 px-4 h-12 flex items-center gap-3 lg:px-6">
-            <button onClick={() => setSidebarOpen(true)} className="lg:hidden text-[#8B6914] hover:text-[#C8960C]">
+          <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-sm border-b border-gray-200 px-4 h-12 flex items-center gap-3 lg:px-6">
+            <button onClick={() => setSidebarOpen(true)} className="lg:hidden text-gray-500 hover:text-gray-800">
               <Menu size={20} />
             </button>
-            <h1 className="text-sm font-semibold text-[#3D2200]">
+            <h1 className="text-sm font-semibold text-gray-800">
               {getPageTitle()}
             </h1>
           </header>
