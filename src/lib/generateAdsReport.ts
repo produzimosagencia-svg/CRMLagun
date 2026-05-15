@@ -32,6 +32,7 @@ interface ReportData {
   summary: SummaryData;
   groups: ObjectiveGroup[];
   dateLabel: string;
+  logoBase64?: string;
 }
 
 function formatCurrency(value: number) {
@@ -64,30 +65,28 @@ export function generateAdsReport(data: ReportData) {
   let y = margin;
 
   // ── Header ──
+  // "LAGUN" label above title
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  doc.setTextColor(lightGray);
+  doc.text('LAGUN', margin, y + 4);
+
+  // "Relatório de ADS" title
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(24);
   doc.setTextColor(darkGray);
-  doc.text('Relatório de ADS', margin, y + 8);
+  doc.text('Relatório de ADS', margin, y + 14);
 
+  // Date right below title
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(14);
-  doc.setTextColor(medGray);
-  doc.text('Lagun Vitória', margin, y + 16);
-
-  // Logo text (top right)
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(16);
-  doc.setTextColor(darkGray);
-  doc.text('LAGUN', pageW - margin, y + 6, { align: 'right' });
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(6);
-  doc.setTextColor(lightGray);
-  doc.text('V I T Ó R I A · E S', pageW - margin, y + 10, { align: 'right' });
-
-  // Date range subtitle
   doc.setFontSize(9);
   doc.setTextColor(lightGray);
-  doc.text(data.dateLabel, margin, y + 24);
+  doc.text(data.dateLabel, margin, y + 21);
+
+  // Flamingo logo top right (or fallback text)
+  if (data.logoBase64) {
+    doc.addImage(data.logoBase64, 'PNG', pageW - margin - 28, y - 4, 28, 36);
+  }
 
   y += 34;
 

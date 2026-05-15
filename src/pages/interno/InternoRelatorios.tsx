@@ -16,6 +16,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { generateAdsReport } from '@/lib/generateAdsReport';
 import { toast } from 'sonner';
+import flamingoSrc from '@/assets/simbolo-lagun.png';
+
+const LAGUN_ACCOUNT_ID = '1933924480586404';
 
 interface CampaignInsight {
   campaign_name: string;
@@ -208,13 +211,12 @@ export default function InternoRelatorios() {
         if (result.error) {
           setError(result.error?.message || result.error);
         } else if (result.data) {
-          const triade = result.data.find(
-            (acc: any) =>
-              acc.name?.toLowerCase().includes('tríade') || acc.name?.toLowerCase().includes('triade')
+          // Always use the Lagun account
+          const lagun = result.data.find(
+            (acc: any) => acc.account_id === LAGUN_ACCOUNT_ID
           );
-
-          if (triade) setSelectedAccount(triade.account_id);
-          else if (result.data.length > 0) setSelectedAccount(result.data[0].account_id);
+          if (lagun) setSelectedAccount(lagun.account_id);
+          else setSelectedAccount(LAGUN_ACCOUNT_ID);
         }
       } catch (err: any) {
         setError(err.message);
@@ -430,10 +432,27 @@ export default function InternoRelatorios() {
     setGeneratingPDF(true);
     try {
       const dateLabel = DATE_PRESETS.find((preset) => preset.value === datePreset)?.label || datePreset;
+
+      // Convert flamingo to base64 for PDF
+      const logoBase64 = await new Promise<string>((resolve, reject) => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          canvas.width = img.width;
+          canvas.height = img.height;
+          canvas.getContext('2d')!.drawImage(img, 0, 0);
+          resolve(canvas.toDataURL('image/png'));
+        };
+        img.onerror = reject;
+        img.src = flamingoSrc;
+      });
+
       const doc = generateAdsReport({
         summary,
         groups: pdfGroups,
         dateLabel: `Período: ${dateLabel}`,
+        logoBase64,
       });
 
       const pdfBlob = doc.output('blob');
