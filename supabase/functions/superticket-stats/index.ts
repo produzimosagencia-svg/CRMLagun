@@ -1,3 +1,5 @@
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -6,11 +8,6 @@ const corsHeaders = {
 const BASE = 'https://public-api.superticket.com.br'
 const PAGE_SIZE = 200
 
-const EVENT_CONFIG: Record<string, { token_env: string; label: string }> = {
-  '22540': { token_env: 'ZIG_TOKEN_FRIDAY', label: 'Lagun Friday' },
-  '22541': { token_env: 'ZIG_TOKEN_SATURDAY', label: 'Lagun Saturday' },
-}
-
 async function fetchAll(endpoint: string, headers: Record<string, string>, eventId: string): Promise<any[]> {
   const all: any[] = []
   let page = 1
@@ -18,7 +15,7 @@ async function fetchAll(endpoint: string, headers: Record<string, string>, event
     const url = `${BASE}/${endpoint}?page=${page}&perPage=${PAGE_SIZE}&eventId=${eventId}`
     const res = await fetch(url, { headers })
     if (!res.ok) {
-      console.error(`[${endpoint}] page ${page} → ${res.status}: ${await res.text()}`)
+      console.error(`[${endpoint}] page ${page} → ${res.status}`)
       break
     }
     const json = await res.json()
@@ -36,44 +33,49 @@ Deno.serve(async (req) => {
 
   try {
     const url = new URL(req.url)
-    const eventId = url.searchParams.get('event_id') ?? ''
-    const config = EVENT_CONFIG[eventId]
+    const eventUuid = url.searchParams.get('id')
 
-    if (!config) {
-      return new Response(JSON.stringify({ error: `Evento ${eventId} não configurado` }), {
+    if (!eventUuid) {
+      return new Response(JSON.stringify({ error: 'Parâmetro id obrigatório' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    // Read event from DB using service role (token stays server-side)
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    )
+
+    const { data: event, error } = await supabase
+      .from('lagun_events')
+      .select('superticket_id, superticket_token, nome')
+      .eq('id', eventUuid)
+      .single()
+
+    if (error || !event) {
+      return new Response(JSON.stringify({ error: 'Evento não encontrado' }), {
         status: 404,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
-    const token = Deno.env.get(config.token_env)
-    if (!token) {
-      return new Response(JSON.stringify({ error: `Token ${config.token_env} não encontrado` }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
-
     const authHeaders = {
-      Authorization: `Bearer ${token}`,
+      Authorization: `Bearer ${event.superticket_token}`,
       Accept: 'application/json',
     }
 
-    // Fetch tickets and buyers in parallel
     const [tickets, buyers] = await Promise.all([
-      fetchAll('tickets', authHeaders, eventId),
-      fetchAll('buyers', authHeaders, eventId),
+      fetchAll('tickets', authHeaders, event.superticket_id),
+      fetchAll('buyers', authHeaders, event.superticket_id),
     ])
 
-    // Build buyer map for name enrichment
     const buyerByEmail = new Map<string, any>()
-    const buyerById = new Map<string, any>()
     for (const b of buyers) {
       if (b.email) buyerByEmail.set(b.email, b)
-      if (b.id) buyerById.set(String(b.id), b)
     }
 
-    // Sort tickets newest first for "últimas compras"
     const sorted = [...tickets].sort((a, b) => {
       const da = new Date(a.purchase_date || a.completed_date || 0).getTime()
       const db = new Date(b.purchase_date || b.completed_date || 0).getTime()
@@ -88,11 +90,7 @@ Deno.serve(async (req) => {
       const valor = Number(t.price || 0)
       receita += valor
 
-      const email =
-        t.participant?.email ||
-        t.email ||
-        (t.buyer_id ? buyerById.get(String(t.buyer_id))?.email : null) ||
-        ''
+      const email = t.participant?.email || t.email || ''
       if (email) emails.add(email)
 
       if (ultimas.length < 10) {
@@ -100,23 +98,23 @@ Deno.serve(async (req) => {
         const nome =
           buyer?.name ||
           [t.participant?.first_name || t.first_name || '', t.participant?.last_name || t.last_name || '']
-            .join(' ')
-            .trim() ||
+            .join(' ').trim() ||
           'Participante'
-        const hora = t.purchase_date || t.completed_date || ''
-        ultimas.push({ nome, valor, hora })
+        ultimas.push({ nome, valor, hora: t.purchase_date || t.completed_date || '' })
       }
     }
 
+    const totalVendas = tickets.length
+    const participantes = emails.size || buyers.length
+
+    // Cache stats back to DB
+    await supabase
+      .from('lagun_events')
+      .update({ total_vendas: totalVendas, receita, participantes, updated_at: new Date().toISOString() })
+      .eq('id', eventUuid)
+
     return new Response(
-      JSON.stringify({
-        eventId,
-        label: config.label,
-        totalVendas: tickets.length,
-        receita,
-        participantes: emails.size || buyers.length,
-        ultimas,
-      }),
+      JSON.stringify({ totalVendas, receita, participantes, ultimas }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   } catch (err: any) {
