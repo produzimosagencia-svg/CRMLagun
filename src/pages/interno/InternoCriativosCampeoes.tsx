@@ -95,19 +95,7 @@ export default function InternoCriativosCampeoes() {
   const [submittingComment, setSubmittingComment] = useState(false);
 
   useEffect(() => {
-    const fetchAccounts = async () => {
-      const { data: session } = await supabase.auth.getSession();
-      if (!session.session) return;
-      const res = await supabase.functions.invoke('meta-ads-api?action=accounts', { method: 'GET' });
-      if (res.data?.data) {
-        setAccounts(res.data.data);
-        // Auto-select first account (Tríade)
-        if (res.data.data.length > 0) {
-          setSelectedAccount(res.data.data[0].account_id);
-        }
-      }
-    };
-    fetchAccounts();
+    setSelectedAccount('1278683517052021');
   }, []);
 
   const fetchCreatives = async () => {

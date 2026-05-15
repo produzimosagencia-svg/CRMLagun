@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import { MetaIcon } from '@/components/icons/MetaIcon';
 import { supabase } from '@/integrations/supabase/client';
-import logoLagun from '@/assets/logo-lagun-entretenimento.png';
+import logoLagun from '@/assets/palavra-lagun-branco.png';
 import logoMailchimp from '@/assets/mailchimp-icon.png';
 
 interface EventItem {
@@ -177,7 +177,7 @@ export default function InternoLayout() {
             <img
               src={logoLagun}
               alt="Lagun"
-              className={`rounded transition-all ${collapsed ? 'h-7 w-7 object-contain' : 'h-9'}`}
+              className={`transition-all ${collapsed ? 'h-5 w-auto object-contain' : 'h-6 w-auto'}`}
             />
           </div>
           <button onClick={() => setSidebarOpen(false)} className="lg:hidden absolute top-3 right-3 text-[#F5D470]/60 hover:text-[#F5D470]">
@@ -382,7 +382,7 @@ export default function InternoLayout() {
                   if (collapsed) { navigate('/interno/ads/campanhas'); }
                   else { setAdsOpen(!adsOpen); }
                 }}
-                className={navLinkClass(isActiveRoute('/interno/ads') || isActiveRoute('/interno/trafego-gpt'))}
+                className={navLinkClass(isActiveRoute('/interno/ads'))}
                 title={collapsed ? 'Ads' : undefined}
               >
                 <div className={`flex items-center justify-center ${collapsed ? '' : 'mr-2'}`}>
@@ -408,9 +408,6 @@ export default function InternoLayout() {
                   </NavLink>
                   <NavLink to="/interno/ads/criativos" onClick={() => setSidebarOpen(false)} className={({ isActive }) => subItemClass(isActive)}>
                     <Trophy size={14} className="mr-2" /> Criativos Campeões
-                  </NavLink>
-                  <NavLink to="/interno/trafego-gpt" onClick={() => setSidebarOpen(false)} className={({ isActive }) => subItemClass(isActive)}>
-                    <Sparkles size={14} className="mr-2" /> TráfegoGPT
                   </NavLink>
                 </div>
               )}

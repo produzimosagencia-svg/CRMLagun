@@ -94,10 +94,15 @@ export default function InternoAdsCriarCampanha() {
   const [creating, setCreating] = useState(false);
 
   useEffect(() => {
-    callMetaApi({ action: 'accounts' }).then((res) => {
-      if (res.data) setAccounts(res.data);
-      setLoadingAccounts(false);
-    });
+    const lagunAccount: AdAccount = {
+      id: 'act_1278683517052021',
+      name: 'CA - Lagun',
+      account_id: '1278683517052021',
+      currency: 'BRL',
+    };
+    setAccounts([lagunAccount]);
+    setData((prev) => ({ ...prev, account: lagunAccount }));
+    setLoadingAccounts(false);
   }, []);
 
   const set = (patch: Partial<WizardData>) => setData((prev) => ({ ...prev, ...patch }));
