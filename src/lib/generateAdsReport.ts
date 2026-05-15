@@ -72,17 +72,17 @@ export function generateAdsReport(data: ReportData) {
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(14);
   doc.setTextColor(medGray);
-  doc.text('Tríade Entretenimento', margin, y + 16);
+  doc.text('Lagun Vitória', margin, y + 16);
 
   // Logo text (top right)
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(16);
   doc.setTextColor(darkGray);
-  doc.text('TRÍADE', pageW - margin, y + 6, { align: 'right' });
+  doc.text('LAGUN', pageW - margin, y + 6, { align: 'right' });
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(6);
   doc.setTextColor(lightGray);
-  doc.text('E N T R E T E N I M E N T O', pageW - margin, y + 10, { align: 'right' });
+  doc.text('V I T Ó R I A · E S', pageW - margin, y + 10, { align: 'right' });
 
   // Date range subtitle
   doc.setFontSize(9);
@@ -267,7 +267,7 @@ export function generateAdsReport(data: ReportData) {
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(10);
   doc.setTextColor('#BFBFBF');
-  doc.text('Do Pré ao After.', pageW / 2, footerY, { align: 'center' });
+  doc.text('lagunvitoria.com.br', pageW / 2, footerY, { align: 'center' });
 
   return doc;
 }
