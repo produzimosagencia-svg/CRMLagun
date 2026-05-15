@@ -18,7 +18,7 @@ import { generateAdsReport } from '@/lib/generateAdsReport';
 import { toast } from 'sonner';
 import flamingoSrc from '@/assets/simbolo-lagun.png';
 
-const LAGUN_ACCOUNT_ID = '1933924480586404';
+const LAGUN_ACCOUNT_ID = '1278683517052021';
 
 interface CampaignInsight {
   campaign_name: string;
