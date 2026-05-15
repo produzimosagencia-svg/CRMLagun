@@ -176,11 +176,11 @@ function EventCard({ event, onEdit }: { event: LagunEvent; onEdit: (e: LagunEven
   );
 
   return (
-    <div className="rounded-2xl overflow-hidden border border-gray-200 bg-white shadow-sm">
+    <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">
       {/* Desktop */}
       <div className="hidden md:flex">
-        {/* Imagem — preenche toda a altura do card */}
-        <div className="shrink-0 self-stretch" style={{ width: 180 }}>
+        {/* Imagem — overflow-hidden só aqui pra não cortar tooltips */}
+        <div className="shrink-0 self-stretch rounded-l-2xl overflow-hidden" style={{ width: 180 }}>
           {event.imagem_url
             ? <img src={event.imagem_url} alt={event.nome} className="w-full h-full object-cover" />
             : <div className="w-full h-full flex items-center justify-center bg-gray-100">
@@ -194,7 +194,7 @@ function EventCard({ event, onEdit }: { event: LagunEvent; onEdit: (e: LagunEven
 
       {/* Mobile */}
       <div className="flex flex-col md:hidden">
-        <div className="relative w-full" style={{ paddingTop: '80%' }}>
+        <div className="relative w-full rounded-t-2xl overflow-hidden" style={{ paddingTop: '80%' }}>
           {event.imagem_url
             ? <img src={event.imagem_url} alt={event.nome} className="absolute inset-0 w-full h-full object-cover" />
             : <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
