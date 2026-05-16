@@ -281,7 +281,7 @@ export default function InternoLayout() {
                     className={({ isActive }) => navLinkClass(isActive) + ' text-xs'}
                   >
                     <Megaphone size={14} className="mr-2" />
-                    <span className="text-xs">Divulgadores</span>
+                    <span className="text-xs">RPs</span>
                   </NavLink>
                 </div>
               )}

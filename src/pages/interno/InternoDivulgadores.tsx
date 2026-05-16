@@ -48,8 +48,8 @@ export default function InternoDivulgadores() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-base font-semibold text-foreground">Divulgadores por evento</h2>
-          <p className="text-xs text-muted-foreground">Cadastros via formulário e contas conectadas ao Instagram.</p>
+          <h2 className="text-base font-semibold text-foreground">RPs</h2>
+          <p className="text-xs text-muted-foreground">Contas conectadas ao Instagram e atividade de postagem.</p>
         </div>
         <button
           onClick={() => navigate('/interno/divulgadores/instagram')}
