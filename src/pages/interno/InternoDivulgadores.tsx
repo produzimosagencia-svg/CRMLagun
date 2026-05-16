@@ -11,9 +11,8 @@ interface EventBlock {
   igConnected: number;
 }
 
-// Eventos do programa de divulgadores. Atualmente só Maestria possui formulário ativo.
 const PROGRAM_EVENTS = [
-  { key: 'maestria', name: 'Maestria' },
+  { key: 'lagun', name: 'Lagun' },
 ];
 
 export default function InternoDivulgadores() {
@@ -26,8 +25,8 @@ export default function InternoDivulgadores() {
   useEffect(() => {
     (async () => {
       const [divRes, igRes] = await Promise.all([
-        (supabase as any)
-          .from('maestria_divulgadores')
+        supabase
+          .from('crm_customers')
           .select('id', { count: 'exact', head: true }),
         supabase
           .from('creator_instagram_accounts')
@@ -38,7 +37,7 @@ export default function InternoDivulgadores() {
       const ig = igRes.count ?? 0;
       setBlocks((prev) =>
         prev.map((b) =>
-          b.key === 'maestria' ? { ...b, formCount: total, igConnected: ig } : b
+          b.key === 'lagun' ? { ...b, formCount: total, igConnected: ig } : b
         )
       );
       setLoading(false);
