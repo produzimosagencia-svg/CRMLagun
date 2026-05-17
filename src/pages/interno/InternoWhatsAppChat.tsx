@@ -15,7 +15,7 @@ import { formatPhone } from '@/lib/formatPhone';
 import { format, isToday, isYesterday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
-import { WhatsAppConnectionBanner } from '@/components/WhatsAppConnectionBanner';
+import { useWhatsAppConnection, WhatsAppConnectPanel, WhatsAppStatusPill } from '@/components/WhatsAppConnectionBanner';
 
 interface Message {
   id: string;
@@ -113,6 +113,7 @@ function normalizePhone(phone: string): string {
 }
 
 export default function InternoWhatsAppChat() {
+  const waConn = useWhatsAppConnection();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedPhone, setSelectedPhone] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -702,22 +703,23 @@ export default function InternoWhatsAppChat() {
     : false;
 
   return (
-    <div className="flex flex-col h-[calc(100vh-120px)]">
-    <WhatsAppConnectionBanner />
-    <div className="flex flex-1 bg-background rounded-xl border overflow-hidden">
+    <div className="flex h-[calc(100vh-120px)] bg-background rounded-xl border overflow-hidden">
       <div className={`w-full md:w-80 border-r flex flex-col shrink-0 ${selectedPhone ? 'hidden md:flex' : 'flex'}`}>
         <div className="border-b">
           <div className="flex">
             <button
               onClick={() => setActiveChannel('whatsapp')}
-              className={`flex-1 flex items-center justify-center gap-2 py-3 text-sm font-semibold border-b-2 transition-colors ${
+              className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 text-sm font-semibold border-b-2 transition-colors ${
                 activeChannel === 'whatsapp'
                   ? 'border-[#25D366] text-[#25D366]'
                   : 'border-transparent text-muted-foreground hover:text-foreground'
               }`}
             >
-              <MessageCircle className="w-4 h-4" />
-              WhatsApp
+              <div className="flex items-center gap-1.5">
+                <MessageCircle className="w-4 h-4" />
+                WhatsApp
+              </div>
+              <WhatsAppStatusPill status={waConn.status} disconnect={waConn.disconnect} />
             </button>
             <button
               onClick={() => setActiveChannel('instagram')}
@@ -897,12 +899,16 @@ export default function InternoWhatsAppChat() {
 
       <div className={`flex-1 flex flex-col min-w-0 ${!selectedPhone ? 'hidden md:flex' : 'flex'}`}>
         {!selectedPhone ? (
-          <div className="flex-1 flex items-center justify-center">
-            <div className="text-center">
-              <MessageCircle className="w-16 h-16 text-muted-foreground/20 mx-auto mb-4" />
-              <p className="text-muted-foreground">Selecione uma conversa</p>
-            </div>
-          </div>
+          waConn.status !== 'open'
+            ? <WhatsAppConnectPanel {...waConn} />
+            : (
+              <div className="flex-1 flex items-center justify-center">
+                <div className="text-center">
+                  <MessageCircle className="w-16 h-16 text-muted-foreground/20 mx-auto mb-4" />
+                  <p className="text-muted-foreground">Selecione uma conversa</p>
+                </div>
+              </div>
+            )
         ) : (
           <>
             <div className="p-4 border-b flex items-center gap-3">
@@ -1302,7 +1308,6 @@ export default function InternoWhatsAppChat() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
     </div>
   );
 }
