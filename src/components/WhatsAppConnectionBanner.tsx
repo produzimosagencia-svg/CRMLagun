@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Wifi, WifiOff, RefreshCw, Loader2, X, Smartphone, QrCode } from 'lucide-react';
 
@@ -24,13 +24,22 @@ export function useWhatsAppConnection() {
   const [qr, setQr]           = useState<string | null>(null);
   const [loadingQr, setLoadingQr] = useState(false);
 
+  const webhookConfigured = useRef(false);
+
   const checkStatus = useCallback(async () => {
     try {
       const data = await callProxy('status');
       const state: string = data?.instance?.state ?? data?.state ?? '';
-      if (state === 'open') { setStatus('open'); setQr(null); }
-      else if (state === 'connecting') setStatus('connecting');
-      else setStatus('close');
+      if (state === 'open') {
+        setStatus('open');
+        setQr(null);
+        // Configure webhook once when connected
+        if (!webhookConfigured.current) {
+          webhookConfigured.current = true;
+          callProxy('set_webhook').catch(() => { webhookConfigured.current = false; });
+        }
+      } else if (state === 'connecting') setStatus('connecting');
+      else { setStatus('close'); webhookConfigured.current = false; }
     } catch { setStatus('close'); }
   }, []);
 

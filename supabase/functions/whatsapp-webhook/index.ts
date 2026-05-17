@@ -3,6 +3,103 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const VERIFY_TOKEN = Deno.env.get("WHATSAPP_VERIFY_TOKEN") || "triade_whatsapp_verify_2024";
 
+// ── Evolution API (Baileys) handler ────────────────────────────────────────
+async function handleEvolutionWebhook(body: any, supabase: any) {
+  const event: string = body.event || '';
+  const data = body.data;
+  if (!data) return;
+
+  // MESSAGES_UPSERT → new message received
+  if (event === 'messages.upsert') {
+    const key = data.key || {};
+    const remoteJid: string = key.remoteJid || '';
+
+    // Skip group messages and status broadcasts
+    if (remoteJid.endsWith('@g.us') || remoteJid === 'status@broadcast') return;
+
+    const phone = remoteJid.replace('@s.whatsapp.net', '').replace('@c.us', '');
+    const fromMe: boolean = key.fromMe === true;
+    const messageId: string = key.id || '';
+
+    // Don't double-insert fromMe messages already saved by evolution-proxy send
+    if (fromMe) {
+      const { data: existing } = await supabase
+        .from('whatsapp_messages').select('id').eq('wamid', messageId).maybeSingle();
+      if (existing) return;
+    }
+
+    const msg = data.message || {};
+    let messageText: string | null = null;
+    let messageType = 'text';
+
+    if (msg.conversation) {
+      messageText = msg.conversation; messageType = 'text';
+    } else if (msg.extendedTextMessage) {
+      messageText = msg.extendedTextMessage?.text || null; messageType = 'text';
+    } else if (msg.imageMessage) {
+      messageText = msg.imageMessage?.caption || null; messageType = 'image';
+    } else if (msg.videoMessage) {
+      messageText = msg.videoMessage?.caption || null; messageType = 'video';
+    } else if (msg.audioMessage || msg.pttMessage) {
+      messageType = 'audio';
+    } else if (msg.documentMessage) {
+      messageText = msg.documentMessage?.fileName || null; messageType = 'document';
+    } else if (msg.stickerMessage) {
+      messageType = 'sticker';
+    } else if (msg.reactionMessage) {
+      messageText = msg.reactionMessage?.text || null; messageType = 'reaction';
+    }
+
+    const contactName = fromMe ? null : (data.pushName || null);
+    const ts = data.messageTimestamp;
+    const timestamp = ts ? new Date(Number(ts) * 1000).toISOString() : new Date().toISOString();
+
+    const statusMap: Record<string, string> = {
+      PENDING: 'sent', SERVER_ACK: 'sent', DELIVERY_ACK: 'delivered', READ: 'read', PLAYED: 'read',
+    };
+    const status = statusMap[data.status || ''] || (fromMe ? 'sent' : 'received');
+
+    const { error } = await supabase.from('whatsapp_messages').insert({
+      wamid: messageId, phone, contact_name: contactName,
+      direction: fromMe ? 'outgoing' : 'incoming',
+      message_type: messageType, message_text: messageText,
+      media_url: null, timestamp, status, channel: 'whatsapp',
+    });
+    if (error && error.code !== '23505') console.error('Evo insert error:', error);
+
+    // Trigger chatbot for incoming text messages
+    if (!fromMe && (messageType === 'text') && messageText) {
+      try {
+        const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+        const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+        const { data: botSetting } = await supabase
+          .from('whatsapp_bot_settings').select('bot_enabled').eq('phone', phone).maybeSingle();
+        if (botSetting?.bot_enabled !== false) {
+          await fetch(`${supabaseUrl}/functions/v1/whatsapp-chatbot`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${supabaseKey}` },
+            body: JSON.stringify({ phone, message: messageText, contact_name: contactName, source: 'evolution' }),
+          });
+        }
+      } catch (e) { console.error('Chatbot error:', e); }
+    }
+  }
+
+  // MESSAGES_UPDATE → status change
+  if (event === 'messages.update') {
+    const updates = Array.isArray(data) ? data : [data];
+    const statusMap: Record<string, string> = {
+      DELIVERY_ACK: 'delivered', READ: 'read', PLAYED: 'read',
+    };
+    for (const upd of updates) {
+      const newStatus = statusMap[upd?.update?.status || ''];
+      if (newStatus && upd?.key?.id) {
+        await supabase.from('whatsapp_messages').update({ status: newStatus }).eq('wamid', upd.key.id);
+      }
+    }
+  }
+}
+
 Deno.serve(async (req) => {
   // CORS
   if (req.method === "OPTIONS") {
@@ -24,15 +121,24 @@ Deno.serve(async (req) => {
     return new Response("Forbidden", { status: 403 });
   }
 
-  // POST = incoming message/status from Meta
+  // POST = incoming message/status from Meta OR Evolution API
   if (req.method === "POST") {
     try {
       const body = await req.json();
-      console.log("Webhook received:", JSON.stringify(body).slice(0, 500));
+      console.log("Webhook received:", JSON.stringify(body).slice(0, 300));
 
       const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
       const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
       const supabase = createClient(supabaseUrl, supabaseKey);
+
+      // ── Evolution API format (has body.event) ────────────────────────
+      if (body.event) {
+        await handleEvolutionWebhook(body, supabase);
+        return new Response(JSON.stringify({ ok: true }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
       const metaToken = Deno.env.get("META_WHATSAPP_TOKEN");
 
       const entry = body?.entry?.[0];

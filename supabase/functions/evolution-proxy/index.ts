@@ -8,6 +8,8 @@ const corsHeaders = {
 const EVO_URL = Deno.env.get('EVOLUTION_API_URL')!
 const EVO_KEY = Deno.env.get('EVOLUTION_API_KEY')!
 const INSTANCE = 'lagun'
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
+const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
 async function evo(method: string, path: string, body?: any) {
   const res = await fetch(`${EVO_URL}${path}`, {
@@ -57,10 +59,49 @@ Deno.serve(async (req) => {
 
     // ── Enviar mensagem ────────────────────────────────────────────────
     if (action === 'send') {
-      const { to, text } = await req.json()
-      const r = await evo('POST', `/message/sendText/${INSTANCE}`, {
-        number: to,
-        text,
+      const { to, text, contact_name } = await req.json()
+      const r = await evo('POST', `/message/sendText/${INSTANCE}`, { number: to, text })
+
+      // Salvar mensagem enviada no banco
+      if (r.ok) {
+        try {
+          const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+          const messageId = r.data?.key?.id || r.data?.id || null
+          await supabase.from('whatsapp_messages').insert({
+            wamid: messageId,
+            phone: to.replace('@s.whatsapp.net', '').replace('@c.us', ''),
+            contact_name: contact_name || null,
+            direction: 'outgoing',
+            message_type: 'text',
+            message_text: text,
+            media_url: null,
+            timestamp: new Date().toISOString(),
+            status: 'sent',
+            channel: 'whatsapp',
+          })
+        } catch (dbErr) {
+          console.error('Failed to save sent message:', dbErr)
+        }
+      }
+
+      return new Response(JSON.stringify(r.data), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+    }
+
+    // ── Configurar webhook ─────────────────────────────────────────────
+    if (action === 'set_webhook') {
+      const webhookUrl = `${SUPABASE_URL}/functions/v1/whatsapp-webhook`
+      const r = await evo('POST', `/webhook/set/${INSTANCE}`, {
+        webhook: {
+          enabled: true,
+          url: webhookUrl,
+          webhookByEvents: false,
+          webhookBase64: false,
+          events: [
+            'MESSAGES_UPSERT',
+            'MESSAGES_UPDATE',
+            'CONNECTION_UPDATE',
+          ],
+        },
       })
       return new Response(JSON.stringify(r.data), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
     }
