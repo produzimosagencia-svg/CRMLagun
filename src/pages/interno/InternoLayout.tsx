@@ -352,42 +352,6 @@ export default function InternoLayout() {
             </>
           )}
 
-          {/* 5. Zig Tickets */}
-          {canSeeZigTickets && (
-            <>
-              <button
-                onClick={() => {
-                  if (collapsed) { navigate('/interno/zig-tickets'); }
-                  else { setZigTicketsOpen(!zigTicketsOpen); }
-                }}
-                className={navLinkClass(isActiveRoute('/interno/zig-tickets'))}
-                title={collapsed ? 'Zig Tickets' : undefined}
-              >
-                <div className={`flex items-center justify-center ${collapsed ? '' : 'mr-2'}`}>
-                  <Zap size={18} />
-                </div>
-                {!collapsed && (
-                  <>
-                    <span className="text-sm font-medium flex-1 text-left">Zig Tickets</span>
-                    <ChevronRight size={14} className={`text-[#F5D470]/60 transition-transform duration-200 ${zigTicketsOpen ? 'rotate-90' : ''}`} />
-                  </>
-                )}
-              </button>
-              {zigTicketsOpen && !collapsed && (
-                <div className="space-y-0.5">
-                  {zigEvents.length === 0 && (
-                    <span className="block px-3 pl-9 text-[11px] text-[#F5D470]/40 py-1">Nenhum evento online</span>
-                  )}
-                  {zigEvents.map((ev) => (
-                    <NavLink key={ev.id} to={`/interno/zig-tickets/${ev.id}`} onClick={() => setSidebarOpen(false)} className={({ isActive }) => subItemClass(isActive)}>
-                      <Ticket size={14} className="mr-2 shrink-0" />
-                      <span className="truncate">{ev.name}</span>
-                    </NavLink>
-                  ))}
-                </div>
-              )}
-            </>
-          )}
 
           {/* 6. Ads */}
           {canSeeAds && (
