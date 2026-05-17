@@ -15,6 +15,7 @@ import { formatPhone } from '@/lib/formatPhone';
 import { format, isToday, isYesterday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
+import { WhatsAppConnectionBanner } from '@/components/WhatsAppConnectionBanner';
 
 interface Message {
   id: string;
@@ -701,7 +702,9 @@ export default function InternoWhatsAppChat() {
     : false;
 
   return (
-    <div className="flex h-[calc(100vh-120px)] bg-background rounded-xl border overflow-hidden">
+    <div className="flex flex-col h-[calc(100vh-120px)]">
+    <WhatsAppConnectionBanner />
+    <div className="flex flex-1 bg-background rounded-xl border overflow-hidden">
       <div className={`w-full md:w-80 border-r flex flex-col shrink-0 ${selectedPhone ? 'hidden md:flex' : 'flex'}`}>
         <div className="border-b">
           <div className="flex">
@@ -1299,6 +1302,7 @@ export default function InternoWhatsAppChat() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
     </div>
   );
 }
