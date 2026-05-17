@@ -2,3 +2,13 @@ project_id = "kpircnwoqyzszrvvzsxc"
 
 [functions.process-email-queue]
 verify_jwt = true
+
+# Webhook receivers — accept calls without JWT (external services call these)
+[functions.whatsapp-webhook]
+verify_jwt = false
+
+[functions.blueticket-webhook]
+verify_jwt = false
+
+[functions.instagram-webhook]
+verify_jwt = false

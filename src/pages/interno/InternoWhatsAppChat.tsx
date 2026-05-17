@@ -238,12 +238,11 @@ export default function InternoWhatsAppChat() {
 
   const loadConversationsForChannel = async (channel: string) => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from('whatsapp_messages')
-      .select('*')
-      .eq('channel', channel)
-      .order('timestamp', { ascending: false })
-      .limit(1000);
+    // For whatsapp: include messages with channel='whatsapp' OR channel=null (legacy Meta API messages)
+    const query = supabase.from('whatsapp_messages').select('*').order('timestamp', { ascending: false }).limit(1000);
+    const { data, error } = channel === 'whatsapp'
+      ? await query.or('channel.eq.whatsapp,channel.is.null')
+      : await query.eq('channel', channel);
 
     if (error) { console.error('Error loading messages:', error); setLoading(false); return; }
 
@@ -362,11 +361,12 @@ export default function InternoWhatsAppChat() {
     setConversations(prev => prev.map(c => c.phone === selectedPhone ? { ...c, needs_support: false } : c));
 
     const loadMessages = async () => {
-      const { data } = await supabase
-        .from('whatsapp_messages').select('*')
+      const msgQuery = supabase.from('whatsapp_messages').select('*')
         .eq('phone', selectedPhone)
-        .eq('channel', activeChannel)
         .order('timestamp', { ascending: true }).limit(200);
+      const { data } = activeChannel === 'whatsapp'
+        ? await msgQuery.or('channel.eq.whatsapp,channel.is.null')
+        : await msgQuery.eq('channel', activeChannel);
       // Filter out system messages
       setMessages(((data || []) as Message[]).filter(m => m.message_type !== 'system'));
     };
@@ -747,7 +747,7 @@ export default function InternoWhatsAppChat() {
                 <MessageCircle className="w-4 h-4" />
                 WhatsApp
               </div>
-              <WhatsAppStatusPill status={waConn.status} disconnect={waConn.disconnect} />
+              <WhatsAppStatusPill status={waConn.status} disconnect={waConn.disconnect} webhookOk={waConn.webhookOk} configureWebhook={waConn.configureWebhook} />
             </button>
             <button
               onClick={() => setActiveChannel('instagram')}

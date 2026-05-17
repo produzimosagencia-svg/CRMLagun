@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Wifi, WifiOff, RefreshCw, Loader2, X, Smartphone, QrCode } from 'lucide-react';
+import { WifiOff, RefreshCw, Loader2, X, Smartphone, QrCode, Webhook } from 'lucide-react';
+import { toast } from 'sonner';
 
 const SUPABASE_URL = 'https://xwxiijbovreucnrbyput.supabase.co';
 export type ConnStatus = 'checking' | 'open' | 'connecting' | 'close';
@@ -23,8 +24,22 @@ export function useWhatsAppConnection() {
   const [status, setStatus]   = useState<ConnStatus>('checking');
   const [qr, setQr]           = useState<string | null>(null);
   const [loadingQr, setLoadingQr] = useState(false);
+  const [webhookOk, setWebhookOk] = useState(false);
 
   const webhookConfigured = useRef(false);
+
+  const configureWebhook = useCallback(async (silent = true) => {
+    try {
+      const data = await callProxy('set_webhook');
+      const ok = data?.webhook?.enabled === true || data?.enabled === true || !!data?.url;
+      setWebhookOk(ok);
+      if (!silent) toast.success('Webhook configurado com sucesso!');
+      return ok;
+    } catch {
+      if (!silent) toast.error('Erro ao configurar webhook');
+      return false;
+    }
+  }, []);
 
   const checkStatus = useCallback(async () => {
     try {
@@ -36,12 +51,14 @@ export function useWhatsAppConnection() {
         // Configure webhook once when connected
         if (!webhookConfigured.current) {
           webhookConfigured.current = true;
-          callProxy('set_webhook').catch(() => { webhookConfigured.current = false; });
+          configureWebhook(true).then(ok => {
+            if (!ok) webhookConfigured.current = false;
+          });
         }
       } else if (state === 'connecting') setStatus('connecting');
-      else { setStatus('close'); webhookConfigured.current = false; }
+      else { setStatus('close'); webhookConfigured.current = false; setWebhookOk(false); }
     } catch { setStatus('close'); }
-  }, []);
+  }, [configureWebhook]);
 
   useEffect(() => {
     checkStatus();
@@ -68,14 +85,16 @@ export function useWhatsAppConnection() {
     await callProxy('logout');
     setStatus('close');
     setQr(null);
+    setWebhookOk(false);
+    webhookConfigured.current = false;
   }
 
-  return { status, qr, loadingQr, connect, disconnect, refresh: checkStatus };
+  return { status, qr, loadingQr, webhookOk, connect, disconnect, refresh: checkStatus, configureWebhook };
 }
 
 // ── Painel direito (quando não conectado) ──────────────────────────────────
 export function WhatsAppConnectPanel({
-  status, qr, loadingQr, connect, disconnect,
+  status, qr, loadingQr, connect,
 }: ReturnType<typeof useWhatsAppConnection>) {
 
   if (status === 'open') return null; // Conectado → não mostra painel
@@ -136,18 +155,42 @@ export function WhatsAppConnectPanel({
 
 // ── Status pill (aba esquerda) ─────────────────────────────────────────────
 export function WhatsAppStatusPill({
-  status, disconnect,
-}: Pick<ReturnType<typeof useWhatsAppConnection>, 'status' | 'disconnect'>) {
+  status, disconnect, webhookOk, configureWebhook,
+}: Pick<ReturnType<typeof useWhatsAppConnection>, 'status' | 'disconnect' | 'webhookOk' | 'configureWebhook'>) {
+  const [configuring, setConfiguring] = useState(false);
+
   if (status === 'checking') return null;
+
   if (status === 'open') return (
-    <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-green-50 border border-green-200 text-[10px] font-semibold text-green-700">
-      <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-      Conectado
-      <button onClick={disconnect} className="ml-0.5 text-green-400 hover:text-red-400" title="Desconectar">
-        <X size={10} />
+    <div className="flex items-center gap-1 flex-wrap justify-center">
+      <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-green-50 border border-green-200 text-[10px] font-semibold text-green-700">
+        <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+        Conectado
+        <button onClick={disconnect} className="ml-0.5 text-green-400 hover:text-red-400" title="Desconectar">
+          <X size={10} />
+        </button>
+      </div>
+      {/* Webhook indicator */}
+      <button
+        title={webhookOk ? 'Webhook ativo' : 'Webhook não configurado — clique para configurar'}
+        disabled={configuring}
+        onClick={async () => {
+          setConfiguring(true);
+          await configureWebhook(false);
+          setConfiguring(false);
+        }}
+        className={`flex items-center gap-0.5 px-1.5 py-1 rounded-full text-[10px] font-medium transition-colors ${
+          webhookOk
+            ? 'bg-blue-50 border border-blue-200 text-blue-600'
+            : 'bg-orange-50 border border-orange-300 text-orange-600 animate-pulse'
+        }`}
+      >
+        {configuring ? <Loader2 size={9} className="animate-spin" /> : <Webhook size={9} />}
+        {webhookOk ? 'WH' : 'WH!'}
       </button>
     </div>
   );
+
   return (
     <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-gray-100 text-[10px] text-gray-400">
       <WifiOff size={10} /> Desconectado

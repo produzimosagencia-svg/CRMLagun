@@ -89,20 +89,32 @@ Deno.serve(async (req) => {
 
     // ── Configurar webhook ─────────────────────────────────────────────
     if (action === 'set_webhook') {
-      const webhookUrl = `${SUPABASE_URL}/functions/v1/whatsapp-webhook`
+      const webhookUrl = `https://xwxiijbovreucnrbyput.supabase.co/functions/v1/whatsapp-webhook`
       const r = await evo('POST', `/webhook/set/${INSTANCE}`, {
         webhook: {
           enabled: true,
           url: webhookUrl,
           webhookByEvents: false,
           webhookBase64: false,
-          events: [
-            'MESSAGES_UPSERT',
-            'MESSAGES_UPDATE',
-            'CONNECTION_UPDATE',
-          ],
+          events: ['MESSAGES_UPSERT', 'MESSAGES_UPDATE', 'CONNECTION_UPDATE'],
         },
       })
+      // Also try alternative payload format (older Evolution API versions)
+      if (!r.ok) {
+        const r2 = await evo('POST', `/webhook/set/${INSTANCE}`, {
+          url: webhookUrl,
+          enabled: true,
+          webhookByEvents: false,
+          events: ['MESSAGES_UPSERT', 'MESSAGES_UPDATE', 'CONNECTION_UPDATE'],
+        })
+        return new Response(JSON.stringify(r2.data), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      }
+      return new Response(JSON.stringify(r.data), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+    }
+
+    // ── Ver config do webhook ──────────────────────────────────────────
+    if (action === 'get_webhook') {
+      const r = await evo('GET', `/webhook/find/${INSTANCE}`)
       return new Response(JSON.stringify(r.data), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
     }
 
