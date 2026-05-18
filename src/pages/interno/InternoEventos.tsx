@@ -117,6 +117,18 @@ export default function InternoEventos() {
   const [spreadsheetFile, setSpreadsheetFile] = useState<File | null>(null);
   const [revenue, setRevenue] = useState('');
 
+  const topCities = useMemo(() => {
+    const map = new Map<string, number>();
+    allCustomers.forEach(c => { if (c.city) map.set(c.city, (map.get(c.city) || 0) + 1); });
+    return Array.from(map.entries()).sort((a, b) => b[1] - a[1]).slice(0, 5);
+  }, [allCustomers]);
+
+  const topNeighborhoods = useMemo(() => {
+    const map = new Map<string, number>();
+    allCustomers.forEach(c => { if (c.neighborhood) map.set(c.neighborhood, (map.get(c.neighborhood) || 0) + 1); });
+    return Array.from(map.entries()).sort((a, b) => b[1] - a[1]).slice(0, 5);
+  }, [allCustomers]);
+
   useEffect(() => {
     loadKpis();
     loadTopLists();
@@ -540,6 +552,63 @@ export default function InternoEventos() {
         <KPICard icon={Crown} label="Superclientes" value={kpis?.superclientes?.toLocaleString('pt-BR') ?? '—'} loading={loadingKpis} color="text-purple-500" bgColor="bg-purple-500/10" subtitle="LTV > R$ 1.000" />
         <KPICard icon={Heart} label="Fãs" value={kpis?.fans?.toLocaleString('pt-BR') ?? '—'} loading={loadingKpis} color="text-pink-500" bgColor="bg-pink-500/10" subtitle="4+ eventos" />
       </div>
+
+      {/* Top Cidades & Bairros */}
+      {!loadingAllCustomers && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Card className="border-border">
+            <CardHeader className="pb-2 pt-4 px-4">
+              <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                🏙️ Top 5 Cidades
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="px-4 pb-4">
+              <div className="space-y-2">
+                {topCities.map(([city, count], i) => {
+                  const pct = Math.round((count / allCustomers.length) * 100);
+                  return (
+                    <div key={city}>
+                      <div className="flex justify-between text-xs mb-0.5">
+                        <span className="font-medium text-foreground">{i + 1}. {city}</span>
+                        <span className="text-muted-foreground">{count} ({pct}%)</span>
+                      </div>
+                      <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                        <div className="h-full rounded-full bg-blue-500" style={{ width: `${pct}%` }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-border">
+            <CardHeader className="pb-2 pt-4 px-4">
+              <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                📍 Top 5 Bairros
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="px-4 pb-4">
+              <div className="space-y-2">
+                {topNeighborhoods.map(([nb, count], i) => {
+                  const pct = Math.round((count / allCustomers.length) * 100);
+                  return (
+                    <div key={nb}>
+                      <div className="flex justify-between text-xs mb-0.5">
+                        <span className="font-medium text-foreground">{i + 1}. {nb}</span>
+                        <span className="text-muted-foreground">{count} ({pct}%)</span>
+                      </div>
+                      <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                        <div className="h-full rounded-full bg-amber-500" style={{ width: `${pct}%` }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Lista de Clientes */}
       <Card className="border-border">
