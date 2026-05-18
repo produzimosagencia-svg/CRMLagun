@@ -117,17 +117,21 @@ export default function InternoEventos() {
   const [spreadsheetFile, setSpreadsheetFile] = useState<File | null>(null);
   const [revenue, setRevenue] = useState('');
 
+  const [showAllNeighborhoods, setShowAllNeighborhoods] = useState(false);
+
   const topCities = useMemo(() => {
     const map = new Map<string, number>();
     allCustomers.forEach(c => { if (c.city) map.set(c.city, (map.get(c.city) || 0) + 1); });
     return Array.from(map.entries()).sort((a, b) => b[1] - a[1]).slice(0, 5);
   }, [allCustomers]);
 
-  const topNeighborhoods = useMemo(() => {
+  const allNeighborhoods = useMemo(() => {
     const map = new Map<string, number>();
     allCustomers.forEach(c => { if (c.neighborhood) map.set(c.neighborhood, (map.get(c.neighborhood) || 0) + 1); });
-    return Array.from(map.entries()).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    return Array.from(map.entries()).sort((a, b) => b[1] - a[1]);
   }, [allCustomers]);
+
+  const topNeighborhoods = useMemo(() => allNeighborhoods.slice(0, 5), [allNeighborhoods]);
 
   useEffect(() => {
     loadKpis();
@@ -584,9 +588,19 @@ export default function InternoEventos() {
 
           <Card className="border-border">
             <CardHeader className="pb-2 pt-4 px-4">
-              <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
-                📍 Top 5 Bairros
-              </CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                  📍 Top 5 Bairros
+                </CardTitle>
+                {allNeighborhoods.length > 5 && (
+                  <button
+                    onClick={() => setShowAllNeighborhoods(true)}
+                    className="text-[11px] text-blue-500 hover:text-blue-700 hover:underline transition-colors"
+                  >
+                    Ver mais ({allNeighborhoods.length})
+                  </button>
+                )}
+              </div>
             </CardHeader>
             <CardContent className="px-4 pb-4">
               <div className="space-y-2">
@@ -749,6 +763,34 @@ export default function InternoEventos() {
           </div>
         )}
       </div>
+
+      {/* Todos os Bairros Dialog */}
+      <Dialog open={showAllNeighborhoods} onOpenChange={setShowAllNeighborhoods}>
+        <DialogContent className="max-w-md max-h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base">
+              📍 Todos os Bairros
+              <span className="text-xs font-normal text-muted-foreground">({allNeighborhoods.length} bairros)</span>
+            </DialogTitle>
+          </DialogHeader>
+          <div className="overflow-y-auto flex-1 pr-1 mt-2 space-y-2">
+            {allNeighborhoods.map(([nb, count], i) => {
+              const pct = Math.round((count / allCustomers.length) * 100);
+              return (
+                <div key={nb}>
+                  <div className="flex justify-between text-xs mb-0.5">
+                    <span className="font-medium text-foreground">{i + 1}. {nb}</span>
+                    <span className="text-muted-foreground">{count} cliente{count > 1 ? 's' : ''} · {pct}%</span>
+                  </div>
+                  <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                    <div className="h-full rounded-full bg-amber-500" style={{ width: `${Math.max(pct, 2)}%` }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* WhatsApp Contact Dialog */}
       <Dialog open={!!contactTarget} onOpenChange={(open) => !open && setContactTarget(null)}>
