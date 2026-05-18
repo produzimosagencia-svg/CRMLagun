@@ -659,6 +659,7 @@ export default function InternoEventos() {
                         c.phone?.includes(q)
                       );
                     })
+                    .slice(0, 20)
                     .map((c, i) => (
                       <TableRow
                         key={c.id}
