@@ -736,9 +736,6 @@ export default function InternoEventos() {
         </CardContent>
       </Card>
 
-      {/* Divulgadores (Maestria) */}
-      <DivulgadoresMaestriaSection />
-
       {/* Events Section */}
       <div>
         <div className="flex items-center justify-between mb-3">
@@ -1029,79 +1026,6 @@ function KPICard({ icon: Icon, label, value, loading, color, bgColor, subtitle }
             )}
             {subtitle && <p className="text-[10px] text-muted-foreground mt-0.5">{subtitle}</p>}
           </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-
-function DivulgadoresMaestriaSection() {
-  const navigate = useNavigate();
-  const [divCount, setDivCount] = useState<number | null>(null);
-  const [igCount, setIgCount] = useState<number>(0);
-  const [preCount, setPreCount] = useState<number | null>(null);
-
-  useEffect(() => {
-    (async () => {
-      const [divRes, igRes, preRes] = await Promise.all([
-        (supabase as any).from('maestria_divulgadores').select('id', { count: 'exact', head: true }),
-        supabase.from('creator_instagram_accounts').select('id', { count: 'exact', head: true }).eq('status', 'active'),
-        (supabase as any).from('maestria_prevenda').select('id', { count: 'exact', head: true }),
-      ]);
-      setDivCount(divRes.count ?? 0);
-      setIgCount(igRes.count ?? 0);
-      setPreCount(preRes.count ?? 0);
-    })();
-  }, []);
-
-  const fmt = (v: number | null) => (v === null ? '—' : v.toLocaleString('pt-BR'));
-
-  return (
-    <Card className="border-border">
-      <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 text-sm font-semibold">
-          <Send size={16} className="text-[#FF0080]" /> Maestria · Captação
-          <span className="text-xs font-normal text-muted-foreground ml-1">(por evento)</span>
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {/* Divulgação */}
-          <button
-            onClick={() => navigate('/interno/maestria-captacao?lista=divulgacao')}
-            className="text-left rounded-lg border border-border bg-card p-4 hover:shadow-md transition-shadow"
-          >
-            <div className="flex items-center justify-between mb-3">
-              <span className="font-semibold text-sm">Divulgação · Maestria</span>
-              <ChevronRight size={14} className="text-muted-foreground" />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-md bg-muted/40 p-2.5">
-                <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Cadastros</p>
-                <p className="text-lg font-bold">{fmt(divCount)}</p>
-              </div>
-              <div className="rounded-md bg-muted/40 p-2.5">
-                <p className="text-[10px] uppercase tracking-wide text-muted-foreground">IG conectado</p>
-                <p className="text-lg font-bold">{fmt(igCount)}</p>
-              </div>
-            </div>
-          </button>
-
-          {/* Pré-venda */}
-          <button
-            onClick={() => navigate('/interno/maestria-captacao?lista=prevenda')}
-            className="text-left rounded-lg border border-border bg-card p-4 hover:shadow-md transition-shadow"
-          >
-            <div className="flex items-center justify-between mb-3">
-              <span className="font-semibold text-sm">Pré-venda · Maestria</span>
-              <ChevronRight size={14} className="text-muted-foreground" />
-            </div>
-            <div className="rounded-md bg-muted/40 p-2.5">
-              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Cadastros</p>
-              <p className="text-lg font-bold">{fmt(preCount)}</p>
-            </div>
-          </button>
         </div>
       </CardContent>
     </Card>
