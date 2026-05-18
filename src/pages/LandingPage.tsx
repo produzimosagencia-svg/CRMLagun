@@ -21,26 +21,14 @@ const eventos = [
   {
     id: 1,
     nome: 'Bero Costa',
-    data: '22/05',
-    diaSemana: 'Sexta-feira',
+    data: '23/05',
+    diaSemana: 'Sábado',
     artista: 'All Night Along',
     guests: 'BeLeiTe + Dj Lukão',
     tag: 'ABERTO',
     link: 'https://zig.tickets/eventos/bero-all-night',
     flyerMobile: '/flyer-bero-feed.png',
     flyerDesktop: '/flyer-bero-banner.png',
-  },
-  {
-    id: 2,
-    nome: 'Lagun Saturday',
-    data: '23/05',
-    diaSemana: 'Sábado',
-    artista: 'Em breve',
-    guests: '',
-    tag: 'EM BREVE',
-    link: '#',
-    flyerMobile: flyerNoiteFlamingo,
-    flyerDesktop: flyerNoiteFlamingo,
   },
 ];
 
