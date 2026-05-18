@@ -240,7 +240,7 @@ export default function InternoEventos() {
       while (true) {
         const { data, error } = await (supabase as any)
           .from('crm_customers')
-          .select('id, full_name, phone, city, ltv, previous_purchases_count, last_event, classification')
+          .select('id, full_name, phone, city, neighborhood, ltv, previous_purchases_count, last_event, classification')
           .order('ltv', { ascending: false })
           .range(from, from + PAGE - 1);
         if (error || !data || data.length === 0) break;
