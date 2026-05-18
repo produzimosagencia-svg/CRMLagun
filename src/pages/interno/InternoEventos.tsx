@@ -84,6 +84,9 @@ export default function InternoEventos() {
   const [topFans, setTopFans] = useState<TopPerson[]>([]);
   const [topSuperclientes, setTopSuperclientes] = useState<TopPerson[]>([]);
   const [loadingLists, setLoadingLists] = useState(true);
+  const [allCustomers, setAllCustomers] = useState<any[]>([]);
+  const [loadingAllCustomers, setLoadingAllCustomers] = useState(true);
+  const [customerSearch, setCustomerSearch] = useState('');
   const [events, setEvents] = useState<EventSummary[]>([]);
   const [loadingEvents, setLoadingEvents] = useState(true);
   const [selectedEvent, setSelectedEvent] = useState<string | null>(null);
@@ -119,6 +122,7 @@ export default function InternoEventos() {
     loadTopLists();
     loadEvents();
     loadTemplatesAndPhones();
+    loadAllCustomers();
   }, []);
 
   async function loadTemplatesAndPhones() {
@@ -212,6 +216,31 @@ export default function InternoEventos() {
       console.error('Failed to load top lists:', err);
     } finally {
       setLoadingLists(false);
+    }
+  }
+
+  async function loadAllCustomers() {
+    setLoadingAllCustomers(true);
+    try {
+      const all: any[] = [];
+      let from = 0;
+      const PAGE = 1000;
+      while (true) {
+        const { data, error } = await (supabase as any)
+          .from('crm_customers')
+          .select('id, full_name, phone, city, ltv, previous_purchases_count, last_event, classification')
+          .order('ltv', { ascending: false })
+          .range(from, from + PAGE - 1);
+        if (error || !data || data.length === 0) break;
+        all.push(...data);
+        if (data.length < PAGE) break;
+        from += PAGE;
+      }
+      setAllCustomers(all);
+    } catch (err) {
+      console.error('Failed to load customers:', err);
+    } finally {
+      setLoadingAllCustomers(false);
     }
   }
 
@@ -512,223 +541,79 @@ export default function InternoEventos() {
         <KPICard icon={Heart} label="Fãs" value={kpis?.fans?.toLocaleString('pt-BR') ?? '—'} loading={loadingKpis} color="text-pink-500" bgColor="bg-pink-500/10" subtitle="4+ eventos" />
       </div>
 
-      {/* Top Fãs */}
+      {/* Lista de Clientes */}
       <Card className="border-border">
         <CardHeader className="pb-3">
-          <div className="flex flex-col gap-3">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
             <CardTitle className="text-sm font-semibold text-foreground flex items-center gap-2">
-              <Heart size={16} className="text-pink-500" /> Top Fãs
-              <span className="text-xs text-muted-foreground font-normal">(4+ eventos)</span>
+              <Users size={16} className="text-blue-500" /> Clientes
+              <span className="text-xs text-muted-foreground font-normal">({allCustomers.length} total)</span>
             </CardTitle>
-            <div className="flex flex-wrap gap-2">
-              <Select value={selectedPhoneId} onValueChange={setSelectedPhoneId}>
-                <SelectTrigger className="h-8 text-[11px] w-[180px]">
-                  <SelectValue placeholder="Número de envio" />
-                </SelectTrigger>
-                <SelectContent>
-                  {apiPhones.map((p: any) => (
-                    <SelectItem key={p.id} value={p.id} className="text-xs">
-                      {p.display_phone_number}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={selectedTemplate} onValueChange={(v) => {
-                setSelectedTemplate(v);
-                const t = templates.find((t: any) => t.name === v);
-                if (t) setTemplateLang(t.language || 'pt_BR');
-              }}>
-                <SelectTrigger className="h-8 text-[11px] w-[200px]">
-                  <SelectValue placeholder="Template" />
-                </SelectTrigger>
-                <SelectContent>
-                  {templates.map((t: any) => (
-                    <SelectItem key={t.name} value={t.name} className="text-xs">
-                      {t.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="relative w-full sm:w-64">
+              <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por nome ou telefone..."
+                value={customerSearch}
+                onChange={e => setCustomerSearch(e.target.value)}
+                className="pl-8 h-8 text-xs"
+              />
             </div>
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          {loadingLists ? (
+          {loadingAllCustomers ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 size={20} className="animate-spin text-muted-foreground" />
             </div>
-          ) : topFans.length === 0 ? (
-            <div className="p-6 text-center text-muted-foreground text-sm">Nenhum fã encontrado.</div>
           ) : (
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>#</TableHead>
+                    <TableHead className="w-8">#</TableHead>
                     <TableHead>Nome</TableHead>
-                    <TableHead>Telefone</TableHead>
-                    <TableHead>Eventos</TableHead>
-                    <TableHead>Valor Gasto</TableHead>
-                    <TableHead className="text-right">Ação</TableHead>
+                    <TableHead className="hidden md:table-cell">Telefone</TableHead>
+                    <TableHead className="hidden lg:table-cell">Cidade</TableHead>
+                    <TableHead>Compras</TableHead>
+                    <TableHead>LTV</TableHead>
+                    <TableHead className="hidden md:table-cell">Último Evento</TableHead>
+                    <TableHead>Classificação</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {topFans.map((f, i) => (
-                    <TableRow key={f.customer_id}>
-                      <TableCell className="text-muted-foreground text-xs">{i + 1}</TableCell>
-                      <TableCell>
-                        <button
-                          onClick={() => setDetailsCustomerId(f.customer_id)}
-                          className="font-medium text-left hover:text-pink-600 hover:underline transition-colors"
-                        >
-                          {f.full_name}
-                        </button>
-                      </TableCell>
-                      <TableCell className="text-muted-foreground text-sm">{formatPhone(f.phone)}</TableCell>
-                      <TableCell>
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <span className="px-2 py-0.5 rounded-full text-xs bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-300 font-medium cursor-help">
-                                {f.event_count} eventos
-                              </span>
-                            </TooltipTrigger>
-                            <TooltipContent side="top" className="max-w-[250px]">
-                              <ul className="text-xs space-y-0.5">
-                                {(f.event_names || []).map((name, idx) => (
-                                  <li key={idx}>• {name}</li>
-                                ))}
-                              </ul>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      </TableCell>
-                      <TableCell className="font-semibold">{fmt(f.total_spent)}</TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-7 text-xs gap-1"
-                          onClick={() => setContactTarget(f)}
-                          disabled={!f.phone}
-                        >
-                          <MessageCircle size={12} /> Contato
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Top Superclientes */}
-      <Card className="border-border">
-        <CardHeader className="pb-3">
-          <div className="flex flex-col gap-3">
-            <CardTitle className="text-sm font-semibold text-foreground flex items-center gap-2">
-              <Crown size={16} className="text-purple-500" /> Top 20 Superclientes
-              <span className="text-xs text-muted-foreground font-normal">(LTV &gt; R$ 1.000)</span>
-            </CardTitle>
-            <div className="flex flex-wrap gap-2">
-              <Select value={selectedPhoneId} onValueChange={setSelectedPhoneId}>
-                <SelectTrigger className="h-8 text-[11px] w-[180px]">
-                  <SelectValue placeholder="Número de envio" />
-                </SelectTrigger>
-                <SelectContent>
-                  {apiPhones.map((p: any) => (
-                    <SelectItem key={p.id} value={p.id} className="text-xs">
-                      {p.display_phone_number}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={selectedTemplate} onValueChange={(v) => {
-                setSelectedTemplate(v);
-                const t = templates.find((t: any) => t.name === v);
-                if (t) setTemplateLang(t.language || 'pt_BR');
-              }}>
-                <SelectTrigger className="h-8 text-[11px] w-[200px]">
-                  <SelectValue placeholder="Template" />
-                </SelectTrigger>
-                <SelectContent>
-                  {templates.map((t: any) => (
-                    <SelectItem key={t.name} value={t.name} className="text-xs">
-                      {t.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="p-0">
-          {loadingLists ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 size={20} className="animate-spin text-muted-foreground" />
-            </div>
-          ) : topSuperclientes.length === 0 ? (
-            <div className="p-6 text-center text-muted-foreground text-sm">Nenhum supercliente encontrado.</div>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>#</TableHead>
-                    <TableHead>Nome</TableHead>
-                    <TableHead>Telefone</TableHead>
-                    <TableHead>Eventos</TableHead>
-                    <TableHead>Valor Gasto</TableHead>
-                    <TableHead className="text-right">Ação</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {topSuperclientes.map((s, i) => (
-                    <TableRow key={s.customer_id}>
-                      <TableCell className="text-muted-foreground text-xs">{i + 1}</TableCell>
-                      <TableCell>
-                        <button
-                          onClick={() => setDetailsCustomerId(s.customer_id)}
-                          className="font-medium text-left hover:text-purple-600 hover:underline transition-colors"
-                        >
-                          {s.full_name}
-                        </button>
-                      </TableCell>
-                      <TableCell className="text-muted-foreground text-sm">{formatPhone(s.phone)}</TableCell>
-                      <TableCell>
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <span className="px-2 py-0.5 rounded-full text-xs bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 font-medium cursor-help">
-                                {s.event_count} eventos
-                              </span>
-                            </TooltipTrigger>
-                            <TooltipContent side="top" className="max-w-[250px]">
-                              <ul className="text-xs space-y-0.5">
-                                {(s.event_names || []).map((name, idx) => (
-                                  <li key={idx}>• {name}</li>
-                                ))}
-                              </ul>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      </TableCell>
-                      <TableCell className="font-semibold">{fmt(s.total_spent)}</TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-7 text-xs gap-1"
-                          onClick={() => setContactTarget(s)}
-                          disabled={!s.phone}
-                        >
-                          <MessageCircle size={12} /> Contato
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {allCustomers
+                    .filter(c => {
+                      if (!customerSearch.trim()) return true;
+                      const q = customerSearch.toLowerCase();
+                      return (
+                        c.full_name?.toLowerCase().includes(q) ||
+                        c.phone?.includes(q)
+                      );
+                    })
+                    .map((c, i) => (
+                      <TableRow
+                        key={c.id}
+                        className="cursor-pointer hover:bg-muted/40"
+                        onClick={() => setDetailsCustomerId(c.id)}
+                      >
+                        <TableCell className="text-muted-foreground text-xs">{i + 1}</TableCell>
+                        <TableCell className="font-medium text-sm">{c.full_name}</TableCell>
+                        <TableCell className="hidden md:table-cell text-muted-foreground text-xs">{formatPhone(c.phone)}</TableCell>
+                        <TableCell className="hidden lg:table-cell text-muted-foreground text-xs">{c.city || '—'}</TableCell>
+                        <TableCell className="text-sm">{c.previous_purchases_count ?? 0}</TableCell>
+                        <TableCell className="font-semibold text-sm">
+                          {Number(c.ltv).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                        </TableCell>
+                        <TableCell className="hidden md:table-cell text-muted-foreground text-xs truncate max-w-[140px]">{c.last_event || '—'}</TableCell>
+                        <TableCell>
+                          {c.classification && (
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${CLASSIFICATION_COLORS[c.classification as ClientClassification]}`}>
+                              {CLASSIFICATION_LABELS[c.classification as ClientClassification]}
+                            </span>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
                 </TableBody>
               </Table>
             </div>

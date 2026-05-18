@@ -379,9 +379,6 @@ export default function InternoLayout() {
                   <NavLink to="/interno/ads/campanhas" onClick={() => setSidebarOpen(false)} className={({ isActive }) => subItemClass(isActive)}>
                     <BarChart3 size={14} className="mr-2" /> Campanhas
                   </NavLink>
-                  <NavLink to="/interno/ads/pixel" onClick={() => setSidebarOpen(false)} className={({ isActive }) => subItemClass(isActive)}>
-                    <Radio size={14} className="mr-2" /> Pixel & Públicos
-                  </NavLink>
                   <NavLink to="/interno/ads/criativos" onClick={() => setSidebarOpen(false)} className={({ isActive }) => subItemClass(isActive)}>
                     <Trophy size={14} className="mr-2" /> Criativos Campeões
                   </NavLink>

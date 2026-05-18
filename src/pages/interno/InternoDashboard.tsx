@@ -57,8 +57,7 @@ const mainOptions: MainOption[] = [
     subCards: [
       { icon: TrendingUp, label: 'Campanhas', description: 'Relatórios de tráfego pago.', color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-900/20', to: '/interno/ads/campanhas' },
       { icon: Trophy, label: 'Criativos Campeões', description: 'Melhores criativos.', color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-900/20', to: '/interno/ads/criativos' },
-      { icon: Sparkles, label: 'TráfegoGPT', description: 'IA para gestão de tráfego.', color: 'text-violet-600 dark:text-violet-400', bg: 'bg-violet-50 dark:bg-violet-900/20', to: '/interno/trafego-gpt' },
-      { icon: Send, label: 'Disparo WhatsApp', description: 'Disparo em massa via WhatsApp.', color: 'text-green-600 dark:text-green-400', bg: 'bg-green-50 dark:bg-green-900/20', to: '/interno/whatsapp' },
+{ icon: Send, label: 'Disparo WhatsApp', description: 'Disparo em massa via WhatsApp.', color: 'text-green-600 dark:text-green-400', bg: 'bg-green-50 dark:bg-green-900/20', to: '/interno/whatsapp' },
       { icon: Mail, label: 'Disparo de E-mail', description: 'Campanhas de e-mail marketing.', color: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-50 dark:bg-blue-900/20', to: '/interno/email' },
     ],
   },
