@@ -5,8 +5,6 @@ import simboloBranco from '@/assets/simbolo-lagun-branco.png';
 import palavraGold from '@/assets/palavra-lagun.png';
 import palavraBranco from '@/assets/palavra-lagun-branco.png';
 import flyerNoiteFlamingo from '@/assets/flyer-noite-flamingo.png';
-import flyerSabadoMobile from '@/assets/flyer-sabado-mobile.png';
-import flyerSabadoWeb from '@/assets/flyer-sabado-web.png';
 import videoLagun from '@/assets/video-lagun.mp4';
 import videoLagun2 from '@/assets/video-lagun-2.mp4';
 import logo99 from '@/assets/logo-99-gold.svg';
@@ -22,25 +20,15 @@ import fotoAniversario from '@/assets/foto-aniversario.jpg';
 const eventos = [
   {
     id: 1,
-    nome: 'Lagun Friday',
-    data: '15/05',
-    diaSemana: 'Sexta-feira',
-    artista: 'Pauly',
-    tag: 'EM BREVE',
-    link: 'https://zig.tickets/eventos/lagun-friday',
-    flyerMobile: flyerNoiteFlamingo,
-    flyerDesktop: flyerNoiteFlamingo,
-  },
-  {
-    id: 2,
-    nome: 'Lagun Saturday',
-    data: '16/05',
+    nome: 'Bero Costa',
+    data: '22/05',
     diaSemana: 'Sábado',
-    artista: 'DJ Zag',
-    tag: 'EM BREVE',
-    link: 'https://zig.tickets/eventos/lagun-saturday',
-    flyerMobile: flyerSabadoMobile,
-    flyerDesktop: flyerSabadoWeb,
+    artista: 'All Night Along',
+    guests: 'BeLeiTe + Dj Lukão',
+    tag: 'ABERTO',
+    link: 'https://www.superticket.com.br/evento/22811',
+    flyerMobile: '/flyer-bero-feed.png',
+    flyerDesktop: '/flyer-bero-banner.png',
   },
 ];
 
@@ -168,6 +156,9 @@ export default function LandingPage() {
                 <div className="flex-1 min-w-0">
                   <p className="font-bold text-white text-sm leading-tight truncate">{ev.nome}</p>
                   <p className="text-sm font-semibold truncate mt-0.5" style={{ color: '#F5D470' }}>{ev.artista}</p>
+                  {'guests' in ev && ev.guests && (
+                    <p className="text-[10px] truncate" style={{ color: 'rgba(255,255,255,0.4)' }}>{(ev as any).guests}</p>
+                  )}
                   <p className="text-[11px] mt-0.5" style={{ color: 'rgba(255,255,255,0.45)' }}>
                     <span className="font-bold" style={{ color: 'rgba(255,255,255,0.75)' }}>{ev.data}</span>
                     {' · '}{ev.diaSemana}
@@ -214,7 +205,7 @@ export default function LandingPage() {
               >
                 <div
                   className="relative w-full flex items-center justify-center overflow-hidden"
-                  style={{ aspectRatio: '1696 / 624', backgroundColor: '#1A0800', borderBottom: '1px solid rgba(245,212,112,0.1)' }}
+                  style={{ aspectRatio: '800 / 300', backgroundColor: '#1A0800', borderBottom: '1px solid rgba(245,212,112,0.1)' }}
                 >
                   <img src={ev.flyerDesktop} alt={ev.nome} className="w-full h-full object-cover" />
                 </div>
@@ -236,7 +227,12 @@ export default function LandingPage() {
                   </div>
                   <div className="flex-1">
                     <h3 className="text-lg font-bold leading-tight text-white">{ev.nome}</h3>
-                    <p className="text-base font-semibold mt-1" style={{ color: '#F5D470' }}>{ev.artista}</p>
+                    <p className="text-base font-semibold mt-0.5" style={{ color: '#F5D470' }}>{ev.artista}</p>
+                    {'guests' in ev && ev.guests && (
+                      <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                        special guests: <span style={{ color: 'rgba(255,255,255,0.65)' }}>{(ev as any).guests}</span>
+                      </p>
+                    )}
                   </div>
                   <a
                     href={ev.link}
