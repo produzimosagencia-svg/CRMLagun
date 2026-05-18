@@ -20,10 +20,10 @@ import fotoAniversario from '@/assets/foto-aniversario.jpg';
 const eventos = [
   {
     id: 1,
-    nome: 'Bero Costa',
+    nome: 'Bero All Night',
     data: '23/05',
     diaSemana: 'Sábado',
-    artista: 'All Night Along',
+    artista: '',
     guests: 'BeLeiTe + Dj Lukão',
     tag: 'ABERTO',
     link: 'https://zig.tickets/eventos/bero-all-night',
@@ -155,7 +155,7 @@ export default function LandingPage() {
                 {/* Info */}
                 <div className="flex-1 min-w-0">
                   <p className="font-bold text-white text-sm leading-tight truncate">{ev.nome}</p>
-                  <p className="text-sm font-semibold truncate mt-0.5" style={{ color: '#F5D470' }}>{ev.artista}</p>
+                  {ev.artista && <p className="text-sm font-semibold truncate mt-0.5" style={{ color: '#F5D470' }}>{ev.artista}</p>}
                   {'guests' in ev && ev.guests && (
                     <p className="text-[10px] truncate" style={{ color: 'rgba(255,255,255,0.4)' }}>{(ev as any).guests}</p>
                   )}
@@ -227,7 +227,7 @@ export default function LandingPage() {
                   </div>
                   <div className="flex-1">
                     <h3 className="text-lg font-bold leading-tight text-white">{ev.nome}</h3>
-                    <p className="text-base font-semibold mt-0.5" style={{ color: '#F5D470' }}>{ev.artista}</p>
+                    {ev.artista && <p className="text-base font-semibold mt-0.5" style={{ color: '#F5D470' }}>{ev.artista}</p>}
                     {'guests' in ev && ev.guests && (
                       <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.4)' }}>
                         special guests: <span style={{ color: 'rgba(255,255,255,0.65)' }}>{(ev as any).guests}</span>
