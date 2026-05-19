@@ -11,7 +11,7 @@ import { toast } from 'sonner';
 
 interface LandingEvent {
   id: string;
-  name: string;
+  nome: string;
   data: string | null;
   dia_semana: string | null;
   artista: string | null;
@@ -25,7 +25,7 @@ interface LandingEvent {
 }
 
 const emptyEvent: Omit<LandingEvent, 'id'> = {
-  name: '',
+  nome: '',
   data: '',
   dia_semana: '',
   artista: '',
@@ -68,7 +68,7 @@ export default function InternoLanding() {
     setLoading(true);
     const { data, error } = await (supabase as any)
       .from('lagun_events')
-      .select('id, name, data, dia_semana, artista, guests, tag, link, flyer_mobile_url, flyer_desktop_url, show_on_landing, display_order')
+      .select('id, nome, data, dia_semana, artista, guests, tag, link, flyer_mobile_url, flyer_desktop_url, show_on_landing, display_order')
       .order('display_order', { ascending: true });
     if (!error && data) setEvents(data as LandingEvent[]);
     setLoading(false);
@@ -85,8 +85,8 @@ export default function InternoLanding() {
   function openEdit(ev: LandingEvent) {
     setEditingId(ev.id);
     setForm({
-      name: ev.name,
-      data: ev.data ?? '',
+      nome: ev.nome,
+      data: ev.data ? ev.data.slice(0, 10) : '',
       dia_semana: ev.dia_semana ?? '',
       artista: ev.artista ?? '',
       guests: ev.guests ?? '',
@@ -111,10 +111,10 @@ export default function InternoLanding() {
   }
 
   async function handleSave() {
-    if (!form.name.trim()) { toast.error('Nome é obrigatório'); return; }
+    if (!form.nome.trim()) { toast.error('Nome é obrigatório'); return; }
     setSaving(true);
     const payload = {
-      name: form.name.trim(),
+      nome: form.nome.trim(),
       data: form.data || null,
       dia_semana: form.dia_semana || null,
       artista: form.artista || null,
@@ -220,7 +220,7 @@ export default function InternoLanding() {
                 {ev.flyer_mobile_url ? (
                   <img
                     src={ev.flyer_mobile_url}
-                    alt={ev.name}
+                    alt={ev.nome}
                     className="w-full h-full object-cover"
                   />
                 ) : (
@@ -233,7 +233,7 @@ export default function InternoLanding() {
               {/* Info */}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <p className="font-semibold text-gray-900 dark:text-gray-100 text-sm truncate">{ev.name}</p>
+                  <p className="font-semibold text-gray-900 dark:text-gray-100 text-sm truncate">{ev.nome}</p>
                   {ev.tag && (
                     <span className="text-[10px] px-2 py-0.5 rounded-full border border-amber-400 text-amber-600 dark:text-amber-400 shrink-0">
                       {ev.tag}
@@ -306,11 +306,11 @@ export default function InternoLanding() {
 
           <div className="flex flex-col gap-4 pt-2">
             {/* Nome */}
-            {field('Nome do evento *', 'name', 'text', 'ex: Bero All Night')}
+            {field('Nome do evento *', 'nome', 'text', 'ex: Bero All Night')}
 
             {/* Data + Dia */}
             <div className="grid grid-cols-2 gap-3">
-              {field('Data', 'data', 'text', 'ex: 23/05')}
+              {field('Data', 'data', 'date', '')}
               {field('Dia da semana', 'dia_semana', 'text', 'ex: Sábado')}
             </div>
 

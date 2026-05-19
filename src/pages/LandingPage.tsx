@@ -51,7 +51,7 @@ export default function LandingPage() {
   useEffect(() => {
     (supabase as any)
       .from('lagun_events')
-      .select('id, name, data, dia_semana, artista, guests, tag, link, flyer_mobile_url, flyer_desktop_url')
+      .select('id, nome, data, dia_semana, artista, guests, tag, link, flyer_mobile_url, flyer_desktop_url')
       .eq('show_on_landing', true)
       .order('display_order', { ascending: true })
       .then(({ data }: { data: any[] | null }) => {
@@ -59,8 +59,8 @@ export default function LandingPage() {
         setEventos(
           data.map((row) => ({
             id: row.id,
-            nome: row.name ?? '',
-            data: row.data ?? '',
+            nome: row.nome ?? '',
+            data: row.data ? row.data.slice(5).replace('-', '/') : '',
             diaSemana: row.dia_semana ?? '',
             artista: row.artista ?? '',
             guests: row.guests ?? '',
