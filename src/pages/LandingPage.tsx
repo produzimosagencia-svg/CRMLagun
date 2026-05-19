@@ -60,7 +60,7 @@ export default function LandingPage() {
           data.map((row) => ({
             id: row.id,
             nome: row.nome ?? '',
-            data: row.data ? row.data.slice(5).replace('-', '/') : '',
+            data: row.data ? row.data.slice(5).split('-').reverse().join('/') : '',
             diaSemana: row.dia_semana ?? '',
             artista: row.artista ?? '',
             guests: row.guests ?? '',

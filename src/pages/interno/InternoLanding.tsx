@@ -418,7 +418,7 @@ export default function InternoLanding() {
                     {form.guests && <p className="text-[10px] truncate" style={{ color: 'rgba(255,255,255,0.4)' }}>{form.guests}</p>}
                     <p className="text-[10px] mt-0.5" style={{ color: 'rgba(255,255,255,0.45)' }}>
                       {form.data
-                        ? <><span style={{ color: 'rgba(255,255,255,0.75)', fontWeight: 700 }}>{form.data.slice(5).replace('-', '/')}</span>{form.dia_semana ? ` · ${form.dia_semana}` : ''}</>
+                        ? <><span style={{ color: 'rgba(255,255,255,0.75)', fontWeight: 700 }}>{form.data.slice(5).split('-').reverse().join('/')}</span>{form.dia_semana ? ` · ${form.dia_semana}` : ''}</>
                         : <span style={{ color: 'rgba(255,255,255,0.25)' }}>dd/mm · dia</span>
                       }
                     </p>
@@ -452,7 +452,7 @@ export default function InternoLanding() {
                         {form.tag || 'ABERTO'}
                       </span>
                       <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                        {form.data ? form.data.slice(5).replace('-', '/') : 'dd/mm'}{form.dia_semana ? ` · ${form.dia_semana}` : ''}
+                        {form.data ? form.data.slice(5).split('-').reverse().join('/') : 'dd/mm'}{form.dia_semana ? ` · ${form.dia_semana}` : ''}
                       </span>
                     </div>
                     <div>
