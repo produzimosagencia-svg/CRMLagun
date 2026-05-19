@@ -1,25 +1,24 @@
-import { corsHeaders } from "../_shared/cors.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-// Endpoint exigido pelo Instagram para solicitação de exclusão de dados do usuário
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { headers: { "Access-Control-Allow-Origin": "*" } });
   }
 
   try {
-    let payload: Record<string, unknown> = {};
-    const contentType = req.headers.get("content-type") || "";
+    let userId: string | null = null;
 
+    const contentType = req.headers.get("content-type") ?? "";
     if (contentType.includes("application/json")) {
-      payload = await req.json();
+      const body = await req.json();
+      userId = body.user_id ?? body.instagram_user_id ?? null;
     } else {
       const form = await req.formData();
-      payload = { signed_request: String(form.get("signed_request") || "") };
+      // signed_request is base64url encoded — just extract user_id if present
+      userId = String(form.get("user_id") ?? "");
     }
 
-    const userId = payload.user_id || payload.instagram_user_id;
-    const confirmationCode = `del-${crypto.randomUUID()}`;
+    const confirmationCode = `lagun-del-${crypto.randomUUID()}`;
 
     if (userId) {
       const supabase = createClient(
@@ -27,32 +26,41 @@ Deno.serve(async (req) => {
         Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
       );
 
-      // Apaga todas as detecções de conteúdo e a conta IG
-      const { data: account } = await supabase
-        .from("creator_instagram_accounts")
+      // Delete Instagram conversations and messages for this user
+      const { data: conv } = await supabase
+        .from("ig_conversations")
         .select("id")
-        .eq("instagram_user_id", String(userId))
+        .eq("ig_user_id", userId)
         .maybeSingle();
 
-      if (account) {
-        await supabase.from("creator_content_detections").delete().eq("instagram_account_id", account.id);
-        await supabase.from("creator_instagram_accounts").delete().eq("id", account.id);
+      if (conv) {
+        await supabase.from("ig_messages").delete().eq("conversation_id", conv.id);
+        await supabase.from("ig_conversations").delete().eq("id", conv.id);
       }
+
+      // Also delete from whatsapp_messages if any Instagram channel messages
+      await supabase
+        .from("whatsapp_messages")
+        .delete()
+        .eq("phone", userId)
+        .eq("channel", "instagram");
+
+      console.log(`Data deletion completed for user: ${userId}, code: ${confirmationCode}`);
     }
 
-    // Resposta exigida pela Meta
-    return new Response(JSON.stringify({
-      url: `https://triadentretenimento.com.br/data-deletion-status?code=${confirmationCode}`,
-      confirmation_code: confirmationCode,
-    }), {
-      status: 200,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    // Required Meta response format
+    return new Response(
+      JSON.stringify({
+        url: `https://lagun.com.br/exclusao-de-dados?code=${confirmationCode}`,
+        confirmation_code: confirmationCode,
+      }),
+      { status: 200, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } }
+    );
   } catch (err) {
     console.error("Data deletion error:", err);
-    return new Response(JSON.stringify({ error: "Internal error" }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({ error: "Internal error" }),
+      { status: 500, headers: { "Content-Type": "application/json" } }
+    );
   }
 });

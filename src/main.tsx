@@ -43,6 +43,7 @@ const InternoDados = lazy(() => import("./pages/interno/InternoDados.tsx"));
 const InternoLanding = lazy(() => import("./pages/interno/InternoLanding.tsx"));
 const Privacidade = lazy(() => import("./pages/Privacidade.tsx"));
 const Termos = lazy(() => import("./pages/Termos.tsx"));
+const ExclusaoDados = lazy(() => import("./pages/ExclusaoDados.tsx"));
 
 const Fallback = () => (
   <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -58,6 +59,7 @@ createRoot(document.getElementById("root")!).render(
         <Route path="/" element={<App />} />
         <Route path="/privacidade" element={<Privacidade />} />
         <Route path="/termos" element={<Termos />} />
+        <Route path="/exclusao-de-dados" element={<ExclusaoDados />} />
 
         <Route path="/interno/login" element={<InternoLogin />} />
         <Route path="/interno/trafego-gpt" element={<InternoTrafegoGPT />} />
