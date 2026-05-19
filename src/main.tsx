@@ -41,6 +41,8 @@ const InternoGrafos = lazy(() => import("./pages/interno/InternoGrafos.tsx"));
 const InternoGrafosLista = lazy(() => import("./pages/interno/InternoGrafosLista.tsx"));
 const InternoDados = lazy(() => import("./pages/interno/InternoDados.tsx"));
 const InternoLanding = lazy(() => import("./pages/interno/InternoLanding.tsx"));
+const Privacidade = lazy(() => import("./pages/Privacidade.tsx"));
+const Termos = lazy(() => import("./pages/Termos.tsx"));
 
 const Fallback = () => (
   <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -54,6 +56,8 @@ createRoot(document.getElementById("root")!).render(
     <Suspense fallback={<Fallback />}>
       <Routes>
         <Route path="/" element={<App />} />
+        <Route path="/privacidade" element={<Privacidade />} />
+        <Route path="/termos" element={<Termos />} />
 
         <Route path="/interno/login" element={<InternoLogin />} />
         <Route path="/interno/trafego-gpt" element={<InternoTrafegoGPT />} />
