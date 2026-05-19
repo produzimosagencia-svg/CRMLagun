@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 import simboloGold from '@/assets/simbolo-lagun.png';
 import flamingoSolo from '@/assets/flamingo-solo.png';
 import simboloBranco from '@/assets/simbolo-lagun-branco.png';
@@ -17,20 +18,18 @@ import fotoLounge3 from '@/assets/DSC_8794.jpg';
 import fotoLounge4 from '@/assets/DSC_9422.jpg';
 import fotoAniversario from '@/assets/foto-aniversario.jpg';
 
-const eventos = [
-  {
-    id: 1,
-    nome: 'Bero All Night',
-    data: '23/05',
-    diaSemana: 'Sábado',
-    artista: '',
-    guests: 'BeLeiTe + Dj Lukão',
-    tag: 'ABERTO',
-    link: 'https://onticket.com.br/eventos/7738-bero-all-night-lagun-vitoria-2026',
-    flyerMobile: '/flyer-bero-feed.png',
-    flyerDesktop: '/flyer-bero-banner.png',
-  },
-];
+interface LandingEvento {
+  id: string;
+  nome: string;
+  data: string;
+  diaSemana: string;
+  artista: string;
+  guests: string;
+  tag: string;
+  link: string;
+  flyerMobile: string;
+  flyerDesktop: string;
+}
 
 const lounges = [
   {
@@ -47,6 +46,32 @@ const loungePhotos = [fotoLounge, fotoLounge2, fotoLounge3, fotoLounge4];
 export default function LandingPage() {
   const revealRef = useRef<HTMLDivElement>(null);
   const [carouselIndex, setCarouselIndex] = useState(0);
+  const [eventos, setEventos] = useState<LandingEvento[]>([]);
+
+  useEffect(() => {
+    (supabase as any)
+      .from('lagun_events')
+      .select('id, name, data, dia_semana, artista, guests, tag, link, flyer_mobile_url, flyer_desktop_url')
+      .eq('show_on_landing', true)
+      .order('display_order', { ascending: true })
+      .then(({ data }: { data: any[] | null }) => {
+        if (!data) return;
+        setEventos(
+          data.map((row) => ({
+            id: row.id,
+            nome: row.name ?? '',
+            data: row.data ?? '',
+            diaSemana: row.dia_semana ?? '',
+            artista: row.artista ?? '',
+            guests: row.guests ?? '',
+            tag: row.tag ?? 'ABERTO',
+            link: row.link ?? '#',
+            flyerMobile: row.flyer_mobile_url ?? '',
+            flyerDesktop: row.flyer_desktop_url ?? '',
+          }))
+        );
+      });
+  }, []);
 
   useEffect(() => {
     document.body.style.backgroundColor = '#1A0800';

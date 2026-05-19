@@ -6,7 +6,7 @@ import {
   ChevronsRight, Ticket, Radio, MessageCircle, Send,
   ChevronDown, ChevronRight, Settings, User, Moon, Sun, Zap, Sparkles,
   Megaphone, BarChart3, Trophy, Users, ClipboardList, Palette, Image, Cake,
-  Database, Plus, CalendarDays,
+  Database, Plus, CalendarDays, Globe,
 } from 'lucide-react';
 import { MetaIcon } from '@/components/icons/MetaIcon';
 import { supabase } from '@/integrations/supabase/client';
@@ -132,6 +132,7 @@ export default function InternoLayout() {
     if (location.pathname.startsWith('/interno/perfil')) return 'Perfil';
     if (location.pathname.startsWith('/interno/grafos')) return 'RMKT (Grafos)';
     if (location.pathname.startsWith('/interno/dados')) return 'Dados';
+    if (location.pathname === '/interno/landing') return 'Landing Page';
     if (location.pathname === '/interno') return 'Home';
     return 'Interno';
   };
@@ -230,6 +231,21 @@ export default function InternoLayout() {
             </div>
             {!collapsed && <span className="text-sm font-medium">Eventos</span>}
           </NavLink>
+
+          {/* 1.5. Landing Page CMS */}
+          {canSeeHome && (
+            <NavLink
+              to="/interno/landing"
+              onClick={() => setSidebarOpen(false)}
+              className={({ isActive }) => navLinkClass(isActive)}
+              title={collapsed ? 'Landing Page' : undefined}
+            >
+              <div className={`flex items-center justify-center ${collapsed ? '' : 'mr-2'}`}>
+                <Globe size={18} />
+              </div>
+              {!collapsed && <span className="text-sm font-medium">Landing Page</span>}
+            </NavLink>
+          )}
 
           {/* 2. CRM (com sub-itens) */}
           {canSeeCRM && (

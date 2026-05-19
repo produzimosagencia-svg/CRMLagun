@@ -40,6 +40,7 @@ const InternoPerfil = lazy(() => import("./pages/interno/InternoPerfil.tsx"));
 const InternoGrafos = lazy(() => import("./pages/interno/InternoGrafos.tsx"));
 const InternoGrafosLista = lazy(() => import("./pages/interno/InternoGrafosLista.tsx"));
 const InternoDados = lazy(() => import("./pages/interno/InternoDados.tsx"));
+const InternoLanding = lazy(() => import("./pages/interno/InternoLanding.tsx"));
 
 const Fallback = () => (
   <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -87,6 +88,7 @@ createRoot(document.getElementById("root")!).render(
           <Route path="grafos" element={<InternoGrafosLista />} />
           <Route path="grafos/:id" element={<InternoGrafos />} />
           <Route path="dados" element={<InternoDados />} />
+          <Route path="landing" element={<InternoLanding />} />
           <Route path="marketing" element={<InternoMarketing />}>
             <Route index element={null} />
             <Route path="creators" element={<CrmCreators />} />
