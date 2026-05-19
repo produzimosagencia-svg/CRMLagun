@@ -26,7 +26,7 @@ const eventos = [
     artista: '',
     guests: 'BeLeiTe + Dj Lukão',
     tag: 'ABERTO',
-    link: 'https://zig.tickets/eventos/bero-all-night',
+    link: 'https://onticket.com.br/eventos/7738-bero-all-night-lagun-vitoria-2026',
     flyerMobile: '/flyer-bero-feed.png',
     flyerDesktop: '/flyer-bero-banner.png',
   },
