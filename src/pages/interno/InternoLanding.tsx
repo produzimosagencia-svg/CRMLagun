@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { Plus, Pencil, Trash2, Eye, EyeOff, GripVertical, ExternalLink, Globe } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Plus, Pencil, Trash2, Eye, EyeOff, GripVertical, ExternalLink, Globe, Upload, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import {
   Dialog,
@@ -46,6 +46,23 @@ export default function InternoLanding() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<Omit<LandingEvent, 'id'>>(emptyEvent);
   const [saving, setSaving] = useState(false);
+  const [uploadingMobile, setUploadingMobile] = useState(false);
+  const [uploadingDesktop, setUploadingDesktop] = useState(false);
+  const mobileInputRef = useRef<HTMLInputElement>(null);
+  const desktopInputRef = useRef<HTMLInputElement>(null);
+
+  async function uploadFlyer(file: File, slot: 'mobile' | 'desktop') {
+    const setter = slot === 'mobile' ? setUploadingMobile : setUploadingDesktop;
+    setter(true);
+    const ext = file.name.split('.').pop();
+    const path = `flyers/${Date.now()}-${slot}.${ext}`;
+    const { error } = await (supabase as any).storage.from('landing-flyers').upload(path, file, { upsert: true });
+    if (error) { toast.error('Erro no upload: ' + error.message); setter(false); return; }
+    const { data: { publicUrl } } = (supabase as any).storage.from('landing-flyers').getPublicUrl(path);
+    setForm((f) => ({ ...f, [slot === 'mobile' ? 'flyer_mobile_url' : 'flyer_desktop_url']: publicUrl }));
+    setter(false);
+    toast.success(`Flyer ${slot} enviado!`);
+  }
 
   async function fetchEvents() {
     setLoading(true);
@@ -322,11 +339,95 @@ export default function InternoLanding() {
             {/* Flyers */}
             <div className="border-t border-gray-100 pt-4">
               <p className="text-xs font-semibold text-gray-500 mb-3 uppercase tracking-wide">Imagens</p>
-              {field('URL Flyer Mobile (feed quadrado)', 'flyer_mobile_url', 'text', '/flyer-evento-feed.png ou https://...')}
-              {field('URL Flyer Desktop (banner largo)', 'flyer_desktop_url', 'text', '/flyer-evento-banner.png ou https://...')}
-              <p className="text-[11px] text-gray-400 mt-1.5">
-                Cole uma URL pública ou o caminho a partir de <code>/public</code> (ex: <code>/flyer-bero-feed.png</code>)
-              </p>
+
+              {/* Mobile flyer */}
+              <div className="mb-3">
+                <label className="block text-xs font-medium text-gray-500 mb-1">Flyer Mobile (feed quadrado)</label>
+                <div className="flex gap-2 items-start">
+                  <div className="flex-1">
+                    {form.flyer_mobile_url ? (
+                      <div className="relative rounded-lg overflow-hidden border border-gray-200 bg-gray-50" style={{ height: 80 }}>
+                        <img src={form.flyer_mobile_url} alt="mobile" className="h-full w-full object-cover" />
+                        <button
+                          type="button"
+                          onClick={() => setForm((f) => ({ ...f, flyer_mobile_url: '' }))}
+                          className="absolute top-1 right-1 bg-black/60 rounded-full p-0.5 text-white hover:bg-black/80"
+                        >
+                          <X size={12} />
+                        </button>
+                      </div>
+                    ) : (
+                      <div
+                        onClick={() => mobileInputRef.current?.click()}
+                        className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 cursor-pointer hover:border-indigo-400 hover:bg-indigo-50/30 transition-colors"
+                        style={{ height: 80 }}
+                      >
+                        {uploadingMobile ? (
+                          <div className="h-5 w-5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                          <>
+                            <Upload size={18} className="text-gray-400 mb-1" />
+                            <span className="text-[11px] text-gray-400">Clique para enviar</span>
+                          </>
+                        )}
+                      </div>
+                    )}
+                    <input
+                      ref={mobileInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadFlyer(f, 'mobile'); }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Desktop flyer */}
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Flyer Desktop (banner largo)</label>
+                <div
+                  onClick={() => !form.flyer_desktop_url && desktopInputRef.current?.click()}
+                  className={`relative rounded-lg overflow-hidden border-2 border-dashed border-gray-200 bg-gray-50 transition-colors ${!form.flyer_desktop_url ? 'cursor-pointer hover:border-indigo-400 hover:bg-indigo-50/30' : ''}`}
+                  style={{ height: 70 }}
+                >
+                  {form.flyer_desktop_url ? (
+                    <>
+                      <img src={form.flyer_desktop_url} alt="desktop" className="h-full w-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => setForm((f) => ({ ...f, flyer_desktop_url: '' }))}
+                        className="absolute top-1 right-1 bg-black/60 rounded-full p-0.5 text-white hover:bg-black/80"
+                      >
+                        <X size={12} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => desktopInputRef.current?.click()}
+                        className="absolute bottom-1 right-1 bg-black/60 rounded text-white text-[10px] px-1.5 py-0.5 hover:bg-black/80"
+                      >
+                        Trocar
+                      </button>
+                    </>
+                  ) : uploadingDesktop ? (
+                    <div className="h-full flex items-center justify-center">
+                      <div className="h-5 w-5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+                    </div>
+                  ) : (
+                    <div className="h-full flex flex-col items-center justify-center">
+                      <Upload size={18} className="text-gray-400 mb-1" />
+                      <span className="text-[11px] text-gray-400">Clique para enviar (formato banner)</span>
+                    </div>
+                  )}
+                </div>
+                <input
+                  ref={desktopInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadFlyer(f, 'desktop'); }}
+                />
+              </div>
             </div>
 
             {/* Order + Visible */}

@@ -1,13 +1,10 @@
 import { useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import logoLagun from '@/assets/logo-lagun-entretenimento.png';
-import loginPhoto1 from '@/assets/login-photo-1.jpg';
-import loginPhoto2 from '@/assets/login-photo-2.jpg';
-import loginPhoto3 from '@/assets/login-photo-3.jpg';
+import loginPhoto from '@/assets/DSC_9565.jpg';
+import palavraGold from '@/assets/palavra-lagun.png';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 
@@ -19,23 +16,21 @@ export default function InternoLogin() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-white">
-        <Loader2 className="h-8 w-8 animate-spin text-[#FF0080]" />
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#0f0a05' }}>
+        <Loader2 className="h-7 w-7 animate-spin" style={{ color: '#F5D470' }} />
       </div>
     );
   }
 
-  if (user && isPartner) {
-    return <Navigate to="/interno" replace />;
-  }
+  if (user && isPartner) return <Navigate to="/interno" replace />;
 
   if (user && !isPartner) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-white p-4">
+      <div className="min-h-screen flex items-center justify-center p-4" style={{ backgroundColor: '#0f0a05' }}>
         <div className="text-center">
-          <img src={logoLagun} alt="Lagun" className="h-12 mx-auto mb-4" />
-          <h2 className="text-xl font-bold text-gray-900 mb-2">Acesso Restrito</h2>
-          <p className="text-gray-500">Sua conta não possui permissão para acessar o sistema interno.</p>
+          <img src={palavraGold} alt="Lagun" className="h-8 mx-auto mb-6" />
+          <h2 className="text-xl font-bold text-white mb-2">Acesso Restrito</h2>
+          <p style={{ color: 'rgba(255,255,255,0.45)' }} className="text-sm">Sua conta não possui permissão para acessar o sistema interno.</p>
         </div>
       </div>
     );
@@ -46,73 +41,54 @@ export default function InternoLogin() {
     if (!username.trim() || !password.trim()) return;
     setSubmitting(true);
     const { error } = await signInByUsername(username.trim(), password);
-    if (error) {
-      toast.error(error.message || 'Erro ao fazer login');
-    }
+    if (error) toast.error(error.message || 'Usuário ou senha incorretos');
     setSubmitting(false);
   };
 
   return (
-    <div className="min-h-screen flex bg-white">
-      {/* Left side - branding (hidden on mobile) */}
-      <div className="hidden lg:flex lg:w-1/2 flex-col justify-center items-start px-16 xl:px-24 relative">
-        <img src={logoLagun} alt="Lagun" className="h-10 mb-12" />
-        <h1 className="text-4xl xl:text-5xl font-bold text-gray-900 leading-tight mb-6">
-          Trabalhar com festa<br />
-          sempre será{' '}
-          <span className="text-[#FF0080]">divertido.</span>
-        </h1>
+    <div className="min-h-screen flex" style={{ backgroundColor: '#0f0a05' }}>
 
-        {/* Photo collage - inspired by Meta login */}
-        <div className="relative mt-8 w-full max-w-md">
-          <div className="grid grid-cols-3 gap-3">
-            {/* Placeholder photo cards with iPhone-style rounded corners and emojis */}
-            <div className="relative">
-              <div className="aspect-[3/4] rounded-2xl overflow-hidden shadow-lg">
-                <img src={loginPhoto1} alt="Lagun" className="w-full h-full object-cover" />
-              </div>
-              <span className="absolute -top-2 -right-2 text-2xl">🎤</span>
-            </div>
-            <div className="relative mt-6">
-              <div className="aspect-[3/4] rounded-2xl overflow-hidden shadow-lg">
-                <img src={loginPhoto2} alt="Show ao vivo" className="w-full h-full object-cover" />
-              </div>
-              <span className="absolute -top-2 -left-2 text-2xl">🔥</span>
-            </div>
-            <div className="relative">
-              <div className="aspect-[3/4] rounded-2xl overflow-hidden shadow-lg">
-                <img src={loginPhoto3} alt="Palco com fogos" className="w-full h-full object-cover" />
-              </div>
-              <span className="absolute -bottom-2 -right-2 text-2xl">🎉</span>
-            </div>
-          </div>
-          {/* Extra floating card */}
-          <div className="absolute -bottom-4 left-1/2 -translate-x-1/2">
-            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[#FF0080]/30 to-purple-200 shadow-lg flex items-center justify-center">
-              <span className="text-3xl">🎶</span>
-            </div>
-          </div>
+      {/* ── LEFT: full photo ── */}
+      <div className="hidden lg:block lg:w-[55%] xl:w-[60%] relative overflow-hidden">
+        <img
+          src={loginPhoto}
+          alt="Lagun"
+          className="absolute inset-0 w-full h-full object-cover object-center"
+        />
+        {/* gradient overlay bottom */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background: 'linear-gradient(to right, transparent 60%, #0f0a05 100%), linear-gradient(to top, rgba(15,10,5,0.5) 0%, transparent 40%)',
+          }}
+        />
+        {/* logo + tagline bottom-left */}
+        <div className="absolute bottom-10 left-10">
+          <img src={palavraGold} alt="Lagun" className="h-7 w-auto mb-3" />
+          <p className="text-xs tracking-[0.3em] uppercase" style={{ color: 'rgba(245,212,112,0.6)' }}>
+            Sistema Interno
+          </p>
         </div>
       </div>
 
-      {/* Divider line */}
-      <div className="hidden lg:block w-px bg-gray-200" />
+      {/* ── RIGHT: login form ── */}
+      <div className="flex-1 flex flex-col justify-center items-center px-6 sm:px-12 lg:px-14 xl:px-20">
 
-      {/* Right side - login form */}
-      <div className="flex-1 flex flex-col justify-center items-center px-6 sm:px-12 lg:px-16">
-        {/* Mobile-only branding */}
-        <div className="lg:hidden text-center mb-8">
-          <img src={logoLagun} alt="Lagun" className="h-10 mx-auto mb-4" />
-          <p className="text-gray-500 text-sm">Trabalhar com festa sempre será <span className="text-[#FF0080] font-semibold">divertido.</span></p>
+        {/* Mobile logo */}
+        <div className="lg:hidden mb-10 text-center">
+          <img src={palavraGold} alt="Lagun" className="h-7 mx-auto" />
         </div>
 
-        <div className="w-full max-w-sm">
-          <h2 className="text-2xl font-bold text-gray-900 mb-1">Entrar</h2>
-          <p className="text-gray-500 text-sm mb-8">Sistema interno da Lagun</p>
+        <div className="w-full max-w-[340px]">
+          <h2 className="text-2xl font-bold text-white mb-1">Entrar</h2>
+          <p className="text-sm mb-8" style={{ color: 'rgba(255,255,255,0.35)' }}>
+            Acesso exclusivo para o time Lagun
+          </p>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div className="space-y-2">
-              <Label htmlFor="username" className="text-gray-700 text-sm font-medium">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Usuário */}
+            <div className="space-y-1.5">
+              <Label htmlFor="username" className="text-sm font-medium" style={{ color: 'rgba(255,255,255,0.6)' }}>
                 Usuário
               </Label>
               <Input
@@ -122,12 +98,18 @@ export default function InternoLogin() {
                 onChange={(e) => setUsername(e.target.value)}
                 required
                 autoComplete="username"
-                className="h-12 bg-gray-50 border-gray-200 text-gray-900 placeholder:text-gray-400 focus-visible:ring-[#FF0080]/30 focus-visible:border-[#FF0080]"
                 placeholder="Digite seu usuário"
+                className="h-12 rounded-xl border text-white placeholder:text-gray-600 focus-visible:ring-0 focus-visible:border-[#F5D470]"
+                style={{
+                  backgroundColor: 'rgba(255,255,255,0.05)',
+                  borderColor: 'rgba(255,255,255,0.1)',
+                }}
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="password" className="text-gray-700 text-sm font-medium">
+
+            {/* Senha */}
+            <div className="space-y-1.5">
+              <Label htmlFor="password" className="text-sm font-medium" style={{ color: 'rgba(255,255,255,0.6)' }}>
                 Senha
               </Label>
               <Input
@@ -137,24 +119,32 @@ export default function InternoLogin() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 autoComplete="current-password"
-                className="h-12 bg-gray-50 border-gray-200 text-gray-900 placeholder:text-gray-400 focus-visible:ring-[#FF0080]/30 focus-visible:border-[#FF0080]"
                 placeholder="••••••••"
+                className="h-12 rounded-xl border text-white placeholder:text-gray-600 focus-visible:ring-0 focus-visible:border-[#F5D470]"
+                style={{
+                  backgroundColor: 'rgba(255,255,255,0.05)',
+                  borderColor: 'rgba(255,255,255,0.1)',
+                }}
               />
             </div>
-            <Button
+
+            {/* Submit */}
+            <button
               type="submit"
               disabled={submitting}
-              className="w-full h-12 bg-[#FF0080] hover:bg-[#E0006F] text-white font-semibold rounded-xl text-base transition-all duration-200"
+              className="w-full h-12 rounded-xl font-bold text-sm tracking-wide transition-all duration-200 active:scale-[0.98] disabled:opacity-60 flex items-center justify-center mt-2"
+              style={{
+                background: 'linear-gradient(135deg, #F5D470 0%, #e8b830 50%, #F5D470 100%)',
+                color: '#1A0800',
+                boxShadow: '0 0 24px rgba(245,212,112,0.4), 0 4px 14px rgba(245,212,112,0.2)',
+                border: '1px solid rgba(255,235,130,0.5)',
+              }}
             >
-              {submitting ? (
-                <Loader2 className="h-5 w-5 animate-spin" />
-              ) : (
-                'Entrar'
-              )}
-            </Button>
+              {submitting ? <Loader2 className="h-5 w-5 animate-spin" style={{ color: '#1A0800' }} /> : 'Entrar'}
+            </button>
           </form>
 
-          <p className="text-center text-xs text-gray-400 mt-8">
+          <p className="text-center text-[11px] mt-10" style={{ color: 'rgba(255,255,255,0.18)' }}>
             Lagun ® — Sistema Interno
           </p>
         </div>
