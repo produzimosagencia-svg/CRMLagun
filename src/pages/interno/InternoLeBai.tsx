@@ -1,9 +1,8 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { EventDashboard } from './InternoBluetick';
-import { Loader2, Ticket } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 
-// Possíveis nomes do evento Le Bai na Blueticket (case-insensitive)
 const LE_BAI_NAMES = ['le bai', 'lebai', 'le-bai'];
 
 export default function InternoLeBai() {
@@ -12,7 +11,6 @@ export default function InternoLeBai() {
 
   useEffect(() => {
     async function findEvent() {
-      // Busca paginada nos logs da Blueticket
       const allData: any[] = [];
       let from = 0;
       const pageSize = 1000;
@@ -38,6 +36,8 @@ export default function InternoLeBai() {
         }
       }
 
+      // Ainda sem webhooks — renderiza dashboard com ID fallback (mostra zeros)
+      setEventId('lebai');
       setLoading(false);
     }
     findEvent();
@@ -51,21 +51,5 @@ export default function InternoLeBai() {
     );
   }
 
-  if (!eventId) {
-    return (
-      <div className="flex flex-col items-center justify-center py-24 gap-4">
-        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-50 dark:bg-indigo-900/30 text-indigo-400">
-          <Ticket size={26} />
-        </div>
-        <div className="text-center">
-          <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">Nenhum dado recebido ainda para o Le Bai</p>
-          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1 max-w-xs">
-            Assim que a Blueticket enviar o primeiro webhook de venda ou carrinho abandonado, o dashboard aparecerá aqui automaticamente.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  return <EventDashboard eventId={eventId} />;
+  return <EventDashboard eventId={eventId!} />;
 }

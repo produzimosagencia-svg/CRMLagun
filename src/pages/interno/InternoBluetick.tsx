@@ -72,6 +72,7 @@ interface CrmPurchaseData {
 
 const BLUETICKET_EVENT_NAMES: Record<string, string[]> = {
   '40359': ['Fantástico Mundo do Lukão', 'Fantástico Mundo de Lukão'],
+  'lebai': ['Le Bai'],
 };
 
 function formatPhone(phone: string): string {
