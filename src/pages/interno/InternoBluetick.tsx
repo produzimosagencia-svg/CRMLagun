@@ -216,7 +216,7 @@ function EventSelector() {
 }
 
 // ─── Event Dashboard ───
-function EventDashboard({ eventId }: { eventId: string }) {
+export function EventDashboard({ eventId }: { eventId: string }) {
   const navigate = useNavigate();
   const [copied, setCopied] = useState(false);
   const [logs, setLogs] = useState<WebhookLog[]>([]);

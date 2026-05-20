@@ -132,6 +132,7 @@ export default function InternoLayout() {
     if (location.pathname.startsWith('/interno/perfil')) return 'Perfil';
     if (location.pathname.startsWith('/interno/grafos')) return 'RMKT (Grafos)';
     if (location.pathname.startsWith('/interno/dados')) return 'Dados';
+    if (location.pathname === '/interno/lebai') return 'Le Bai';
     if (location.pathname === '/interno/landing') return 'Landing Page';
     if (location.pathname === '/interno') return 'Home';
     return 'Interno';
@@ -302,6 +303,21 @@ export default function InternoLayout() {
                 </div>
               )}
             </div>
+          )}
+
+          {/* Le Bai */}
+          {canSeeHome && (
+            <NavLink
+              to="/interno/lebai"
+              onClick={() => setSidebarOpen(false)}
+              className={({ isActive }) => navLinkClass(isActive)}
+              title={collapsed ? 'Le Bai' : undefined}
+            >
+              <div className={`flex items-center justify-center ${collapsed ? '' : 'mr-2'}`}>
+                <Ticket size={18} />
+              </div>
+              {!collapsed && <span className="text-sm font-medium">Le Bai</span>}
+            </NavLink>
           )}
 
           {/* 2.5. Tarefas */}

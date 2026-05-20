@@ -27,6 +27,7 @@ const InternoRelatorios = lazy(() => import("./pages/interno/InternoRelatorios.t
 const InternoCriativosCampeoes = lazy(() => import("./pages/interno/InternoCriativosCampeoes.tsx"));
 const InternoAdsCriarCampanha = lazy(() => import("./pages/interno/InternoAdsCriarCampanha.tsx"));
 const InternoAdsPixel = lazy(() => import("./pages/interno/InternoAdsPixel.tsx"));
+const InternoLeBai = lazy(() => import("./pages/interno/InternoLeBai.tsx"));
 const InternoInstagram = lazy(() => import("./pages/interno/InternoInstagram.tsx"));
 const InternoWhatsApp = lazy(() => import("./pages/interno/InternoWhatsApp.tsx"));
 const InternoWhatsAppChat = lazy(() => import("./pages/interno/InternoWhatsAppChat.tsx"));
@@ -77,6 +78,7 @@ createRoot(document.getElementById("root")!).render(
           <Route path="whatsapp" element={<InternoWhatsApp />} />
           <Route path="whatsapp/dashboard" element={<InternoWhatsAppDashboard />} />
           <Route path="whatsapp/chat" element={<InternoWhatsAppChat />} />
+          <Route path="lebai" element={<InternoLeBai />} />
           <Route path="blueticket" element={<InternoBluetick />} />
           <Route path="blueticket/:eventId" element={<InternoBluetick />} />
           <Route path="email" element={<InternoEmail />} />
