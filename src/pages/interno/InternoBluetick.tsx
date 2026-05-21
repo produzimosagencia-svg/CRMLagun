@@ -711,7 +711,10 @@ export function EventDashboard({ eventId, autoDispatchSlot, eventDate: eventDate
   const daysUntilEvent = (() => {
     const eventDate = eventRecord?.event_date || eventDateProp;
     if (eventDate) {
-      const diff = Math.ceil((new Date(`${eventDate}T12:00:00`).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const event = new Date(`${eventDate}T00:00:00`);
+      const diff = Math.round((event.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
       return diff > 0 ? diff : 0;
     }
     return null;
