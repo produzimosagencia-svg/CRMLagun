@@ -842,39 +842,7 @@ export function EventDashboard({ eventId, autoDispatchSlot, eventDate: eventDate
                 <div className="flex-1 min-h-[220px]">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart
-                      data={(() => {
-                        // Monta mapa de vendas por data ISO
-                        const dailyMap = new Map<string, number>();
-                        parsedWithMeta.forEach(({ data: p, received_at }) => {
-                          const isPaid =
-                            (p.type === 'order_payment' && p.payments?.some((pay: any) => pay.status === 'paid')) ||
-                            (p.order?.status === 'A' && Number(p.order?.amount || 0) > 0);
-                          if (!isPaid) return;
-                          const key = new Intl.DateTimeFormat('en-CA', {
-                            timeZone: 'America/Sao_Paulo',
-                            year: 'numeric', month: '2-digit', day: '2-digit',
-                          }).format(new Date(received_at));
-                          dailyMap.set(key, (dailyMap.get(key) || 0) + 1);
-                        });
-
-                        // Início: primeira data com venda OU hoje se não houver nenhuma
-                        const start = dailyMap.size > 0
-                          ? new Date([...dailyMap.keys()].sort()[0] + 'T12:00:00')
-                          : new Date();
-                        const today = new Date();
-
-                        const result = [];
-                        for (let d = new Date(start); d <= today; d.setDate(d.getDate() + 1)) {
-                          const key = new Intl.DateTimeFormat('en-CA', {
-                            timeZone: 'America/Sao_Paulo',
-                            year: 'numeric', month: '2-digit', day: '2-digit',
-                          }).format(d);
-                          const dd = key.slice(8);
-                          const mm = key.slice(5, 7);
-                          result.push({ date: `${dd}/${mm}`, qty: dailyMap.get(key) || 0 });
-                        }
-                        return result;
-                      })()}
+                      data={metrics.dailySalesData}
                       margin={{ top: 5, right: 5, left: -15, bottom: 0 }}
                     >
                       <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-gray-100 dark:text-gray-800" vertical={false} />
