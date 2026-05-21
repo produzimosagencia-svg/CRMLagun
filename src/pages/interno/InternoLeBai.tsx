@@ -193,5 +193,5 @@ export default function InternoLeBai() {
     </div>
   ) : null;
 
-  return <EventDashboard eventId={eventId!} autoDispatchSlot={autoDispatchSlot} />;
+  return <EventDashboard eventId={eventId!} autoDispatchSlot={autoDispatchSlot} eventDate="2026-05-29" />;
 }

@@ -218,7 +218,7 @@ function EventSelector() {
 }
 
 // ─── Event Dashboard ───
-export function EventDashboard({ eventId, autoDispatchSlot }: { eventId: string; autoDispatchSlot?: ReactNode }) {
+export function EventDashboard({ eventId, autoDispatchSlot, eventDate: eventDateProp }: { eventId: string; autoDispatchSlot?: ReactNode; eventDate?: string }) {
   const navigate = useNavigate();
   const [copied, setCopied] = useState(false);
   const [logs, setLogs] = useState<WebhookLog[]>([]);
@@ -709,7 +709,7 @@ export function EventDashboard({ eventId, autoDispatchSlot }: { eventId: string;
   const isEventEnded = eventRecord?.status === 'ended';
 
   const daysUntilEvent = (() => {
-    const eventDate = eventRecord?.event_date;
+    const eventDate = eventRecord?.event_date || eventDateProp;
     if (eventDate) {
       const diff = Math.ceil((new Date(`${eventDate}T12:00:00`).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
       return diff > 0 ? diff : 0;
@@ -825,7 +825,7 @@ export function EventDashboard({ eventId, autoDispatchSlot }: { eventId: string;
               <div>
                 <p className="text-lg font-bold text-gray-900 dark:text-gray-100 leading-tight">{daysUntilEvent ?? '—'}</p>
                 <p className="text-[10px] text-gray-400 dark:text-gray-500">{isEventEnded ? 'evento realizado' : 'para o evento'}</p>
-                <p className="text-[10px] font-medium text-gray-500 dark:text-gray-400 mt-1">{isEventEnded ? 'Evento encerrado' : 'Faltam X dias'}</p>
+                <p className="text-[10px] font-medium text-gray-500 dark:text-gray-400 mt-1">{isEventEnded ? 'Evento encerrado' : daysUntilEvent !== null ? `Faltam ${daysUntilEvent} dia${daysUntilEvent === 1 ? '' : 's'}` : 'Data não definida'}</p>
               </div>
             </div>
           </div>
