@@ -800,62 +800,9 @@ export function EventDashboard({ eventId }: { eventId: string }) {
               </div>
             </div>
 
-            {/* Right: Two charts side by side */}
-            <div className="col-span-12 lg:col-span-7 grid grid-cols-2 gap-3">
-              {/* Ritmo de Vendas */}
-              <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 flex flex-col">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-xs font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-1.5">
-                    <TrendingUp size={12} className="text-blue-500" />
-                    Ritmo de Vendas
-                  </h3>
-                  <span className="text-[10px] text-gray-400">{metrics.totalTickets} vendidos</span>
-                </div>
-                <div className="flex-1 min-h-[220px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart
-                      data={(() => {
-                        const days = [];
-                        for (let d = -19; d <= 0; d++) {
-                          days.push({
-                            day: d,
-                            current: Math.max(0, Math.round(metrics.totalTickets * ((d + 20) / 20) ** 2)),
-                            boomrap: Math.max(0, Math.round(850 * ((d + 20) / 20) ** 1.8)),
-                            maestria: Math.max(0, Math.round(620 * ((d + 20) / 20) ** 1.6)),
-                          });
-                        }
-                        return days;
-                      })()}
-                      margin={{ top: 5, right: 5, left: -15, bottom: 0 }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-gray-100 dark:text-gray-800" />
-                      <XAxis dataKey="day" tick={{ fontSize: 9 }} className="text-gray-400" />
-                      <YAxis tick={{ fontSize: 9 }} className="text-gray-400" />
-                      <Tooltip
-                        contentStyle={{ fontSize: 11, borderRadius: 8, border: '1px solid #e5e7eb' }}
-                        formatter={(value: number, name: string) => {
-                          const labels: Record<string, string> = { current: eventName, boomrap: 'BoomRAP', maestria: 'Maestria' };
-                          return [value, labels[name] || name];
-                        }}
-                        labelFormatter={(label) => `${label} dias`}
-                      />
-                      <Legend
-                        formatter={(value: string) => {
-                          const labels: Record<string, string> = { current: eventName, boomrap: 'BoomRAP', maestria: 'Maestria' };
-                          return <span className="text-[9px]">{labels[value] || value}</span>;
-                        }}
-                      />
-                      <ReferenceLine y={1000} stroke="#22c55e" strokeWidth={2} label={{ value: 'Meta', position: 'right', fontSize: 9, fill: '#22c55e' }} />
-                      <Line type="monotone" dataKey="current" stroke="#3b82f6" strokeWidth={2.5} dot={false} name="current" />
-                      <Line type="monotone" dataKey="boomrap" stroke="#8b5cf6" strokeWidth={1.5} dot={false} strokeDasharray="4 2" name="boomrap" />
-                      <Line type="monotone" dataKey="maestria" stroke="#f59e0b" strokeWidth={1.5} dot={false} strokeDasharray="4 2" name="maestria" />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-
-              {/* Vendas por dia */}
-              <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 flex flex-col">
+            {/* Right: Vendas por dia — full width, from first sale date */}
+            <div className="col-span-12 lg:col-span-7">
+              <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 flex flex-col h-full">
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-xs font-semibold text-gray-900 dark:text-gray-100">Vendas por dia</h3>
                   <span className="text-[10px] text-gray-400">Quantidade Diária</span>
@@ -864,23 +811,35 @@ export function EventDashboard({ eventId }: { eventId: string }) {
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart
                       data={(() => {
+                        // Monta mapa de vendas por data ISO
                         const dailyMap = new Map<string, number>();
-                        metrics.dailySalesData.forEach((d: any) => {
-                          dailyMap.set(d.date, d.qty);
+                        parsedWithMeta.forEach(({ data: p, received_at }) => {
+                          const isPaid =
+                            (p.type === 'order_payment' && p.payments?.some((pay: any) => pay.status === 'paid')) ||
+                            (p.order?.status === 'A' && Number(p.order?.amount || 0) > 0);
+                          if (!isPaid) return;
+                          const key = new Intl.DateTimeFormat('en-CA', {
+                            timeZone: 'America/Sao_Paulo',
+                            year: 'numeric', month: '2-digit', day: '2-digit',
+                          }).format(new Date(received_at));
+                          dailyMap.set(key, (dailyMap.get(key) || 0) + 1);
                         });
-                        // Last 5 days
+
+                        // Início: primeira data com venda OU hoje se não houver nenhuma
+                        const start = dailyMap.size > 0
+                          ? new Date([...dailyMap.keys()].sort()[0] + 'T12:00:00')
+                          : new Date();
+                        const today = new Date();
+
                         const result = [];
-                        const now = new Date();
-                        for (let i = 4; i >= 0; i--) {
-                          const dt = new Date(now);
-                          dt.setDate(dt.getDate() - i);
-                          const key = dt.toISOString().split('T')[0];
-                          const dd = String(dt.getDate()).padStart(2, '0');
-                          const mm = String(dt.getMonth() + 1).padStart(2, '0');
-                          const label = `${dd}/${mm}`;
-                          // Try to match by ISO key or by the existing label format
-                          const qty = dailyMap.get(key) || dailyMap.get(label) || 0;
-                          result.push({ date: label, qty });
+                        for (let d = new Date(start); d <= today; d.setDate(d.getDate() + 1)) {
+                          const key = new Intl.DateTimeFormat('en-CA', {
+                            timeZone: 'America/Sao_Paulo',
+                            year: 'numeric', month: '2-digit', day: '2-digit',
+                          }).format(d);
+                          const dd = key.slice(8);
+                          const mm = key.slice(5, 7);
+                          result.push({ date: `${dd}/${mm}`, qty: dailyMap.get(key) || 0 });
                         }
                         return result;
                       })()}
@@ -888,7 +847,7 @@ export function EventDashboard({ eventId }: { eventId: string }) {
                     >
                       <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-gray-100 dark:text-gray-800" vertical={false} />
                       <XAxis dataKey="date" tick={{ fontSize: 11, fontWeight: 500 }} className="text-gray-500" />
-                      <YAxis tick={{ fontSize: 9 }} className="text-gray-400" />
+                      <YAxis tick={{ fontSize: 9 }} className="text-gray-400" allowDecimals={false} />
                       <Tooltip
                         contentStyle={{ fontSize: 11, borderRadius: 8, border: '1px solid #e5e7eb', backgroundColor: 'white' }}
                         formatter={(value: number) => [`${value} ingresso(s)`, 'Vendas']}

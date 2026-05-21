@@ -10,7 +10,7 @@ const SUPABASE_URL = 'https://xwxiijbovreucnrbyput.supabase.co';
 // ── Types ──────────────────────────────────────────────────────────────────
 interface LagunEvent {
   id: string; nome: string; data: string; dia_semana: string;
-  local: string | null; imagem_url: string | null;
+  local: string | null; imagem_url: string | null; flyer_mobile_url: string | null;
   superticket_id: string; status: 'upcoming' | 'past';
   total_vendas: number | null; receita: number | null; participantes: number | null;
 }
@@ -181,8 +181,8 @@ function EventCard({ event, onEdit }: { event: LagunEvent; onEdit: (e: LagunEven
       <div className="hidden md:flex">
         {/* Imagem — overflow-hidden só aqui pra não cortar tooltips */}
         <div className="shrink-0 self-stretch rounded-l-2xl overflow-hidden" style={{ width: 180 }}>
-          {event.imagem_url
-            ? <img src={event.imagem_url} alt={event.nome} className="w-full h-full object-cover" />
+          {(event.flyer_mobile_url || event.imagem_url)
+            ? <img src={event.flyer_mobile_url || event.imagem_url!} alt={event.nome} className="w-full h-full object-cover" />
             : <div className="w-full h-full flex items-center justify-center bg-gray-100">
                 <CalendarDays size={24} className="text-gray-300" />
               </div>
@@ -352,7 +352,7 @@ export default function InternoEventosDashboard() {
     setLoading(true);
     const { data } = await supabase
       .from('lagun_events')
-      .select('id,nome,data,dia_semana,local,imagem_url,superticket_id,status,total_vendas,receita,participantes')
+      .select('id,nome,data,dia_semana,local,imagem_url,flyer_mobile_url,superticket_id,status,total_vendas,receita,participantes')
       .order('data', { ascending: false });
     if (data) setEvents(data as LagunEvent[]);
     setLoading(false);
