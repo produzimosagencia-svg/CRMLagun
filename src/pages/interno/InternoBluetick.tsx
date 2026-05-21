@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, type ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Copy, Check, Download, Ticket, DollarSign, ShoppingCart, Crown, CalendarCheck, Calendar, ChevronDown, ChevronUp, Radio, Send, Loader2, TrendingUp, RefreshCw } from 'lucide-react';
@@ -218,7 +218,7 @@ function EventSelector() {
 }
 
 // ─── Event Dashboard ───
-export function EventDashboard({ eventId }: { eventId: string }) {
+export function EventDashboard({ eventId, autoDispatchSlot }: { eventId: string; autoDispatchSlot?: ReactNode }) {
   const navigate = useNavigate();
   const [copied, setCopied] = useState(false);
   const [logs, setLogs] = useState<WebhookLog[]>([]);
@@ -777,64 +777,61 @@ export function EventDashboard({ eventId }: { eventId: string }) {
         </div>
       ) : (
         <>
-          {/* Metrics Grid - Sketch Layout */}
-          <div className="grid grid-cols-12 gap-3">
-            {/* Left: cards in 2-col grid */}
-            <div className="col-span-12 lg:col-span-5 grid grid-cols-3 gap-3">
-              {statCards.map(card => (
-                <div key={card.label} className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-3.5 hover:border-gray-300 dark:hover:border-gray-700 transition-all flex flex-col gap-2">
-                  <div className="flex items-center justify-between">
-                    <div className={`flex h-7 w-7 items-center justify-center rounded-lg ${card.color}`}>
-                      <card.icon size={13} />
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-lg font-bold text-gray-900 dark:text-gray-100 leading-tight">{card.value}</p>
-                    <p className="text-[10px] text-gray-400 dark:text-gray-500">{card.subtitle}</p>
-                    <p className="text-[10px] font-medium text-gray-500 dark:text-gray-400 mt-1">{card.label}</p>
+          {/* Stat Cards */}
+          <div className="grid grid-cols-6 gap-3">
+            {statCards.map(card => (
+              <div key={card.label} className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-3.5 hover:border-gray-300 dark:hover:border-gray-700 transition-all flex flex-col gap-2">
+                <div className="flex items-center justify-between">
+                  <div className={`flex h-7 w-7 items-center justify-center rounded-lg ${card.color}`}>
+                    <card.icon size={13} />
                   </div>
                 </div>
-              ))}
-              {/* Abandoned Carts card */}
-              <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-3.5 hover:border-gray-300 dark:hover:border-gray-700 transition-all flex flex-col gap-2">
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg text-orange-500 bg-orange-50 dark:bg-orange-900/30">
-                  <ShoppingCart size={13} />
-                </div>
                 <div>
-                  <p className="text-lg font-bold text-gray-900 dark:text-gray-100 leading-tight">{metrics.abandonedCarts}</p>
-                  <p className="text-xs font-semibold text-red-500 dark:text-red-400">{abandonedValue}</p>
-                  <p className="text-[10px] font-medium text-gray-500 dark:text-gray-400 mt-1">Carrinhos Abandonados</p>
+                  <p className="text-lg font-bold text-gray-900 dark:text-gray-100 leading-tight">{card.value}</p>
+                  <p className="text-[10px] text-gray-400 dark:text-gray-500">{card.subtitle}</p>
+                  <p className="text-[10px] font-medium text-gray-500 dark:text-gray-400 mt-1">{card.label}</p>
                 </div>
               </div>
-              {/* Recovered Carts card */}
-              <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-3.5 hover:border-gray-300 dark:hover:border-gray-700 transition-all flex flex-col gap-2">
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg text-emerald-500 bg-emerald-50 dark:bg-emerald-900/30">
-                  <ShoppingCart size={13} />
-                </div>
-                <div>
-                  <p className="text-lg font-bold text-gray-900 dark:text-gray-100 leading-tight">
-                    {metrics.recoveredCarts} <span className="text-xs font-semibold text-gray-900 dark:text-gray-100">de</span> <span className="text-xs font-semibold text-red-500 dark:text-red-400">{metrics.abandonedCarts}</span>
-                  </p>
-                  <p className="text-xs font-semibold text-emerald-500 dark:text-emerald-400">{formatCurrency(metrics.recoveredCartsRevenue)}</p>
-                  <p className="text-[10px] font-medium text-gray-500 dark:text-gray-400 mt-1">Carrinhos Recuperados</p>
-                </div>
+            ))}
+            {/* Abandoned Carts card */}
+            <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-3.5 hover:border-gray-300 dark:hover:border-gray-700 transition-all flex flex-col gap-2">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg text-orange-500 bg-orange-50 dark:bg-orange-900/30">
+                <ShoppingCart size={13} />
               </div>
-              {/* Days until event */}
-              <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-3.5 hover:border-gray-300 dark:hover:border-gray-700 transition-all flex flex-col gap-2">
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg text-indigo-500 bg-indigo-50 dark:bg-indigo-900/30">
-                  <Calendar size={13} />
-                </div>
-                <div>
-                  <p className="text-lg font-bold text-gray-900 dark:text-gray-100 leading-tight">{daysUntilEvent ?? '—'}</p>
-                  <p className="text-[10px] text-gray-400 dark:text-gray-500">{isEventEnded ? 'evento realizado' : 'para o evento'}</p>
-                  <p className="text-[10px] font-medium text-gray-500 dark:text-gray-400 mt-1">{isEventEnded ? 'Evento encerrado' : 'Faltam X dias'}</p>
-                </div>
+              <div>
+                <p className="text-lg font-bold text-gray-900 dark:text-gray-100 leading-tight">{metrics.abandonedCarts}</p>
+                <p className="text-xs font-semibold text-red-500 dark:text-red-400">{abandonedValue}</p>
+                <p className="text-[10px] font-medium text-gray-500 dark:text-gray-400 mt-1">Carrinhos Abandonados</p>
               </div>
             </div>
+            {/* Recovered Carts card */}
+            <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-3.5 hover:border-gray-300 dark:hover:border-gray-700 transition-all flex flex-col gap-2">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg text-emerald-500 bg-emerald-50 dark:bg-emerald-900/30">
+                <ShoppingCart size={13} />
+              </div>
+              <div>
+                <p className="text-lg font-bold text-gray-900 dark:text-gray-100 leading-tight">
+                  {metrics.recoveredCarts} <span className="text-xs font-semibold text-gray-900 dark:text-gray-100">de</span> <span className="text-xs font-semibold text-red-500 dark:text-red-400">{metrics.abandonedCarts}</span>
+                </p>
+                <p className="text-xs font-semibold text-emerald-500 dark:text-emerald-400">{formatCurrency(metrics.recoveredCartsRevenue)}</p>
+                <p className="text-[10px] font-medium text-gray-500 dark:text-gray-400 mt-1">Carrinhos Recuperados</p>
+              </div>
+            </div>
+            {/* Days until event */}
+            <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-3.5 hover:border-gray-300 dark:hover:border-gray-700 transition-all flex flex-col gap-2">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg text-indigo-500 bg-indigo-50 dark:bg-indigo-900/30">
+                <Calendar size={13} />
+              </div>
+              <div>
+                <p className="text-lg font-bold text-gray-900 dark:text-gray-100 leading-tight">{daysUntilEvent ?? '—'}</p>
+                <p className="text-[10px] text-gray-400 dark:text-gray-500">{isEventEnded ? 'evento realizado' : 'para o evento'}</p>
+                <p className="text-[10px] font-medium text-gray-500 dark:text-gray-400 mt-1">{isEventEnded ? 'Evento encerrado' : 'Faltam X dias'}</p>
+              </div>
+            </div>
+          </div>
 
-            {/* Right: Vendas por dia — full width, from first sale date */}
-            <div className="col-span-12 lg:col-span-7">
-              <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 flex flex-col h-full">
+          {/* Vendas por dia */}
+          <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 flex flex-col">
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-xs font-semibold text-gray-900 dark:text-gray-100">Vendas por dia</h3>
                   <span className="text-[10px] text-gray-400">Quantidade Diária</span>
@@ -889,9 +886,6 @@ export function EventDashboard({ eventId }: { eventId: string }) {
                   </ResponsiveContainer>
                 </div>
               </div>
-            </div>
-          </div>
-
           {/* Abandoned Cart Export */}
           <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5">
             <div className="flex items-center justify-between mb-4">
@@ -905,6 +899,7 @@ export function EventDashboard({ eventId }: { eventId: string }) {
                 </div>
               </div>
               <div className="flex items-center gap-2">
+                {autoDispatchSlot}
                 {templates.length > 0 && (
                   <Popover>
                     <PopoverTrigger asChild>
