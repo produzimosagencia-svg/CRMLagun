@@ -234,6 +234,8 @@ export function EventDashboard({ eventId }: { eventId: string }) {
   const [eventRecord, setEventRecord] = useState<EventRecord | null>(null);
   const [crmData, setCrmData] = useState<CrmPurchaseData | null>(null);
   const [lastWebhookAt, setLastWebhookAt] = useState<string | null>(null);
+  // phone (com 55) → timestamp do último disparo
+  const [dispatchedPhones, setDispatchedPhones] = useState<Map<string, string>>(new Map());
 
   async function loadEventContext(discoveredEventName?: string, webhookTimestamp?: string | null) {
     const candidateNames = [...new Set([...(BLUETICKET_EVENT_NAMES[eventId] || []), discoveredEventName].filter(Boolean) as string[])];
@@ -380,6 +382,7 @@ export function EventDashboard({ eventId }: { eventId: string }) {
           if (deliveryStatus === 'delivered') { toast.success(`Mensagem entregue para ${name || phone}!`); return; }
         }
         toast.success(`Mensagem enviada para ${name || phone}!`);
+        setDispatchedPhones(prev => new Map(prev).set(formattedPhone, new Date().toISOString()));
       } else {
         toast.error(`Erro ao enviar: ${result.details?.[0]?.error || 'Erro desconhecido'}`);
       }
@@ -419,7 +422,6 @@ export function EventDashboard({ eventId }: { eventId: string }) {
 
   async function loadLogs() {
     setLoading(true);
-    // Fetch all webhook logs using pagination to avoid the 1000-row default limit
     const allLogs: WebhookLog[] = [];
     let from = 0;
     const pageSize = 1000;
@@ -438,7 +440,37 @@ export function EventDashboard({ eventId }: { eventId: string }) {
     const filtered = allLogs.filter(l => (l.payload as any)?.payload?.event?.id?.toString() === eventId);
     setLogs(filtered);
     await loadEventContext(filtered[0]?.payload?.payload?.event?.name, filtered[0]?.received_at || null);
+
+    // Carrega status de disparo pra todos os carrinhos
+    const phones = filtered
+      .filter(l => (l.payload as any)?.payload?.type === 'abandoned_cart')
+      .map(l => {
+        const phone = (l.payload as any)?.payload?.customer?.phone
+          || (l.payload as any)?.payload?.order?.customer?.phone;
+        return phone ? formatPhone(phone) : null;
+      })
+      .filter(Boolean) as string[];
+
+    if (phones.length > 0) {
+      await loadDispatchedPhones(phones);
+    }
+
     setLoading(false);
+  }
+
+  async function loadDispatchedPhones(phones: string[]) {
+    const { data } = await supabase
+      .from('whatsapp_messages')
+      .select('phone, created_at')
+      .in('phone', phones)
+      .eq('direction', 'outgoing')
+      .order('created_at', { ascending: false });
+
+    const map = new Map<string, string>();
+    (data ?? []).forEach((row: any) => {
+      if (!map.has(row.phone)) map.set(row.phone, row.created_at);
+    });
+    setDispatchedPhones(map);
   }
 
   const parsedWithMeta = useMemo(() => {
@@ -969,6 +1001,7 @@ export function EventDashboard({ eventId }: { eventId: string }) {
                       <th className="text-left py-2 px-3 text-gray-400 dark:text-gray-500 font-medium">Data/Hora</th>
                       <th className="text-right py-2 px-3 text-gray-400 dark:text-gray-500 font-medium">Valor</th>
                       <th className="text-center py-2 px-3 text-gray-400 dark:text-gray-500 font-medium">Status</th>
+                      <th className="text-center py-2 px-3 text-gray-400 dark:text-gray-500 font-medium">Disparo</th>
                       <th className="text-center py-2 px-3 text-gray-400 dark:text-gray-500 font-medium">Ação</th>
                     </tr>
                   </thead>
@@ -993,6 +1026,23 @@ export function EventDashboard({ eventId }: { eventId: string }) {
                             ) : (
                               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400">❌ Não comprou</span>
                             )}
+                          </td>
+                          <td className="py-2.5 px-3 text-center">
+                            {(() => {
+                              const fPhone = c.phone ? formatPhone(c.phone) : null;
+                              const sentAt = fPhone ? dispatchedPhones.get(fPhone) : null;
+                              if (sentAt) {
+                                return (
+                                  <span
+                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400"
+                                    title={new Date(sentAt).toLocaleString('pt-BR')}
+                                  >
+                                    📲 {new Date(sentAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                                  </span>
+                                );
+                              }
+                              return <span className="text-[10px] text-gray-300 dark:text-gray-600">—</span>;
+                            })()}
                           </td>
                           <td className="py-2.5 px-3 text-center">
                             {!hasPurchased && c.phone ? (
