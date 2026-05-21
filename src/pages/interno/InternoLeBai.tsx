@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { EventDashboard } from './InternoBluetick';
 import { Loader2 } from 'lucide-react';
 
-const LE_BAI_NAMES = ['le bai', 'lebai', 'le-bai'];
+const LE_BAI_NAMES = ['le bai', 'lebai', 'le-bai', "le'bai", 'le’bai'];
 
 export default function InternoLeBai() {
   const [eventId, setEventId] = useState<string | null>(null);
@@ -37,7 +37,7 @@ export default function InternoLeBai() {
       }
 
       // Ainda sem webhooks — renderiza dashboard com ID fallback (mostra zeros)
-      setEventId('lebai');
+      setEventId('40935');
       setLoading(false);
     }
     findEvent();
