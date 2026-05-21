@@ -2,7 +2,7 @@ import { corsHeaders } from "../_shared/cors.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const GRAPH_API = "https://graph.facebook.com/v21.0";
-const WABA_ID = "1169322241814706";
+const WABA_ID = Deno.env.get("WHATSAPP_WABA_ID") || "1169322241814706";
 
 type TemplateComponent = {
   type?: string;
