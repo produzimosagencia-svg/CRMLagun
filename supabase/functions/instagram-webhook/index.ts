@@ -1,8 +1,8 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const VERIFY_TOKEN = Deno.env.get("IG_WEBHOOK_VERIFY_TOKEN") ?? "lagun_ig_webhook_2026";
-const PAGE_TOKEN   = Deno.env.get("IG_PAGE_TOKEN") ?? "";
-const IG_ACCOUNT_ID = Deno.env.get("IG_ACCOUNT_ID") ?? "";
+const VERIFY_TOKEN  = Deno.env.get("IG_WEBHOOK_VERIFY_TOKEN") ?? "lagun_ig_webhook_2026";
+const PAGE_TOKEN    = Deno.env.get("IG_USER_TOKEN") ?? Deno.env.get("IG_PAGE_TOKEN") ?? "";
+const IG_ACCOUNT_ID = Deno.env.get("IG_ACCOUNT_ID") ?? "35780017061613318";
 const OPENAI_KEY   = Deno.env.get("OPENAI_API_KEY") ?? "";
 
 const SYSTEM_PROMPT = `Você é o assistente virtual da Lagun, uma casa noturna exclusiva em Vitória (ES).
@@ -26,10 +26,13 @@ Regras:
 
 async function sendIGReply(recipientId: string, text: string): Promise<boolean> {
   const res = await fetch(
-    `https://graph.facebook.com/v19.0/me/messages?access_token=${PAGE_TOKEN}`,
+    `https://graph.instagram.com/v19.0/${IG_ACCOUNT_ID}/messages`,
     {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${PAGE_TOKEN}`,
+      },
       body: JSON.stringify({
         recipient: { id: recipientId },
         message: { text },
