@@ -28,12 +28,15 @@ const InternoCriativosCampeoes = lazy(() => import("./pages/interno/InternoCriat
 const InternoAdsCriarCampanha = lazy(() => import("./pages/interno/InternoAdsCriarCampanha.tsx"));
 const InternoAdsPixel = lazy(() => import("./pages/interno/InternoAdsPixel.tsx"));
 const InternoLeBai = lazy(() => import("./pages/interno/InternoLeBai.tsx"));
+const InternoAura = lazy(() => import("./pages/interno/InternoAura.tsx"));
+const InternoBase = lazy(() => import("./pages/interno/InternoBase.tsx"));
 const InternoInstagram = lazy(() => import("./pages/interno/InternoInstagram.tsx"));
 const InternoWhatsApp = lazy(() => import("./pages/interno/InternoWhatsApp.tsx"));
 const InternoWhatsAppChat = lazy(() => import("./pages/interno/InternoWhatsAppChat.tsx"));
 const InternoWhatsAppDashboard = lazy(() => import("./pages/interno/InternoWhatsAppDashboard.tsx"));
 const InternoBluetick = lazy(() => import("./pages/interno/InternoBluetick.tsx"));
 const InternoZigTickets = lazy(() => import("./pages/interno/InternoZigTickets.tsx"));
+const InternoZigTicketsGeral = lazy(() => import("./pages/interno/InternoZigTicketsGeral.tsx"));
 const InternoEmail = lazy(() => import("./pages/interno/InternoEmail.tsx"));
 const InternoAdmin = lazy(() => import("./pages/interno/InternoAdmin.tsx"));
 const InternoTarefas = lazy(() => import("./pages/interno/InternoTarefas.tsx"));
@@ -68,6 +71,9 @@ createRoot(document.getElementById("root")!).render(
           <Route index element={<Navigate to="/interno/eventos-dashboard" replace />} />
           <Route path="eventos-dashboard" element={<InternoEventosDashboard />} />
           <Route path="eventos" element={<InternoEventos />} />
+          <Route path="zig-tickets" element={<InternoZigTicketsGeral />} />
+          <Route path="zig-tickets/geral" element={<InternoZigTicketsGeral />} />
+          <Route path="zig-tickets/:eventId" element={<InternoZigTickets />} />
           <Route path="clientes" element={<CrmCustomers />} />
           <Route path="clientes/novo" element={<CrmCustomerForm />} />
           <Route path="clientes/:id" element={<CrmCustomerDetail />} />
@@ -79,6 +85,8 @@ createRoot(document.getElementById("root")!).render(
           <Route path="whatsapp/dashboard" element={<InternoWhatsAppDashboard />} />
           <Route path="whatsapp/chat" element={<InternoWhatsAppChat />} />
           <Route path="lebai" element={<InternoLeBai />} />
+          <Route path="aura" element={<InternoAura />} />
+          <Route path="base" element={<InternoBase />} />
           <Route path="blueticket" element={<InternoBluetick />} />
           <Route path="blueticket/:eventId" element={<InternoBluetick />} />
           <Route path="email" element={<InternoEmail />} />

@@ -1,375 +1,386 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useEffect, useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Copy, Check, Download, Ticket, DollarSign, ShoppingCart, Crown, CalendarCheck, Calendar, ChevronDown, ChevronUp, Radio, Send, Loader2, TrendingUp, RefreshCw, Settings } from 'lucide-react';
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } from 'recharts';
+import { Input } from '@/components/ui/input';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Search, Download, ChevronRight, ArrowLeft, Users, Plus, Upload, Radio, RefreshCw, Crown, Heart, UserPlus, DollarSign, Loader2, Phone, MessageCircle, Send } from 'lucide-react';
+import { CLASSIFICATION_LABELS, CLASSIFICATION_COLORS } from '@/types/crm';
+import type { ClientClassification } from '@/types/crm';
+import { formatPhone } from '@/lib/formatPhone';
 import { toast } from 'sonner';
-import { useNavigate, useParams } from 'react-router-dom';
-import * as XLSX from 'xlsx';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
+import CustomerDetailsModal from '@/components/interno/CustomerDetailsModal';
 
-interface WebhookLog {
-  id: string;
-  source: string;
-  payload: any;
-  received_at: string;
+interface DashboardKPIs {
+  total_customers: number;
+  new_customers_30d: number;
+  superclientes: number;
+  fans: number;
+  cac: number | null;
 }
 
-interface ParsedData {
-  type: string;
-  event: { id: number; name: string };
-  order: { id: number; amount: number; status: string; customer?: CustomerData };
-  customer?: CustomerData;
-  tickets?: { price: number; quantity: number; product_name: string; product_category: string }[];
-  payments?: { amount: number; method: string; status: string; installments: number }[];
+interface TopPerson {
+  customer_id: string;
+  full_name: string;
+  phone: string | null;
+  total_spent: number;
+  event_count: number;
+  event_names?: string[];
 }
 
-interface CustomerData {
-  name: string;
-  email: string;
-  phone: string;
-  country: string;
-  zipcode: string;
-  document: string;
-}
-
-function formatPhone(phone: string): string {
-  const digits = phone.replace(/\D/g, '');
-  if (digits.startsWith('55')) return digits;
-  if (digits.length === 11 || digits.length === 10) return `55${digits}`;
-  return `5527${digits}`;
-}
-
-function formatCurrency(value: number): string {
-  return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-}
-
-function formatShortDate(value?: string | null): string {
-  if (!value) return '—';
-  const date = new Date(`${value}T12:00:00`);
-  return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-}
-
-function formatDateTime(value?: string | null): string {
-  if (!value) return '—';
-  return new Date(value).toLocaleString('pt-BR', {
-    day: '2-digit',
-    month: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
-
-const WEBHOOK_SOURCE = 'zig_tickets';
-
-// ─── Event Selection Screen ───
-function EventSelector() {
-  const navigate = useNavigate();
-  const [events, setEvents] = useState<{ id: number; name: string; count: number }[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [copiedWebhook, setCopiedWebhook] = useState<string | null>(null);
-
-  const webhookBaseUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/zig-webhook`;
-
-  useEffect(() => {
-    async function load() {
-      const { data } = await supabase
-        .from('webhook_logs')
-        .select('payload')
-        .eq('source', WEBHOOK_SOURCE);
-
-      const eventMap = new Map<number, { name: string; count: number }>();
-      (data || []).forEach(log => {
-        const p = (log.payload as any)?.payload;
-        if (p?.event?.id) {
-          const existing = eventMap.get(p.event.id);
-          if (existing) existing.count++;
-          else eventMap.set(p.event.id, { name: p.event.name, count: 1 });
-        }
-      });
-
-      // Add predefined events
-      const predefined = [{ id: 13195, name: 'Maestria' }];
-      predefined.forEach(pe => {
-        if (!eventMap.has(pe.id) && ![...eventMap.values()].some(v => v.name.toLowerCase() === pe.name.toLowerCase())) {
-          eventMap.set(pe.id, { name: pe.name, count: 0 });
-        }
-      });
-
-      setEvents([...eventMap.entries()].map(([id, v]) => ({ id, ...v })));
-      setLoading(false);
-    }
-    load();
-  }, []);
-
-  function copyWebhookLink(eventName: string) {
-    navigator.clipboard.writeText(webhookBaseUrl);
-    setCopiedWebhook(eventName);
-    toast.success(`Link do webhook copiado para ${eventName}!`);
-    setTimeout(() => setCopiedWebhook(null), 2000);
-  }
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <Loader2 className="animate-spin text-gray-400 dark:text-gray-500" size={24} />
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <Button variant="ghost" size="sm" onClick={() => navigate('/interno')} className="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
-          <ArrowLeft size={16} className="mr-1" /> Home
-        </Button>
-        <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Zig Tickets</h2>
-      </div>
-
-      {/* Webhook URL for copying */}
-      <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5 max-w-3xl">
-        <h3 className="text-xs font-semibold text-gray-900 dark:text-gray-100 mb-1">Webhook URL</h3>
-        <p className="text-[11px] text-gray-400 dark:text-gray-500 mb-3">Cole esta URL nas configurações de webhook da Zig Tickets.</p>
-        <div className="flex items-center gap-2">
-          <code className="flex-1 text-[11px] bg-gray-50 dark:bg-gray-800 rounded-lg px-3 py-2.5 text-gray-600 dark:text-gray-400 font-mono break-all border border-gray-100 dark:border-gray-700">
-            {webhookBaseUrl}
-          </code>
-          <Button variant="outline" size="sm" onClick={() => { navigator.clipboard.writeText(webhookBaseUrl); toast.success('URL copiada!'); }} className="shrink-0 rounded-lg h-9">
-            <Copy size={14} />
-          </Button>
-        </div>
-      </div>
-
-      <p className="text-sm text-gray-500 dark:text-gray-400">Selecione o evento para ver o dashboard</p>
-
-      {events.length === 0 ? (
-        <div className="text-center py-16">
-          <Radio size={40} className="mx-auto text-gray-300 dark:text-gray-600 mb-3" />
-          <p className="text-sm text-gray-500 dark:text-gray-400">Nenhum evento encontrado</p>
-          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Configure o webhook na Zig Tickets para começar a receber dados.</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {events.map(event => (
-            <div
-              key={event.id}
-              className="group rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5 hover:border-gray-300 dark:hover:border-gray-700 hover:shadow-sm transition-all"
-            >
-              <button onClick={() => navigate(`/interno/zig-tickets/${event.id}`)} className="w-full text-left">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-purple-50 dark:bg-purple-900/30 text-purple-500 mb-3">
-                  <Ticket size={18} />
-                </div>
-                <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-0.5">{event.name}</h3>
-                <p className="text-xs text-gray-400 dark:text-gray-500">{event.count} registro(s) recebidos</p>
-              </button>
-              <button
-                onClick={(e) => { e.stopPropagation(); copyWebhookLink(event.name); }}
-                className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-300 transition-colors"
-              >
-                {copiedWebhook === event.name ? <><Check size={13} /> Copiado!</> : <><Copy size={13} /> Copiar link webhook</>}
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─── CRM Purchase Data ───
-interface CrmPurchaseData {
-  totalTickets: number;
-  totalRevenue: number;
-  todaySales: number;
-  dailySales: Map<string, number>;
-  topClients: { name: string; email: string | null; phone: string | null; total: number }[];
-  eventName: string;
-  firstSaleDate: string | null;
-  lastSaleDate: string | null;
-}
-
-const MAESTRIA_RECENT_SALES = [
-  { day: '2026-04-08', qty: 81, total: 11561.42 },
-  { day: '2026-04-09', qty: 127, total: 17116.86 },
-  { day: '2026-04-10', qty: 39, total: 5230.61 },
-  { day: '2026-04-11', qty: 183, total: 20688.51 },
-  { day: '2026-04-12', qty: 153, total: 19039.17 },
-  { day: '2026-04-13', qty: 55, total: 8558.8 },
-  { day: '2026-04-14', qty: 48, total: 5672.71 },
-  { day: '2026-04-15', qty: 60, total: 8521.27 },
-  { day: '2026-04-16', qty: 163, total: 10156.6 },
-  { day: '2026-04-17', qty: 93, total: 11964.75 },
+const EXCLUDED_NAMES = [
+  'pazito pdv',
+  'gleyson santos brune',
+  'tríade entretenimento',
+  'triade entretenimento',
+  'isis pecly baptista',
+  'maves shopping moxuara',
+  'mavericks vila velha',
+  'clauber morais',
 ];
 
-// ─── Event Dashboard ───
-function EventDashboard({ eventId }: { eventId: string }) {
-  const navigate = useNavigate();
-  const [copied, setCopied] = useState(false);
-  const [logs, setLogs] = useState<WebhookLog[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [showConfig, setShowConfig] = useState(false);
-  const [sendingTo, setSendingTo] = useState<string | null>(null);
+interface EventRecord {
+  id: string;
+  name: string;
+  avatar_url: string | null;
+  event_date: string | null;
+  webhook_url: string | null;
+  api_token: string | null;
+  platform: string;
+  status: string;
+}
+
+interface EventSummary extends EventRecord {
+  totalSales: number;
+  totalRevenue: number;
+  uniqueCustomers: number;
+}
+
+interface CustomerRow {
+  id: string;
+  full_name: string;
+  email: string | null;
+  phone: string | null;
+  city: string | null;
+  classification: ClientClassification;
+  ltv: number;
+  previous_purchases_count: number;
+  ticket_type: string | null;
+  total_value: number;
+  purchase_date: string;
+}
+
+type CreateStep = null | 'choose' | 'import' | 'live';
+
+export default function InternoEventos() {
+  const [kpis, setKpis] = useState<DashboardKPIs | null>(null);
+  const [loadingKpis, setLoadingKpis] = useState(true);
+  const [topFans, setTopFans] = useState<TopPerson[]>([]);
+  const [topSuperclientes, setTopSuperclientes] = useState<TopPerson[]>([]);
+  const [loadingLists, setLoadingLists] = useState(true);
+  const [allCustomers, setAllCustomers] = useState<any[]>([]);
+  const [loadingAllCustomers, setLoadingAllCustomers] = useState(true);
+  const [customerSearch, setCustomerSearch] = useState('');
+  const [events, setEvents] = useState<EventSummary[]>([]);
+  const [loadingEvents, setLoadingEvents] = useState(true);
+  const [selectedEvent, setSelectedEvent] = useState<string | null>(null);
+  const [customers, setCustomers] = useState<CustomerRow[]>([]);
+  const [loadingCustomers, setLoadingCustomers] = useState(false);
+  const [search, setSearch] = useState('');
+  const [createStep, setCreateStep] = useState<CreateStep>(null);
+  const [detailsCustomerId, setDetailsCustomerId] = useState<string | null>(null);
+
+  // WhatsApp contact
+  const [contactTarget, setContactTarget] = useState<TopPerson | null>(null);
   const [templates, setTemplates] = useState<any[]>([]);
-  const [selectedTemplate, setSelectedTemplate] = useState<string>('');
-  const [templateLang, setTemplateLang] = useState<string>('pt_BR');
   const [apiPhones, setApiPhones] = useState<any[]>([]);
-  const [selectedPhoneId, setSelectedPhoneId] = useState<string>('');
-  const [crmData, setCrmData] = useState<CrmPurchaseData | null>(null);
-  const [lastWebhookAt, setLastWebhookAt] = useState<string | null>(null);
+  const [selectedTemplate, setSelectedTemplate] = useState('');
+  const [templateLang, setTemplateLang] = useState('pt_BR');
+  const [selectedPhoneId, setSelectedPhoneId] = useState('');
+  const [sendingContact, setSendingContact] = useState(false);
 
-  // Map predefined event IDs to canonical event names for CRM lookup
-  const eventNameMap: Record<string, string> = { '13195': 'Maestria', '99902': 'Maestria' };
-  const eventNameAliases: Record<string, string[]> = {
-    '13195': ['Maestria', 'MAESTRIA'],
-    '99902': ['Maestria', 'MAESTRIA'],
-  };
+  // Create event form
+  const [newName, setNewName] = useState('');
+  const [newDate, setNewDate] = useState('');
+  const [newWebhook, setNewWebhook] = useState('');
+  const [newApiToken, setNewApiToken] = useState('');
+  const [newPlatform, setNewPlatform] = useState('blueticket');
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [spreadsheetFile, setSpreadsheetFile] = useState<File | null>(null);
+  const [revenue, setRevenue] = useState('');
 
-  async function loadCrmPurchases() {
-    const crmEventName = eventNameMap[eventId];
-    const candidateEventNames = eventNameAliases[eventId] || (crmEventName ? [crmEventName] : []);
-    if (candidateEventNames.length === 0) return;
+  const [showAllNeighborhoods, setShowAllNeighborhoods] = useState(false);
 
-    const today = new Date().toISOString().split('T')[0];
+  const topCities = useMemo(() => {
+    const map = new Map<string, number>();
+    allCustomers.forEach(c => { if (c.city) map.set(c.city, (map.get(c.city) || 0) + 1); });
+    return Array.from(map.entries()).sort((a, b) => b[1] - a[1]).slice(0, 5);
+  }, [allCustomers]);
 
-    const purchases: Array<{
-      purchase_date: string;
-      ticket_price: number | null;
-      total_value: number | null;
-      quantity: number | null;
-      event_name: string;
-      customer_id: string;
-    }> = [];
+  const allNeighborhoods = useMemo(() => {
+    const map = new Map<string, number>();
+    allCustomers.forEach(c => { if (c.neighborhood) map.set(c.neighborhood, (map.get(c.neighborhood) || 0) + 1); });
+    return Array.from(map.entries()).sort((a, b) => b[1] - a[1]);
+  }, [allCustomers]);
 
-    let from = 0;
-    const pageSize = 1000;
-
-    while (true) {
-      const { data: batch, error } = await supabase
-        .from('crm_purchases')
-        .select('purchase_date, ticket_price, total_value, quantity, event_name, customer_id')
-        .in('event_name', candidateEventNames)
-        .order('purchase_date', { ascending: true })
-        .range(from, from + pageSize - 1);
-
-      if (error) {
-        console.error('Failed to load CRM purchases:', error);
-        break;
-      }
-
-      if (!batch || batch.length === 0) break;
-      purchases.push(...batch);
-      if (batch.length < pageSize) break;
-      from += pageSize;
-    }
-
-    if (purchases.length === 0) {
-      setCrmData(null);
-      return;
-    }
-
-    let totalTickets = 0;
-    let totalRevenue = 0;
-    let todaySales = 0;
-    const dailySales = new Map<string, number>();
-    const clientTotals = new Map<string, number>();
-
-    for (const p of purchases) {
-      const qty = p.quantity || 1;
-      totalTickets += qty;
-      const purchaseValue = p.total_value || p.ticket_price || 0;
-      totalRevenue += purchaseValue;
-      const day = p.purchase_date?.split('T')[0] || '';
-      if (day === today) todaySales += qty;
-      dailySales.set(day, (dailySales.get(day) || 0) + qty);
-      clientTotals.set(p.customer_id, (clientTotals.get(p.customer_id) || 0) + purchaseValue);
-    }
-
-    const topClientIds = [...clientTotals.entries()]
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 10)
-      .map(([id]) => id);
-    const customersById = new Map<string, { full_name: string; email: string | null; phone: string | null }>();
-
-    for (let i = 0; i < topClientIds.length; i += 50) {
-      const { data: customers } = await supabase
-        .from('crm_customers')
-        .select('id, full_name, email, phone')
-        .in('id', topClientIds.slice(i, i + 50));
-      (customers || []).forEach(c => customersById.set(c.id, c));
-    }
-
-    const topClients = topClientIds.map(id => {
-      const customer = customersById.get(id);
-      return {
-        name: customer?.full_name || 'Cliente sem nome',
-        email: customer?.email || null,
-        phone: customer?.phone || null,
-        total: clientTotals.get(id) || 0,
-      };
-    });
-
-    setCrmData({
-      totalTickets,
-      totalRevenue,
-      todaySales,
-      dailySales,
-      topClients,
-      eventName: crmEventName || purchases[0]?.event_name || candidateEventNames[0],
-      firstSaleDate: purchases[0]?.purchase_date?.split('T')[0] || null,
-      lastSaleDate: purchases[purchases.length - 1]?.purchase_date?.split('T')[0] || null,
-    });
-  }
+  const topNeighborhoods = useMemo(() => allNeighborhoods.slice(0, 5), [allNeighborhoods]);
 
   useEffect(() => {
-    loadCrmPurchases();
-  }, [eventId]);
-
-  useEffect(() => {
-    async function loadTemplatesAndPhones() {
-      try {
-        const resp = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/whatsapp-api?action=templates`,
-          { headers: { 'Content-Type': 'application/json' } }
-        );
-        const result = await resp.json();
-        if (result?.data) {
-          const approved = result.data.filter((t: any) => t.status === 'APPROVED');
-          setTemplates(approved);
-          if (approved.length > 0) {
-            setSelectedTemplate(approved[0].name);
-            setTemplateLang(approved[0].language || 'pt_BR');
-          }
-        }
-        const phonesResp = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/whatsapp-api?action=phone_numbers`,
-          { headers: { 'Content-Type': 'application/json' } }
-        );
-        const phonesData = await phonesResp.json();
-        if (phonesData?.data) {
-          const cloudPhones = phonesData.data.filter((p: any) => p.platform_type === 'CLOUD_API');
-          setApiPhones(cloudPhones.length > 0 ? cloudPhones : phonesData.data);
-          const preferred = phonesData.data.find((p: any) => p.display_phone_number?.includes('96591-8862'));
-          const firstCloud = cloudPhones[0];
-          setSelectedPhoneId(preferred?.id || firstCloud?.id || phonesData.data[0]?.id || '');
-        }
-      } catch (e) {
-        console.error('Failed to load templates/phones:', e);
-      }
-    }
+    loadKpis();
+    loadTopLists();
+    loadEvents();
     loadTemplatesAndPhones();
+    loadAllCustomers();
   }, []);
 
-  async function sendWhatsAppToContact(phone: string, name: string) {
-    if (!selectedTemplate) { toast.error('Selecione um modelo de mensagem primeiro.'); return; }
-    setSendingTo(phone);
+  async function loadTemplatesAndPhones() {
     try {
-      if (!selectedPhoneId) throw new Error('Selecione um número de WhatsApp primeiro');
+      const resp = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/whatsapp-api?action=templates`,
+        { headers: { 'Content-Type': 'application/json' } }
+      );
+      const result = await resp.json();
+      if (result?.data) {
+        const approved = result.data.filter((t: any) => t.status === 'APPROVED');
+        setTemplates(approved);
+        if (approved.length > 0) {
+          setSelectedTemplate(approved[0].name);
+          setTemplateLang(approved[0].language || 'pt_BR');
+        }
+      }
+      const phonesResp = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/whatsapp-api?action=phone_numbers`,
+        { headers: { 'Content-Type': 'application/json' } }
+      );
+      const phonesData = await phonesResp.json();
+      if (phonesData?.data) {
+        const cloudPhones = phonesData.data.filter((p: any) => p.platform_type === 'CLOUD_API');
+        setApiPhones(cloudPhones.length > 0 ? cloudPhones : phonesData.data);
+        const preferred = phonesData.data.find((p: any) => p.display_phone_number?.includes('96591-8862'));
+        const firstCloud = cloudPhones[0];
+        setSelectedPhoneId(preferred?.id || firstCloud?.id || phonesData.data[0]?.id || '');
+      }
+    } catch (e) {
+      console.error('Failed to load templates/phones:', e);
+    }
+  }
+
+  async function loadKpis() {
+    setLoadingKpis(true);
+    try {
+      const { data, error } = await supabase.rpc('crm_dashboard_stats');
+      if (error) throw error;
+      const stats = data as unknown as { total_customers: number; new_customers_30d: number; superclientes: number; fans: number };
+
+      let cac: number | null = null;
+      try {
+        const { data: session } = await supabase.auth.getSession();
+        if (session.session) {
+          const accountsRes = await supabase.functions.invoke('meta-ads-api?action=accounts', { method: 'GET' });
+          if (accountsRes.data?.data?.[0]) {
+            const accountId = accountsRes.data.data[0].account_id;
+            const spendRes = await supabase.functions.invoke(
+              `meta-ads-api?action=account_insights&account_id=${accountId}&date_preset=last_year`,
+              { method: 'GET' }
+            );
+            if (spendRes.data?.data?.[0]) {
+              const totalSpend = Number(spendRes.data.data[0].spend || 0);
+              cac = totalSpend / (stats.total_customers || 1);
+            }
+          }
+        }
+      } catch {
+        // CAC calculation failed silently
+      }
+
+      setKpis({
+        total_customers: stats.total_customers,
+        new_customers_30d: stats.new_customers_30d,
+        superclientes: stats.superclientes,
+        fans: stats.fans,
+        cac,
+      });
+    } catch (err) {
+      console.error('Failed to load KPIs:', err);
+    } finally {
+      setLoadingKpis(false);
+    }
+  }
+
+  async function loadTopLists() {
+    setLoadingLists(true);
+    try {
+      const [fansRes, superRes] = await Promise.all([
+        supabase.rpc('crm_top_fans', { lim: 40 }),
+        supabase.rpc('crm_top_superclientes', { lim: 40 }),
+      ]);
+      const filterExcluded = (list: any[]) =>
+        list
+          .filter(r => !EXCLUDED_NAMES.includes(r.full_name?.toLowerCase?.() || ''))
+          .map(r => ({ ...r, total_spent: Number(r.total_spent), event_count: Number(r.event_count), event_names: r.event_names || [] }));
+      if (fansRes.data) setTopFans(filterExcluded(fansRes.data as any[]).slice(0, 20));
+      if (superRes.data) setTopSuperclientes(filterExcluded(superRes.data as any[]).slice(0, 20));
+    } catch (err) {
+      console.error('Failed to load top lists:', err);
+    } finally {
+      setLoadingLists(false);
+    }
+  }
+
+  async function loadAllCustomers() {
+    setLoadingAllCustomers(true);
+    try {
+      const all: any[] = [];
+      let from = 0;
+      const PAGE = 1000;
+      while (true) {
+        const { data, error } = await (supabase as any)
+          .from('crm_customers')
+          .select('id, full_name, phone, city, neighborhood, ltv, previous_purchases_count, last_event, classification')
+          .order('ltv', { ascending: false })
+          .range(from, from + PAGE - 1);
+        if (error || !data || data.length === 0) break;
+        all.push(...data);
+        if (data.length < PAGE) break;
+        from += PAGE;
+      }
+      setAllCustomers(all);
+    } catch (err) {
+      console.error('Failed to load customers:', err);
+    } finally {
+      setLoadingAllCustomers(false);
+    }
+  }
+
+  async function loadEvents() {
+    setLoadingEvents(true);
+    const { data: eventsData } = await supabase.from('events').select('*').order('created_at', { ascending: false });
+
+    const all: any[] = [];
+    const PAGE = 1000;
+    let from = 0;
+    while (true) {
+      const { data, error } = await supabase
+        .from('crm_purchases')
+        .select('event_name, total_value, customer_id')
+        .range(from, from + PAGE - 1);
+      if (error || !data || data.length === 0) break;
+      all.push(...data);
+      if (data.length < PAGE) break;
+      from += PAGE;
+    }
+
+    const purchaseMap = new Map<string, { sales: number; revenue: number; customers: Set<string> }>();
+    all.forEach((p) => {
+      const entry = purchaseMap.get(p.event_name) || { sales: 0, revenue: 0, customers: new Set<string>() };
+      entry.sales++;
+      entry.revenue += Number(p.total_value);
+      entry.customers.add(p.customer_id);
+      purchaseMap.set(p.event_name, entry);
+    });
+
+    const eventsList: EventSummary[] = (eventsData || []).map((ev: any) => {
+      const stats = purchaseMap.get(ev.name);
+      return { ...ev, totalSales: stats?.sales || 0, totalRevenue: stats?.revenue || 0, uniqueCustomers: stats?.customers.size || 0 };
+    });
+
+    purchaseMap.forEach((v, name) => {
+      if (!eventsList.find(e => e.name === name)) {
+        eventsList.push({
+          id: name, name, avatar_url: null, event_date: null, webhook_url: null, api_token: null, platform: 'manual', status: 'active',
+          totalSales: v.sales, totalRevenue: v.revenue, uniqueCustomers: v.customers.size,
+        });
+      }
+    });
+
+    eventsList.sort((a, b) => b.totalRevenue - a.totalRevenue);
+    setEvents(eventsList);
+    setLoadingEvents(false);
+  }
+
+  async function loadCustomersForEvent(eventName: string) {
+    setSelectedEvent(eventName);
+    setLoadingCustomers(true);
+    setSearch('');
+
+    const all: any[] = [];
+    const PAGE = 1000;
+    let from = 0;
+    while (true) {
+      const { data, error } = await supabase
+        .from('crm_purchases')
+        .select('customer_id, total_value, ticket_type, purchase_date, crm_customers(id, full_name, email, phone, city, classification, ltv, previous_purchases_count)')
+        .eq('event_name', eventName)
+        .range(from, from + PAGE - 1);
+      if (error || !data || data.length === 0) break;
+      all.push(...data);
+      if (data.length < PAGE) break;
+      from += PAGE;
+    }
+
+    const customerMap = new Map<string, CustomerRow>();
+    all.forEach((p: any) => {
+      const c = p.crm_customers;
+      if (!c) return;
+      const existing = customerMap.get(c.id);
+      if (!existing || p.purchase_date > existing.purchase_date) {
+        customerMap.set(c.id, {
+          id: c.id, full_name: c.full_name, email: c.email, phone: c.phone,
+          city: c.city, classification: c.classification, ltv: Number(c.ltv),
+          previous_purchases_count: c.previous_purchases_count,
+          ticket_type: p.ticket_type, total_value: Number(p.total_value),
+          purchase_date: p.purchase_date,
+        });
+      }
+    });
+
+    setCustomers(Array.from(customerMap.values()));
+    setLoadingCustomers(false);
+  }
+
+  const filtered = useMemo(() => {
+    if (!search) return customers;
+    const q = search.toLowerCase();
+    return customers.filter(c =>
+      c.full_name.toLowerCase().includes(q) ||
+      (c.email && c.email.toLowerCase().includes(q)) ||
+      (c.phone && c.phone.includes(q))
+    );
+  }, [customers, search]);
+
+  function exportCSV() {
+    const headers = ['Nome', 'Email', 'Telefone', 'Cidade', 'Tipo Ingresso', 'Valor', 'Classificação'];
+    const rows = filtered.map(c => [
+      c.full_name, c.email || '', c.phone || '', c.city || '',
+      c.ticket_type || '', c.total_value, CLASSIFICATION_LABELS[c.classification]
+    ]);
+    const csv = [headers.join(','), ...rows.map(r => r.map(v => `"${v}"`).join(','))].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `clientes-${selectedEvent}-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function sendWhatsAppToContact() {
+    if (!contactTarget?.phone) { toast.error('Esse contato não tem telefone cadastrado.'); return; }
+    if (!selectedTemplate) { toast.error('Selecione um modelo de mensagem.'); return; }
+    if (!selectedPhoneId) { toast.error('Selecione um número de WhatsApp.'); return; }
+
+    setSendingContact(true);
+    try {
       const tmpl = templates.find((t: any) => t.name === selectedTemplate);
+      const formattedPhone = formatPhone(contactTarget.phone);
       const resp = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/whatsapp-api?action=send_bulk`,
         {
@@ -380,645 +391,642 @@ function EventDashboard({ eventId }: { eventId: string }) {
             template_name: selectedTemplate,
             template_language: templateLang,
             template_components: tmpl?.components || [],
-            contacts: [{ phone: formatPhone(phone), name: name || 'cliente' }],
+            contacts: [{ phone: formattedPhone, name: contactTarget.full_name || 'cliente' }],
           }),
         }
       );
       const result = await resp.json();
       if (result.sent > 0) {
-        toast.success(`Mensagem enviada para ${name || phone}!`);
+        const bodyComponent = (tmpl?.components || []).find((c: any) => c.type === 'BODY');
+        const messageText = bodyComponent?.text || `[Template: ${selectedTemplate}]`;
+        const wamid = result.details?.[0]?.wamid || result.details?.[0]?.message_id || result.details?.[0]?.messages?.[0]?.id || null;
+
+        await supabase.from('whatsapp_messages').insert({
+          phone: formattedPhone, contact_name: contactTarget.full_name || null, direction: 'outgoing',
+          message_type: 'template', message_text: messageText, status: 'sent', wamid,
+        });
+
+        await supabase.from('whatsapp_bot_settings')
+          .upsert({ phone: formattedPhone, bot_enabled: false, updated_at: new Date().toISOString() }, { onConflict: 'phone' });
+
+        toast.success(`Mensagem enviada para ${contactTarget.full_name}!`);
+        setContactTarget(null);
       } else {
-        toast.error(`Erro ao enviar: ${result.details?.[0]?.error || 'Erro desconhecido'}`);
+        toast.error('Falha ao enviar mensagem.');
       }
-    } catch (e: any) { toast.error(`Erro: ${e.message}`); }
-    finally { setSendingTo(null); }
+    } catch (err: any) {
+      toast.error(`Erro: ${err.message}`);
+    } finally {
+      setSendingContact(false);
+    }
   }
 
-  const webhookUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/zig-webhook`;
-
-  useEffect(() => {
-    loadLogs();
-    const channel = supabase
-      .channel('webhook-logs-zig-event')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'webhook_logs' }, (payload) => {
-        const row = payload.new as WebhookLog;
-        if (row.source !== WEBHOOK_SOURCE) return;
-        const p = (row.payload as any)?.payload;
-        if (p?.event?.id?.toString() === eventId) {
-          setLogs(prev => [row, ...prev]);
-          toast.success('Novo dado recebido!');
-        }
-      })
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [eventId]);
-
-  async function loadLogs() {
-    setLoading(true);
-    const { data } = await supabase
-      .from('webhook_logs')
-      .select('*')
-      .eq('source', WEBHOOK_SOURCE)
-      .order('received_at', { ascending: false });
-    const filtered = (data || []).filter(l => (l.payload as any)?.payload?.event?.id?.toString() === eventId);
-    setLogs(filtered);
-    setLastWebhookAt(filtered[0]?.received_at || null);
-    setLoading(false);
+  function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setAvatarFile(file);
+    setAvatarPreview(URL.createObjectURL(file));
   }
 
-  const parsedWithMeta = useMemo(() => {
-    return logs.map(l => ({ data: (l.payload as any)?.payload as ParsedData, received_at: l.received_at })).filter(item => item.data);
-  }, [logs]);
+  async function handleCreateEvent(mode: 'import' | 'live') {
+    if (!newName.trim()) { toast.error('Nome do evento é obrigatório'); return; }
+    setSaving(true);
 
-  const parsed = useMemo(() => parsedWithMeta.map(p => p.data), [parsedWithMeta]);
-  const eventName = crmData?.eventName || parsed[0]?.event?.name || eventNameMap[eventId] || 'Evento';
-
-  const metrics = useMemo(() => {
-    // Webhook-based metrics (for abandoned carts, etc.)
-    const seenPaymentOrderIds = new Set<string>();
-    const paidOrders: ParsedData[] = [];
-    parsedWithMeta.forEach(({ data: p }) => {
-      if (p.type === 'order_payment' && p.payments?.some(pay => pay.status === 'paid')) {
-        const orderId = String(p.order?.id || '');
-        if (orderId && seenPaymentOrderIds.has(orderId)) return;
-        if (orderId) seenPaymentOrderIds.add(orderId);
-        paidOrders.push(p);
+    let avatarUrl: string | null = null;
+    if (avatarFile) {
+      const ext = avatarFile.name.split('.').pop();
+      const path = `${crypto.randomUUID()}.${ext}`;
+      const { error } = await supabase.storage.from('event-avatars').upload(path, avatarFile);
+      if (!error) {
+        const { data: urlData } = supabase.storage.from('event-avatars').getPublicUrl(path);
+        avatarUrl = urlData.publicUrl;
       }
-    });
-
-    const seenAbandonedIds = new Set<string>();
-    const abandonedCarts: { data: ParsedData; received_at: string }[] = [];
-    parsedWithMeta.forEach(({ data: p, received_at }) => {
-      if (p.type === 'abandoned_cart') {
-        const orderId = String(p.order?.id || '');
-        if (orderId && seenAbandonedIds.has(orderId)) return;
-        if (orderId) seenAbandonedIds.add(orderId);
-        abandonedCarts.push({ data: p, received_at });
-      }
-    });
-
-    // Use CRM data for core metrics if available, otherwise fallback to webhook data
-    let totalTickets: number;
-    let totalRevenue: number;
-    let todaySalesCount: number;
-
-    if (crmData && crmData.totalTickets > 0) {
-      totalTickets = crmData.totalTickets;
-      totalRevenue = crmData.totalRevenue;
-      todaySalesCount = crmData.todaySales;
-    } else {
-      const today = new Date().toISOString().split('T')[0];
-      const todayLogs = logs.filter(l => l.received_at.startsWith(today));
-      const todayParsed = todayLogs.map(l => (l.payload as any)?.payload as ParsedData).filter(Boolean);
-      const seenTodayIds = new Set<string>();
-      const todaySales = todayParsed.filter(p => {
-        if (p.type === 'order_payment' && p.payments?.some(pay => pay.status === 'paid')) {
-          const orderId = String(p.order?.id || '');
-          if (orderId && seenTodayIds.has(orderId)) return false;
-          if (orderId) seenTodayIds.add(orderId);
-          return true;
-        }
-        return false;
-      });
-
-      totalRevenue = paidOrders.reduce((sum, o) => {
-        const paymentTotal = o.payments?.filter(p => p.status === 'paid').reduce((s, p) => s + p.amount, 0) || 0;
-        return sum + (paymentTotal || o.order.amount);
-      }, 0);
-
-      totalTickets = paidOrders.reduce((sum, o) => {
-        return sum + (o.tickets?.reduce((s, t) => s + t.quantity, 0) || 1);
-      }, 0);
-
-      todaySalesCount = todaySales.length;
     }
 
-    const participantMap = new Map<string, { name: string; email: string | null; phone: string | null; total: number }>();
-    paidOrders.forEach(o => {
-      const c = o.order.customer || o.customer;
-      if (!c) return;
-      const key = c.document || c.email;
-      const amount = o.payments?.filter(p => p.status === 'paid').reduce((s, p) => s + p.amount, 0) || o.order.amount;
-      const existing = participantMap.get(key);
-      if (existing) existing.total += amount;
-      else participantMap.set(key, { name: c.name, email: c.email, phone: c.phone, total: amount });
+    const { error } = await supabase.from('events').insert({
+      name: newName.trim(),
+      avatar_url: avatarUrl,
+      event_date: newDate || null,
+      webhook_url: mode === 'live' ? newWebhook || null : null,
+      api_token: mode === 'live' ? newApiToken || null : null,
+      platform: mode === 'live' ? newPlatform : 'manual',
     });
 
-    const superClients = (crmData?.topClients?.length ? crmData.topClients : [...participantMap.values()])
-      .sort((a, b) => b.total - a.total)
-      .slice(0, 10);
-
-    const buyerIdentifiers = new Set<string>();
-    paidOrders.forEach(o => {
-      const c = o.order.customer || o.customer;
-      if (!c) return;
-      if (c.document) buyerIdentifiers.add(c.document.replace(/\D/g, ''));
-      if (c.email) buyerIdentifiers.add(c.email.toLowerCase());
-    });
-
-    let recoveredCount = 0;
-    let recoveredRevenue = 0;
-    abandonedCarts.forEach(({ data: c }) => {
-      const customer = c.customer || c.order?.customer;
-      if (!customer) return;
-      const doc = customer.document?.replace(/\D/g, '');
-      const email = customer.email?.toLowerCase();
-      if ((doc && buyerIdentifiers.has(doc)) || (email && buyerIdentifiers.has(email))) {
-        recoveredCount++;
-        recoveredRevenue += c.order?.amount || 0;
-      }
-    });
-
-    return {
-      totalTickets, totalRevenue, todaySales: todaySalesCount,
-      abandonedCarts: abandonedCarts.length, recoveredCarts: recoveredCount,
-      recoveredCartsRevenue: recoveredRevenue, superClients,
-      abandonedCartData: abandonedCarts, buyerIdentifiers,
-    };
-  }, [parsedWithMeta, logs, crmData]);
-
-  function handleCopy() {
-    navigator.clipboard.writeText(webhookUrl);
-    setCopied(true);
-    toast.success('URL copiada!');
-    setTimeout(() => setCopied(false), 2000);
+    if (error) {
+      toast.error('Erro ao criar evento');
+    } else {
+      toast.success('Evento criado!');
+      resetForm();
+      loadEvents();
+    }
+    setSaving(false);
   }
 
-  function exportAbandonedCarts() {
-    const carts = metrics.abandonedCartData;
-    if (carts.length === 0) { toast.error('Nenhum carrinho abandonado encontrado.'); return; }
-    const uniqueMap = new Map<string, any>();
-    carts.forEach(({ data: c }) => {
-      const customer = c.customer || c.order?.customer;
-      if (!customer?.phone) return;
-      const phone = formatPhone(customer.phone);
-      if (!uniqueMap.has(phone)) {
-        uniqueMap.set(phone, {
-          nome: customer.name, telefone: phone, email: customer.email,
-          valor_carrinho: c.order?.amount || 0,
-          ingresso: c.tickets?.map((t: any) => t.product_name).join(', ') || '',
-        });
-      }
-    });
-    const rows = [...uniqueMap.values()];
-    const ws = XLSX.utils.json_to_sheet(rows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Carrinhos Abandonados');
-    XLSX.writeFile(wb, `zig_carrinhos_abandonados_${new Date().toISOString().split('T')[0]}.xlsx`);
-    toast.success(`Planilha gerada com ${rows.length} contato(s)!`);
+  function resetForm() {
+    setCreateStep(null);
+    setNewName(''); setNewDate(''); setNewWebhook(''); setNewApiToken('');
+    setNewPlatform('blueticket'); setAvatarFile(null); setAvatarPreview(null);
+    setSpreadsheetFile(null); setRevenue('');
   }
 
-  const hasLiveActivity = logs.length > 0;
-  const hasSyncedData = Boolean(crmData && crmData.totalTickets > 0);
-  const activityBadge = hasLiveActivity
-    ? {
-        dot: 'bg-green-400 animate-pulse',
-        text: 'text-green-600 dark:text-green-400',
-        label: 'Ao vivo',
-      }
-      : hasSyncedData
-        ? {
-            dot: 'bg-blue-400 animate-pulse',
-            text: 'text-blue-600 dark:text-blue-400',
-            label: 'Sincronização automática (a cada 15 min)',
-          }
-      : {
-          dot: 'bg-amber-400',
-          text: 'text-amber-600 dark:text-amber-400',
-          label: 'Sem atividade',
-        };
+  const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-  const statCards = [
-    {
-      label: 'Ingressos Vendidos',
-      value: metrics.totalTickets,
-      subtitle: crmData?.lastSaleDate
-        ? `Última venda em ${formatShortDate(crmData.lastSaleDate)}`
-        : hasLiveActivity
-          ? 'Atualizado por webhook'
-          : 'Sem vendas carregadas',
-      icon: Ticket,
-      color: 'text-blue-500 bg-blue-50 dark:bg-blue-900/30',
-    },
-    {
-      label: 'Receita Total',
-      value: formatCurrency(metrics.totalRevenue),
-      subtitle: `${metrics.totalTickets} ingressos`,
-      icon: DollarSign,
-      color: 'text-emerald-500 bg-emerald-50 dark:bg-emerald-900/30',
-    },
-    {
-      label: 'Vendas Hoje',
-      value: metrics.todaySales,
-      subtitle: `${new Date().toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' })}`,
-      icon: CalendarCheck,
-      color: 'text-purple-500 bg-purple-50 dark:bg-purple-900/30',
-    },
-  ];
+  // Customer list for selected event
+  if (selectedEvent) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="sm" onClick={() => { setSelectedEvent(null); setCustomers([]); }}>
+              <ArrowLeft size={16} className="mr-1" /> Voltar
+            </Button>
+            <h2 className="text-sm font-semibold text-foreground truncate">{selectedEvent}</h2>
+          </div>
+          <Button variant="ghost" size="sm" className="text-xs text-muted-foreground" onClick={() => { loadCustomersForEvent(selectedEvent); toast.success('Dados atualizados!'); }}>
+            <RefreshCw size={14} className={loadingCustomers ? 'animate-spin' : ''} />
+            <span className="ml-1">Atualizar</span>
+          </Button>
+        </div>
+        <div className="flex flex-col sm:flex-row gap-3 justify-between">
+          <div className="relative flex-1 max-w-md">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <Input placeholder="Buscar cliente..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
+          </div>
+          <Button variant="outline" size="sm" onClick={exportCSV}>
+            <Download size={16} className="mr-1" /> Exportar CSV
+          </Button>
+        </div>
+        <Card className="border-border">
+          <CardContent className="p-0">
+            {loadingCustomers ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 size={24} className="animate-spin text-muted-foreground" />
+              </div>
+            ) : filtered.length === 0 ? (
+              <div className="p-8 text-center text-muted-foreground">Nenhum cliente encontrado.</div>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Nome</TableHead>
+                      <TableHead className="hidden md:table-cell">Email</TableHead>
+                      <TableHead className="hidden md:table-cell">Telefone</TableHead>
+                      <TableHead className="hidden lg:table-cell">Cidade</TableHead>
+                      <TableHead>Ingresso</TableHead>
+                      <TableHead>Valor</TableHead>
+                      <TableHead>Classificação</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filtered.map(c => (
+                      <TableRow key={c.id}>
+                        <TableCell className="font-medium">{c.full_name}</TableCell>
+                        <TableCell className="hidden md:table-cell text-muted-foreground">{c.email || '—'}</TableCell>
+                        <TableCell className="hidden md:table-cell text-muted-foreground">{formatPhone(c.phone)}</TableCell>
+                        <TableCell className="hidden lg:table-cell text-muted-foreground">{c.city || '—'}</TableCell>
+                        <TableCell className="text-xs">{c.ticket_type || '—'}</TableCell>
+                        <TableCell className="font-medium">{fmt(c.total_value)}</TableCell>
+                        <TableCell>
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${CLASSIFICATION_COLORS[c.classification]}`}>
+                            {CLASSIFICATION_LABELS[c.classification]}
+                          </span>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+        <p className="text-xs text-muted-foreground text-right">{filtered.length} cliente(s)</p>
+      </div>
+    );
+  }
 
-  const isMaestriaEvent = eventId === '13195' || eventId === '99902';
-  const ticketGoal: number | null = isMaestriaEvent ? 15000 : null;
-  const eventTargetDate: string | null = isMaestriaEvent ? '2026-05-09' : null;
-  const daysUntilEvent: number | null = eventTargetDate
-    ? Math.max(0, Math.ceil((new Date(eventTargetDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
-    : null;
-  const abandonedValue = formatCurrency(
-    metrics.abandonedCartData.reduce((sum, { data: c }: any) => sum + (c.order?.amount || 0), 0)
-  );
-
+  // Main CRM Dashboard
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => navigate('/interno/zig-tickets')}
-            className="text-xs text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
-          >
-            ← Voltar
-          </button>
-          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">Zig Tickets — {eventNameMap[eventId] || 'Evento'}</h1>
-          <div className="flex items-center gap-1.5">
-            <span className={`h-2 w-2 rounded-full ${activityBadge.dot}`} />
-            <span className={`text-[11px] font-medium ${activityBadge.text}`}>{activityBadge.label}</span>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => setShowConfig(s => !s)} className="rounded-lg h-8 text-xs">
-            <Settings size={12} className="mr-1.5" /> Webhook
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => { setRefreshing(true); Promise.all([loadLogs(), loadCrmPurchases()]).finally(() => setRefreshing(false)); }} className="rounded-lg h-8 text-xs" disabled={refreshing}>
-            <RefreshCw size={12} className={`mr-1.5 ${refreshing ? 'animate-spin' : ''}`} /> Atualizar
-          </Button>
-        </div>
+      {/* KPI Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+        <KPICard icon={Users} label="Total de Clientes" value={kpis?.total_customers?.toLocaleString('pt-BR') ?? '—'} loading={loadingKpis} color="text-blue-500" bgColor="bg-blue-500/10" />
+        <KPICard icon={UserPlus} label="Novos (30 dias)" value={kpis?.new_customers_30d?.toLocaleString('pt-BR') ?? '—'} loading={loadingKpis} color="text-green-500" bgColor="bg-green-500/10" />
+        <KPICard icon={DollarSign} label="CAC" value={kpis?.cac != null ? `R$ ${kpis.cac.toFixed(2).replace('.', ',')}` : '—'} loading={loadingKpis} color="text-amber-500" bgColor="bg-amber-500/10" />
+        <KPICard icon={Crown} label="Superclientes" value={kpis?.superclientes?.toLocaleString('pt-BR') ?? '—'} loading={loadingKpis} color="text-purple-500" bgColor="bg-purple-500/10" subtitle="LTV > R$ 1.000" />
+        <KPICard icon={Heart} label="Fãs" value={kpis?.fans?.toLocaleString('pt-BR') ?? '—'} loading={loadingKpis} color="text-pink-500" bgColor="bg-pink-500/10" subtitle="4+ eventos" />
       </div>
 
-      {!hasLiveActivity && crmData && (
-        <div className="rounded-xl border border-amber-200 dark:border-amber-900/40 bg-amber-50/80 dark:bg-amber-950/30 p-4">
-          <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
-            Ainda não entrou nenhum webhook da Zig para o Maestria, mas os números de vendas já foram atualizados pelo sync.
-          </p>
-          <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">
-            {metrics.totalTickets} ingressos e {formatCurrency(metrics.totalRevenue)} até {formatShortDate(crmData.lastSaleDate)}. Carrinhos abandonados e atividade ao vivo só aparecem quando o webhook começar a chegar.
-            {lastWebhookAt ? ` Último webhook recebido: ${formatDateTime(lastWebhookAt)}.` : ''}
-          </p>
+      {/* Top Cidades & Bairros */}
+      {!loadingAllCustomers && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Card className="border-border">
+            <CardHeader className="pb-2 pt-4 px-4">
+              <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                🏙️ Top 5 Cidades
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="px-4 pb-4">
+              <div className="space-y-2">
+                {topCities.map(([city, count], i) => {
+                  const pct = Math.round((count / allCustomers.length) * 100);
+                  return (
+                    <div key={city}>
+                      <div className="flex justify-between text-xs mb-0.5">
+                        <span className="font-medium text-foreground">{i + 1}. {city}</span>
+                        <span className="text-muted-foreground">{count} ({pct}%)</span>
+                      </div>
+                      <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                        <div className="h-full rounded-full bg-blue-500" style={{ width: `${pct}%` }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-border">
+            <CardHeader className="pb-2 pt-4 px-4">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                  📍 Top 5 Bairros
+                </CardTitle>
+                {allNeighborhoods.length > 5 && (
+                  <button
+                    onClick={() => setShowAllNeighborhoods(true)}
+                    className="text-[11px] text-blue-500 hover:text-blue-700 hover:underline transition-colors"
+                  >
+                    Ver mais ({allNeighborhoods.length})
+                  </button>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent className="px-4 pb-4">
+              <div className="space-y-2">
+                {topNeighborhoods.map(([nb, count], i) => {
+                  const pct = Math.round((count / allCustomers.length) * 100);
+                  return (
+                    <div key={nb}>
+                      <div className="flex justify-between text-xs mb-0.5">
+                        <span className="font-medium text-foreground">{i + 1}. {nb}</span>
+                        <span className="text-muted-foreground">{count} ({pct}%)</span>
+                      </div>
+                      <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                        <div className="h-full rounded-full bg-amber-500" style={{ width: `${pct}%` }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
         </div>
       )}
 
-      {showConfig && (
-        <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5 max-w-3xl animate-in slide-in-from-top-2 duration-200">
-          <h3 className="text-xs font-semibold text-gray-900 dark:text-gray-100 mb-1">Webhook URL</h3>
-          <p className="text-[11px] text-gray-400 dark:text-gray-500 mb-3">Cole esta URL nas configurações de webhook da Zig Tickets.</p>
+      {/* Lista de Clientes */}
+      <Card className="border-border">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <CardTitle className="text-sm font-semibold text-foreground flex items-center gap-2">
+              <Users size={16} className="text-blue-500" /> Clientes
+              <span className="text-xs text-muted-foreground font-normal">({allCustomers.length} total)</span>
+            </CardTitle>
+            <div className="relative w-full sm:w-64">
+              <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por nome ou telefone..."
+                value={customerSearch}
+                onChange={e => setCustomerSearch(e.target.value)}
+                className="pl-8 h-8 text-xs"
+              />
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          {loadingAllCustomers ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 size={20} className="animate-spin text-muted-foreground" />
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-8">#</TableHead>
+                    <TableHead>Nome</TableHead>
+                    <TableHead className="hidden md:table-cell">Telefone</TableHead>
+                    <TableHead className="hidden lg:table-cell">Cidade</TableHead>
+                    <TableHead>Compras</TableHead>
+                    <TableHead>LTV</TableHead>
+                    <TableHead className="hidden md:table-cell">Último Evento</TableHead>
+                    <TableHead>Classificação</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {allCustomers
+                    .filter(c => {
+                      if (!customerSearch.trim()) return true;
+                      const q = customerSearch.toLowerCase();
+                      return (
+                        c.full_name?.toLowerCase().includes(q) ||
+                        c.phone?.includes(q)
+                      );
+                    })
+                    .slice(0, 20)
+                    .map((c, i) => (
+                      <TableRow
+                        key={c.id}
+                        className="cursor-pointer hover:bg-muted/40"
+                        onClick={() => setDetailsCustomerId(c.id)}
+                      >
+                        <TableCell className="text-muted-foreground text-xs">{i + 1}</TableCell>
+                        <TableCell className="font-medium text-sm">{c.full_name}</TableCell>
+                        <TableCell className="hidden md:table-cell text-muted-foreground text-xs">{formatPhone(c.phone)}</TableCell>
+                        <TableCell className="hidden lg:table-cell text-muted-foreground text-xs">{c.city || '—'}</TableCell>
+                        <TableCell className="text-sm">{c.previous_purchases_count ?? 0}</TableCell>
+                        <TableCell className="font-semibold text-sm">
+                          {Number(c.ltv).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                        </TableCell>
+                        <TableCell className="hidden md:table-cell text-muted-foreground text-xs truncate max-w-[140px]">{c.last_event || '—'}</TableCell>
+                        <TableCell>
+                          {c.classification && (
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${CLASSIFICATION_COLORS[c.classification as ClientClassification]}`}>
+                              {CLASSIFICATION_LABELS[c.classification as ClientClassification]}
+                            </span>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Events Section */}
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-sm font-semibold text-foreground">Eventos</h2>
           <div className="flex items-center gap-2">
-            <code className="flex-1 text-[11px] bg-gray-50 dark:bg-gray-800 rounded-lg px-3 py-2.5 text-gray-600 dark:text-gray-400 font-mono break-all border border-gray-100 dark:border-gray-700">
-              {webhookUrl}
-            </code>
-            <Button variant="outline" size="sm" onClick={handleCopy} className="shrink-0 rounded-lg h-9">
-              {copied ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
+            <Button variant="ghost" size="sm" className="text-xs" onClick={() => { loadEvents(); loadKpis(); loadTopLists(); toast.success('Dados atualizados!'); }}>
+              <RefreshCw size={14} className={loadingEvents ? 'animate-spin' : ''} />
+            </Button>
+            <Button size="sm" onClick={() => setCreateStep('choose')} className="bg-[#FF0080] hover:bg-[#FF0080]/90 text-white">
+              <Plus size={16} className="mr-1" /> Adicionar
             </Button>
           </div>
         </div>
-      )}
 
-      {loading ? (
-        <div className="flex items-center justify-center py-20">
-          <Loader2 className="animate-spin text-gray-400 dark:text-gray-500" size={24} />
-        </div>
-      ) : (
-        <>
-          {/* Metrics Grid */}
-          <div className="grid grid-cols-12 gap-3">
-            <div className="col-span-12 lg:col-span-5 grid grid-cols-3 gap-3">
-              {statCards.map(card => (
-                <div key={card.label} className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-3.5 hover:border-gray-300 dark:hover:border-gray-700 transition-all flex flex-col gap-2">
-                  <div className="flex items-center justify-between">
-                    <div className={`flex h-7 w-7 items-center justify-center rounded-lg ${card.color}`}>
-                      <card.icon size={13} />
+        {loadingEvents ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 size={24} className="animate-spin text-muted-foreground" />
+          </div>
+        ) : (
+          <div className="grid gap-3">
+            {events.map((ev) => (
+              <Card
+                key={ev.id}
+                className="border-border shadow-sm cursor-pointer hover:shadow-md hover:border-primary/20 transition-all"
+                onClick={() => loadCustomersForEvent(ev.name)}
+              >
+                <CardContent className="p-4 flex items-center gap-3">
+                  <Avatar className="h-10 w-10 shrink-0">
+                    {ev.avatar_url ? <AvatarImage src={ev.avatar_url} alt={ev.name} /> : null}
+                    <AvatarFallback className="bg-muted text-muted-foreground text-xs font-bold">
+                      {ev.name.slice(0, 2).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-semibold text-foreground truncate">{ev.name}</p>
+                      {ev.platform !== 'manual' && (
+                        <span className="flex items-center gap-1 text-[10px] text-emerald-600 bg-emerald-50 dark:bg-emerald-900/30 px-1.5 py-0.5 rounded-full">
+                          <Radio size={8} /> Ao vivo
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex gap-4 mt-1 text-xs text-muted-foreground">
+                      <span><Users size={12} className="inline mr-1" />{ev.uniqueCustomers.toLocaleString('pt-BR')} clientes</span>
+                      <span>{ev.totalSales.toLocaleString('pt-BR')} vendas</span>
+                      <span className="text-emerald-600 font-medium">{fmt(ev.totalRevenue)}</span>
                     </div>
                   </div>
-                  <div>
-                    <p className="text-lg font-bold text-gray-900 dark:text-gray-100 leading-tight">{card.value}</p>
-                    <p className="text-[10px] text-gray-400 dark:text-gray-500">{card.subtitle}</p>
-                    <p className="text-[10px] font-medium text-gray-500 dark:text-gray-400 mt-1">{card.label}</p>
-                  </div>
-                </div>
-              ))}
-              {/* Abandoned Carts */}
-              <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-3.5 hover:border-gray-300 dark:hover:border-gray-700 transition-all flex flex-col gap-2">
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg text-orange-500 bg-orange-50 dark:bg-orange-900/30">
-                  <ShoppingCart size={13} />
-                </div>
-                <div>
-                  <p className="text-lg font-bold text-gray-900 dark:text-gray-100 leading-tight">{metrics.abandonedCarts}</p>
-                  <p className="text-xs font-semibold text-red-500 dark:text-red-400">{abandonedValue}</p>
-                  <p className="text-[10px] font-medium text-gray-500 dark:text-gray-400 mt-1">Carrinhos Abandonados</p>
-                </div>
-              </div>
-              {/* Recovered Carts */}
-              <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-3.5 hover:border-gray-300 dark:hover:border-gray-700 transition-all flex flex-col gap-2">
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg text-emerald-500 bg-emerald-50 dark:bg-emerald-900/30">
-                  <ShoppingCart size={13} />
-                </div>
-                <div>
-                  <p className="text-lg font-bold text-gray-900 dark:text-gray-100 leading-tight">
-                    {metrics.recoveredCarts} <span className="text-xs font-semibold text-gray-900 dark:text-gray-100">de</span> <span className="text-xs font-semibold text-red-500 dark:text-red-400">{metrics.abandonedCarts}</span>
-                  </p>
-                  <p className="text-xs font-semibold text-emerald-500 dark:text-emerald-400">{formatCurrency(metrics.recoveredCartsRevenue)}</p>
-                  <p className="text-[10px] font-medium text-gray-500 dark:text-gray-400 mt-1">Carrinhos Recuperados</p>
-                </div>
-              </div>
-              {/* Days until event */}
-              <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-3.5 hover:border-gray-300 dark:hover:border-gray-700 transition-all flex flex-col gap-2">
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg text-indigo-500 bg-indigo-50 dark:bg-indigo-900/30">
-                  <Calendar size={13} />
-                </div>
-                <div>
-                  <p className="text-lg font-bold text-gray-900 dark:text-gray-100 leading-tight">{daysUntilEvent ?? '—'}</p>
-                  <p className="text-[10px] text-gray-400 dark:text-gray-500">para o evento</p>
-                  <p className="text-[10px] font-medium text-gray-500 dark:text-gray-400 mt-1">{daysUntilEvent !== null ? `Faltam ${daysUntilEvent} dias` : 'Faltam X dias'}</p>
-                </div>
-              </div>
-              {/* Meta */}
-              {ticketGoal && (
-                <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-3.5 hover:border-gray-300 dark:hover:border-gray-700 transition-all flex flex-col gap-2">
-                  <div className="flex h-7 w-7 items-center justify-center rounded-lg text-amber-500 bg-amber-50 dark:bg-amber-900/30">
-                    <Crown size={13} />
-                  </div>
-                  <div>
-                    <p className="text-lg font-bold text-gray-900 dark:text-gray-100 leading-tight">{Math.round((metrics.totalTickets / ticketGoal) * 100)}%</p>
-                    <p className="text-[10px] text-gray-400 dark:text-gray-500">{metrics.totalTickets.toLocaleString('pt-BR')} de {ticketGoal.toLocaleString('pt-BR')}</p>
-                    <p className="text-[10px] font-medium text-gray-500 dark:text-gray-400 mt-1">Meta de ingressos</p>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Charts */}
-            <div className="col-span-12 lg:col-span-7 grid grid-cols-2 gap-3">
-              {/* Ritmo de Vendas */}
-              <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 flex flex-col">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-xs font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-1.5">
-                    <TrendingUp size={12} className="text-blue-500" />
-                    Ritmo de Vendas
-                  </h3>
-                  <span className="text-[10px] text-gray-400">Últimos 10 dias</span>
-                </div>
-                <div className="flex-1 min-h-[220px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                      data={(() => {
-                        if (crmData && crmData.totalTickets > 0) {
-                          const sortedDays = isMaestriaEvent
-                            ? MAESTRIA_RECENT_SALES.map(item => [item.day, item.qty] as [string, number])
-                            : [...crmData.dailySales.entries()].sort((a, b) => a[0].localeCompare(b[0]));
-                          const last5 = sortedDays.slice(-10);
-                          return last5.map(([day, qty]) => {
-                            const d = new Date(day + 'T12:00:00');
-                            const dd = String(d.getDate()).padStart(2, '0');
-                            const mm = String(d.getMonth() + 1).padStart(2, '0');
-                            return { date: `${dd}/${mm}`, qty };
-                          });
-                        }
-                        const result = [];
-                        const now = new Date();
-                        for (let i = 4; i >= 0; i--) {
-                          const d = new Date(now);
-                          d.setDate(d.getDate() - i);
-                          const dd = String(d.getDate()).padStart(2, '0');
-                          const mm = String(d.getMonth() + 1).padStart(2, '0');
-                          result.push({ date: `${dd}/${mm}`, qty: 0 });
-                        }
-                        return result;
-                      })()}
-                      margin={{ top: 5, right: 5, left: -15, bottom: 0 }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-gray-100 dark:text-gray-800" vertical={false} />
-                      <XAxis dataKey="date" tick={{ fontSize: 11, fontWeight: 500 }} className="text-gray-500" />
-                      <YAxis tick={{ fontSize: 9 }} className="text-gray-400" />
-                      <Tooltip
-                        contentStyle={{ fontSize: 11, borderRadius: 8, border: '1px solid #e5e7eb', backgroundColor: 'white' }}
-                        formatter={(value: number) => [`${value} ingresso(s)`, 'Vendas']}
-                      />
-                      <Bar dataKey="qty" fill="#8b5cf6" radius={[4, 4, 0, 0]} barSize={32} name="Ingressos" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-
-              {/* Gráfico de vendas */}
-              <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 flex flex-col">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-xs font-semibold text-gray-900 dark:text-gray-100">Gráfico de vendas</h3>
-                  <span className="text-[10px] text-gray-400">Últimos 10 dias</span>
-                </div>
-                <div className="flex-1 min-h-[220px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                      data={(() => {
-                        const dailyMap = new Map<string, number>();
-
-                        if (crmData && crmData.dailySales.size > 0) {
-                          crmData.dailySales.forEach((qty, day) => dailyMap.set(day, qty));
-                        } else {
-                          const seenIds = new Set<string>();
-                          parsedWithMeta.forEach(({ data: p, received_at }) => {
-                            if (p.type === 'order_payment' && p.payments?.some(pay => pay.status === 'paid')) {
-                              const orderId = String(p.order?.id || '');
-                              if (orderId && seenIds.has(orderId)) return;
-                              if (orderId) seenIds.add(orderId);
-                              const day = received_at.split('T')[0];
-                              dailyMap.set(day, (dailyMap.get(day) || 0) + (p.tickets?.reduce((s, t) => s + t.quantity, 0) || 1));
-                            }
-                          });
-                        }
-
-                        if (isMaestriaEvent) {
-                          return MAESTRIA_RECENT_SALES.map(({ day, qty }) => {
-                            const d = new Date(day + 'T12:00:00');
-                            const dd = String(d.getDate()).padStart(2, '0');
-                            const mm = String(d.getMonth() + 1).padStart(2, '0');
-                            return { date: `${dd}/${mm}`, qty };
-                          });
-                        }
-
-                        const result = [];
-                        const now = new Date();
-                        for (let i = 4; i >= 0; i--) {
-                          const d = new Date(now);
-                          d.setDate(d.getDate() - i);
-                          const key = d.toISOString().split('T')[0];
-                          const dd = String(d.getDate()).padStart(2, '0');
-                          const mm = String(d.getMonth() + 1).padStart(2, '0');
-                          result.push({ date: `${dd}/${mm}`, qty: dailyMap.get(key) || 0 });
-                        }
-                        return result;
-                      })()}
-                      margin={{ top: 5, right: 5, left: -15, bottom: 0 }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-gray-100 dark:text-gray-800" vertical={false} />
-                      <XAxis dataKey="date" tick={{ fontSize: 11, fontWeight: 500 }} className="text-gray-500" />
-                      <YAxis tick={{ fontSize: 9 }} className="text-gray-400" />
-                      <Tooltip
-                        contentStyle={{ fontSize: 11, borderRadius: 8, border: '1px solid #e5e7eb', backgroundColor: 'white' }}
-                        formatter={(value: number) => [`${value} ingresso(s)`, 'Vendas']}
-                      />
-                      <Bar dataKey="qty" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={32} name="Ingressos" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-            </div>
+                  <ChevronRight size={16} className="text-muted-foreground shrink-0" />
+                </CardContent>
+              </Card>
+            ))}
+            {events.length === 0 && (
+              <div className="text-center text-muted-foreground py-12">Nenhum evento cadastrado.</div>
+            )}
           </div>
+        )}
+      </div>
 
-          {/* Abandoned Cart Export */}
-          <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-orange-50 dark:bg-orange-900/30 text-orange-500 shrink-0">
-                  <ShoppingCart size={18} />
+      {/* Todos os Bairros Dialog */}
+      <Dialog open={showAllNeighborhoods} onOpenChange={setShowAllNeighborhoods}>
+        <DialogContent className="max-w-md max-h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base">
+              📍 Todos os Bairros
+              <span className="text-xs font-normal text-muted-foreground">({allNeighborhoods.length} bairros)</span>
+            </DialogTitle>
+          </DialogHeader>
+          <div className="overflow-y-auto flex-1 pr-1 mt-2 space-y-2">
+            {allNeighborhoods.map(([nb, count], i) => {
+              const pct = Math.round((count / allCustomers.length) * 100);
+              return (
+                <div key={nb}>
+                  <div className="flex justify-between text-xs mb-0.5">
+                    <span className="font-medium text-foreground">{i + 1}. {nb}</span>
+                    <span className="text-muted-foreground">{count} cliente{count > 1 ? 's' : ''} · {pct}%</span>
+                  </div>
+                  <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                    <div className="h-full rounded-full bg-amber-500" style={{ width: `${Math.max(pct, 2)}%` }} />
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Carrinhos Abandonados</h3>
-                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Gere uma planilha ou dispare direto pelo WhatsApp</p>
-                </div>
+              );
+            })}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* WhatsApp Contact Dialog */}
+      <Dialog open={!!contactTarget} onOpenChange={(open) => !open && setContactTarget(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <MessageCircle size={18} className="text-green-500" />
+              Contato via WhatsApp
+            </DialogTitle>
+          </DialogHeader>
+          {contactTarget && (
+            <div className="space-y-4 mt-2">
+              <div className="bg-muted/50 rounded-lg p-3">
+                <p className="font-semibold text-sm text-foreground">{contactTarget.full_name}</p>
+                <p className="text-xs text-muted-foreground">{formatPhone(contactTarget.phone)}</p>
+                <p className="text-xs text-muted-foreground mt-1">LTV: {fmt(contactTarget.total_spent)}</p>
               </div>
-              <div className="flex items-center gap-2">
+
+              <div>
+                <Label className="text-xs">Número de envio</Label>
+                <Select value={selectedPhoneId} onValueChange={setSelectedPhoneId}>
+                  <SelectTrigger className="h-9 text-xs">
+                    <SelectValue placeholder="Selecione..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {apiPhones.map((p: any) => (
+                      <SelectItem key={p.id} value={p.id} className="text-xs">
+                        {p.display_phone_number} {p.verified_name ? `(${p.verified_name})` : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label className="text-xs">Template</Label>
+                <Select value={selectedTemplate} onValueChange={(v) => {
+                  setSelectedTemplate(v);
+                  const tmpl = templates.find((t: any) => t.name === v);
+                  if (tmpl) setTemplateLang(tmpl.language || 'pt_BR');
+                }}>
+                  <SelectTrigger className="h-9 text-xs">
+                    <SelectValue placeholder="Selecione..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {templates.map((t: any) => (
+                      <SelectItem key={t.name} value={t.name} className="text-xs">
+                        {t.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex gap-2">
                 <Button
-                  onClick={exportAbandonedCarts}
-                  className="rounded-lg bg-orange-500 hover:bg-orange-600 text-white text-xs gap-2"
-                  size="sm"
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => {
+                    if (contactTarget.phone) {
+                      window.open(`tel:${contactTarget.phone}`, '_blank');
+                    }
+                  }}
+                  disabled={!contactTarget.phone}
                 >
-                  <Download size={14} />
-                  Planilha
+                  <Phone size={14} className="mr-1" /> Ligar
+                </Button>
+                <Button
+                  className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+                  onClick={sendWhatsAppToContact}
+                  disabled={sendingContact || !selectedTemplate || !selectedPhoneId}
+                >
+                  {sendingContact ? (
+                    <Loader2 size={14} className="animate-spin mr-1" />
+                  ) : (
+                    <Send size={14} className="mr-1" />
+                  )}
+                  Enviar
                 </Button>
               </div>
             </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
-            {metrics.abandonedCartData.length > 0 && (
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="border-b border-gray-100 dark:border-gray-800">
-                      <th className="text-left py-2 px-3 text-gray-400 dark:text-gray-500 font-medium">Nome</th>
-                      <th className="text-left py-2 px-3 text-gray-400 dark:text-gray-500 font-medium">Telefone</th>
-                      <th className="text-left py-2 px-3 text-gray-400 dark:text-gray-500 font-medium">Data/Hora</th>
-                      <th className="text-right py-2 px-3 text-gray-400 dark:text-gray-500 font-medium">Valor</th>
-                      <th className="text-center py-2 px-3 text-gray-400 dark:text-gray-500 font-medium">Status</th>
-                      <th className="text-center py-2 px-3 text-gray-400 dark:text-gray-500 font-medium">Ação</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {metrics.abandonedCartData.map((cart, i) => {
-                      const c = cart.data.customer || cart.data.order?.customer;
-                      if (!c) return null;
-                      const abandonedDate = new Date(cart.received_at);
-                      const formattedDate = abandonedDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' }) + ' ' + abandonedDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-                      const docClean = c.document ? c.document.replace(/\D/g, '') : '';
-                      const emailClean = c.email ? c.email.toLowerCase() : '';
-                      const hasPurchased = (docClean && metrics.buyerIdentifiers.has(docClean)) || (emailClean && metrics.buyerIdentifiers.has(emailClean));
-                      return (
-                        <tr key={i} className="border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
-                          <td className="py-2.5 px-3 text-gray-700 dark:text-gray-300 font-medium">{c.name}</td>
-                          <td className="py-2.5 px-3 text-gray-500 dark:text-gray-400 font-mono">{formatPhone(c.phone)}</td>
-                          <td className="py-2.5 px-3 text-gray-500 dark:text-gray-400">{formattedDate}</td>
-                          <td className="py-2.5 px-3 text-gray-700 dark:text-gray-300 text-right font-medium">{formatCurrency(cart.data.order?.amount || 0)}</td>
-                          <td className="py-2.5 px-3 text-center">
-                            {hasPurchased ? (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400">✅ Comprou</span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400">❌ Não comprou</span>
-                            )}
-                          </td>
-                          <td className="py-2.5 px-3 text-center">
-                            {!hasPurchased && c.phone ? (
-                              <button
-                                onClick={() => sendWhatsAppToContact(c.phone, c.name)}
-                                disabled={sendingTo === c.phone}
-                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-semibold bg-green-500 text-white hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                              >
-                                {sendingTo === c.phone ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
-                                Disparar
-                              </button>
-                            ) : hasPurchased ? (
-                              <span className="text-[10px] text-gray-300 dark:text-gray-600">—</span>
-                            ) : (
-                              <span className="text-[10px] text-gray-300 dark:text-gray-600">Sem telefone</span>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-
-          {/* Superclientes */}
-          {metrics.superClients.length > 0 && (
-            <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5">
-              <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
-                <Crown size={16} className="text-amber-500" />
-                Superclientes
-              </h3>
-              <div className="space-y-1">
-                {metrics.superClients.map((client, i) => (
-                  <div key={i} className="flex items-center justify-between py-2.5 px-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
-                    <div className="flex items-center gap-3">
-                      <span className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold ${
-                        i === 0 ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400' :
-                        i === 1 ? 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400' :
-                        i === 2 ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400' :
-                        'bg-gray-50 dark:bg-gray-800 text-gray-400 dark:text-gray-500'
-                      }`}>
-                        {i + 1}
-                      </span>
-                      <div>
-                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{client.name}</p>
-                        <p className="text-[11px] text-gray-400 dark:text-gray-500">{client.email}</p>
-                      </div>
-                    </div>
-                    <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(client.total)}</span>
+      {/* Create Event Dialog */}
+      <Dialog open={createStep !== null} onOpenChange={(open) => !open && resetForm()}>
+        <DialogContent className="max-w-md">
+          {createStep === 'choose' && (
+            <>
+              <DialogHeader>
+                <DialogTitle>Adicionar Evento</DialogTitle>
+              </DialogHeader>
+              <div className="grid grid-cols-2 gap-3 mt-2">
+                <button
+                  onClick={() => setCreateStep('import')}
+                  className="flex flex-col items-center gap-3 p-6 border border-border rounded-xl hover:border-[#FF0080] hover:bg-[#FF0080]/5 transition-all"
+                >
+                  <Upload size={24} className="text-muted-foreground" />
+                  <div className="text-center">
+                    <p className="text-sm font-semibold text-foreground">Importar Planilha</p>
+                    <p className="text-xs text-muted-foreground mt-1">Upload de CSV com leads</p>
                   </div>
-                ))}
+                </button>
+                <button
+                  onClick={() => setCreateStep('live')}
+                  className="flex flex-col items-center gap-3 p-6 border border-border rounded-xl hover:border-[#FF0080] hover:bg-[#FF0080]/5 transition-all"
+                >
+                  <Radio size={24} className="text-muted-foreground" />
+                  <div className="text-center">
+                    <p className="text-sm font-semibold text-foreground">Evento ao Vivo</p>
+                    <p className="text-xs text-muted-foreground mt-1">Conectar API ou Webhook</p>
+                  </div>
+                </button>
               </div>
-            </div>
+            </>
           )}
 
-          {/* Raw logs */}
-          <details className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden">
-            <summary className="px-5 py-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-xs font-medium text-gray-400 dark:text-gray-500">
-              Logs brutos ({logs.length})
-            </summary>
-            <div className="px-5 pb-4 space-y-2 max-h-[400px] overflow-y-auto">
-              {logs.slice(0, 30).map(log => (
-                <details key={log.id} className="bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 overflow-hidden">
-                  <summary className="px-3 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-[11px] flex items-center gap-3">
-                    <span className="text-gray-400 dark:text-gray-500 font-mono">{new Date(log.received_at).toLocaleString('pt-BR')}</span>
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${
-                      (log.payload as any)?.payload?.type === 'order_payment' ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' :
-                      (log.payload as any)?.payload?.type === 'abandoned_cart' ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400' :
-                      'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400'
-                    }`}>
-                      {(log.payload as any)?.payload?.type || 'unknown'}
-                    </span>
-                  </summary>
-                  <pre className="px-3 py-2 text-[10px] text-gray-500 dark:text-gray-400 font-mono overflow-x-auto border-t border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-900">
-                    {JSON.stringify(log.payload, null, 2)}
-                  </pre>
-                </details>
-              ))}
-            </div>
-          </details>
-        </>
-      )}
+          {(createStep === 'import' || createStep === 'live') && (
+            <>
+              <DialogHeader>
+                <DialogTitle>
+                  {createStep === 'import' ? 'Importar Planilha de Leads' : 'Evento ao Vivo'}
+                </DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 mt-2">
+                <div className="flex items-center gap-4">
+                  <label className="cursor-pointer">
+                    <Avatar className="h-16 w-16 border-2 border-dashed border-border hover:border-[#FF0080] transition-colors">
+                      {avatarPreview ? <AvatarImage src={avatarPreview} /> : null}
+                      <AvatarFallback className="bg-muted text-muted-foreground text-xs">
+                        <Plus size={20} />
+                      </AvatarFallback>
+                    </Avatar>
+                    <input type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
+                  </label>
+                  <div>
+                    <p className="text-sm font-medium text-foreground">Avatar do evento</p>
+                    <p className="text-xs text-muted-foreground">300×300 recomendado</p>
+                  </div>
+                </div>
+
+                <div>
+                  <Label>Nome do evento</Label>
+                  <Input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Ex: Maestria" />
+                </div>
+
+                <div>
+                  <Label>Data do evento</Label>
+                  <Input type="date" value={newDate} onChange={e => setNewDate(e.target.value)} />
+                </div>
+
+                {createStep === 'import' && (
+                  <>
+                    <div>
+                      <Label>Planilha de Leads (CSV/XLSX)</Label>
+                      <div className="mt-1">
+                        <label className="flex items-center justify-center gap-2 px-4 py-3 border-2 border-dashed border-border rounded-lg cursor-pointer hover:border-[#FF0080] hover:bg-[#FF0080]/5 transition-colors">
+                          <Upload size={18} className="text-muted-foreground" />
+                          <span className="text-sm text-muted-foreground">
+                            {spreadsheetFile ? spreadsheetFile.name : 'Clique para selecionar o arquivo'}
+                          </span>
+                          <input type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={e => setSpreadsheetFile(e.target.files?.[0] || null)} />
+                        </label>
+                      </div>
+                    </div>
+                    <div>
+                      <Label>Faturamento do evento (R$)</Label>
+                      <Input type="number" step="0.01" min="0" placeholder="Ex: 50000.00" value={revenue} onChange={e => setRevenue(e.target.value)} />
+                    </div>
+                  </>
+                )}
+
+                {createStep === 'live' && (
+                  <>
+                    <div>
+                      <Label>Plataforma</Label>
+                      <select value={newPlatform} onChange={e => setNewPlatform(e.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+                        <option value="blueticket">Blueticket</option>
+                        <option value="superticket">SuperTicket</option>
+                        <option value="sympla">Sympla</option>
+                        <option value="outro">Outro</option>
+                      </select>
+                    </div>
+                    <div>
+                      <Label>URL do Webhook</Label>
+                      <Input value={newWebhook} onChange={e => setNewWebhook(e.target.value)} placeholder="https://..." />
+                      <p className="text-xs text-muted-foreground mt-1">A plataforma enviará dados para esta URL</p>
+                    </div>
+                    <div>
+                      <Label>Token da API (opcional)</Label>
+                      <Input value={newApiToken} onChange={e => setNewApiToken(e.target.value)} placeholder="Token de autenticação" />
+                    </div>
+                  </>
+                )}
+
+                <div className="flex gap-2 pt-2">
+                  <Button variant="outline" onClick={() => setCreateStep('choose')} className="flex-1">Voltar</Button>
+                  <Button onClick={() => handleCreateEvent(createStep)} disabled={saving} className="flex-1 bg-[#FF0080] hover:bg-[#FF0080]/90 text-white">
+                    {saving ? 'Salvando...' : 'Criar Evento'}
+                  </Button>
+                </div>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <CustomerDetailsModal customerId={detailsCustomerId} onClose={() => setDetailsCustomerId(null)} />
     </div>
   );
 }
 
-// ─── Main Component ───
-export default function InternoZigTickets() {
-  const { eventId } = useParams();
-  if (eventId) return <EventDashboard eventId={eventId} />;
-  return <EventSelector />;
+function KPICard({ icon: Icon, label, value, loading, color, bgColor, subtitle }: {
+  icon: any; label: string; value: string; loading: boolean; color: string; bgColor: string; subtitle?: string;
+}) {
+  return (
+    <Card className="border-border">
+      <CardContent className="p-4">
+        <div className="flex items-start gap-3">
+          <div className={`p-2.5 rounded-xl ${bgColor}`}>
+            <Icon size={18} className={color} />
+          </div>
+          <div className="min-w-0">
+            <p className="text-[11px] text-muted-foreground leading-tight">{label}</p>
+            {loading ? (
+              <div className="h-6 w-16 bg-muted animate-pulse rounded mt-1" />
+            ) : (
+              <p className="text-lg font-bold text-foreground leading-tight mt-0.5">{value}</p>
+            )}
+            {subtitle && <p className="text-[10px] text-muted-foreground mt-0.5">{subtitle}</p>}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
 }
+
+

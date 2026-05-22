@@ -481,13 +481,19 @@ export function EventDashboard({ eventId, autoDispatchSlot, eventDate: eventDate
   const eventName = eventRecord?.name || crmData?.eventName || parsed[0]?.event?.name || BLUETICKET_EVENT_NAMES[eventId]?.[0] || 'Evento';
 
   const metrics = useMemo(() => {
-    const getBrazilDateKey = (value: string) =>
-      new Intl.DateTimeFormat('en-CA', {
+    const getBrazilDateKey = (value: string) => {
+      // Normalize Supabase timestamp format: "2026-05-21 11:50:39.034872+00" → ISO 8601
+      const iso = value
+        .replace(' ', 'T')
+        .replace(/([+-]\d{2})(\d{2})$/, '$1:$2')  // +0000 → +00:00
+        .replace(/([+-]\d{2})$/, '$1:00');          // +00 → +00:00
+      return new Intl.DateTimeFormat('en-CA', {
         timeZone: 'America/Sao_Paulo',
         year: 'numeric',
         month: '2-digit',
         day: '2-digit',
-      }).format(new Date(value));
+      }).format(new Date(iso));
+    };
 
     const getTicketQuantity = (tickets?: ParsedData['tickets']) =>
       tickets?.reduce((sum, ticket) => sum + (Number(ticket.quantity) || 0), 0) || 0;
@@ -507,6 +513,58 @@ export function EventDashboard({ eventId, autoDispatchSlot, eventDate: eventDate
       const [bestQty] = [...freqMap.entries()].sort((a, b) => b[1] - a[1] || b[0] - a[0])[0];
       inferredQuantityByAmount.set(amountKey, bestQty);
     });
+
+    // For paid order amounts NOT covered by explicit ticket data, infer qty via multi-tier unit price detection.
+    // NOTE: abandoned carts may populate inferredQuantityByAmount for some amounts (e.g. R$38),
+    // but paid orders at other amounts (R$76, R$190, R$142.50) may still be missing — run fallback for those.
+    const paidAmountKeys = new Set<string>();
+    parsedWithMeta.forEach(({ data: p }) => {
+      const a = Number(p.order?.amount || 0);
+      const isPaid = (p.type === 'order_payment' && p.payments?.some(pay => pay.status === 'paid')) ||
+                     (p.order?.status === 'A' && a > 0);
+      if (isPaid && a > 0) paidAmountKeys.add(a.toFixed(2));
+    });
+
+    const uncoveredAmountKeys = [...paidAmountKeys].filter(k => !inferredQuantityByAmount.has(k));
+
+    if (uncoveredAmountKeys.length > 0) {
+      const allPaidAmounts = [...paidAmountKeys].map(k => parseFloat(k)).sort((a, b) => a - b);
+
+      // Score each candidate unit price by how many paid amounts it cleanly divides
+      const candidateScores = new Map<number, number>();
+      allPaidAmounts.forEach(candidate => {
+        let score = 0;
+        allPaidAmounts.forEach(amount => {
+          if (amount >= candidate) {
+            const ratio = amount / candidate;
+            const rounded = Math.round(ratio);
+            if (Math.abs(ratio - rounded) < 0.08 && rounded >= 1) score++;
+          }
+        });
+        candidateScores.set(candidate, score);
+      });
+
+      // For each uncovered amount, pick the highest-scoring unit price that divides it cleanly
+      uncoveredAmountKeys.forEach(amountKey => {
+        const amount = parseFloat(amountKey);
+        let bestQty = 1;
+        let bestScore = -1;
+        allPaidAmounts.forEach(candidate => {
+          if (candidate <= amount) {
+            const ratio = amount / candidate;
+            const rounded = Math.round(ratio);
+            if (Math.abs(ratio - rounded) < 0.08 && rounded >= 1) {
+              const score = candidateScores.get(candidate) || 0;
+              if (score > bestScore) {
+                bestScore = score;
+                bestQty = rounded;
+              }
+            }
+          }
+        });
+        inferredQuantityByAmount.set(amountKey, bestQty);
+      });
+    }
 
     const orderMap = new Map<string, {
       data: ParsedData;
@@ -833,30 +891,6 @@ export function EventDashboard({ eventId, autoDispatchSlot, eventDate: eventDate
             </div>
           </div>
 
-          {/* Vendas por dia */}
-          <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 flex flex-col">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-xs font-semibold text-gray-900 dark:text-gray-100">Vendas por dia</h3>
-                  <span className="text-[10px] text-gray-400">Quantidade Diária</span>
-                </div>
-                <div className="flex-1 min-h-[220px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                      data={metrics.dailySalesData}
-                      margin={{ top: 5, right: 5, left: -15, bottom: 0 }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-gray-100 dark:text-gray-800" vertical={false} />
-                      <XAxis dataKey="date" tick={{ fontSize: 11, fontWeight: 500 }} className="text-gray-500" />
-                      <YAxis tick={{ fontSize: 9 }} className="text-gray-400" allowDecimals={false} />
-                      <Tooltip
-                        contentStyle={{ fontSize: 11, borderRadius: 8, border: '1px solid #e5e7eb', backgroundColor: 'white' }}
-                        formatter={(value: number) => [`${value} ingresso(s)`, 'Vendas']}
-                      />
-                      <Bar dataKey="qty" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={32} name="Ingressos" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
           {/* Abandoned Cart Export */}
           <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5">
             <div className="flex items-center justify-between mb-4">

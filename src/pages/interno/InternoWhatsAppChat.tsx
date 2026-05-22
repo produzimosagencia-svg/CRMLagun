@@ -15,7 +15,6 @@ import { formatPhone } from '@/lib/formatPhone';
 import { format, isToday, isYesterday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
-import { useWhatsAppConnection, WhatsAppConnectPanel, WhatsAppStatusPill } from '@/components/WhatsAppConnectionBanner';
 
 interface Message {
   id: string;
@@ -113,7 +112,6 @@ function normalizePhone(phone: string): string {
 }
 
 export default function InternoWhatsAppChat() {
-  const waConn = useWhatsAppConnection();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedPhone, setSelectedPhone] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -611,70 +609,7 @@ export default function InternoWhatsAppChat() {
       return;
     }
 
-    // ── WhatsApp via Evolution API (Baileys) ──────────────────────────
-    if (waConn.status === 'open') {
-      setSending(true);
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        const contactName = conversations.find(c => c.phone === selectedPhone)?.contact_name || null;
-        const sentAt = new Date().toISOString();
-        const SUPABASE_URL = `https://${PROJECT_ID}.supabase.co`;
-        const resp = await fetch(`${SUPABASE_URL}/functions/v1/evolution-proxy?action=send`, {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${session?.access_token || ANON_KEY}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ to: selectedPhone, text: replyText, contact_name: contactName }),
-        });
-        const result = await resp.json();
-        if (result.error) {
-          toast.error('Erro ao enviar mensagem');
-          console.error('Evo send error:', result.error);
-        } else {
-          // Optimistic update (DB save já feito pelo edge function)
-          const optimisticMsg: Message = {
-            id: crypto.randomUUID(), phone: selectedPhone, contact_name: contactName,
-            direction: 'outgoing', message_type: 'text', message_text: replyText,
-            media_url: null, timestamp: sentAt, status: 'sent',
-            wamid: result?.key?.id || null,
-          };
-          setMessages(prev => [...prev, optimisticMsg]);
-          setConversations(prev => {
-            const updated = prev.some(c => c.phone === selectedPhone)
-              ? prev.map(c => c.phone === selectedPhone ? {
-                  ...c, contact_name: c.contact_name || contactName,
-                  last_message: replyText, last_timestamp: sentAt,
-                  last_direction: 'outgoing', last_status: 'sent',
-                } : c)
-              : [{ phone: selectedPhone, contact_name: contactName, last_message: replyText,
-                   last_timestamp: sentAt, unread_count: 0, needs_support: false,
-                   last_direction: 'outgoing', last_status: 'sent' }, ...prev];
-            return updated.sort((a, b) => new Date(b.last_timestamp).getTime() - new Date(a.last_timestamp).getTime());
-          });
-          setReplyText('');
-          if (botEnabled[selectedPhone] !== false) {
-            setBotEnabled(prev => ({ ...prev, [selectedPhone]: false }));
-            await supabase.from('whatsapp_bot_settings')
-              .upsert({ phone: selectedPhone, bot_enabled: false, updated_at: new Date().toISOString() }, { onConflict: 'phone' });
-          }
-        }
-      } catch (err) { console.error('Send error:', err); toast.error('Erro ao enviar mensagem'); }
-      finally { setSending(false); }
-      return;
-    }
-
     // ── WhatsApp via Meta API oficial ──────────────────────────────────
-    const latestIncoming = [...messages].reverse().find((message) => message.direction === 'incoming');
-    const isWindowOpen = latestIncoming
-      ? Date.now() - new Date(latestIncoming.timestamp).getTime() <= WHATSAPP_WINDOW_MS
-      : false;
-
-    if (!isWindowOpen) {
-      toast.error('Esse contato está fora da janela de 24h. Envie um template primeiro.');
-      return;
-    }
-
     setSending(true);
     try {
       const base = `https://${PROJECT_ID}.supabase.co/functions/v1/whatsapp-api`;
@@ -747,7 +682,6 @@ export default function InternoWhatsAppChat() {
                 <MessageCircle className="w-4 h-4" />
                 WhatsApp
               </div>
-              <WhatsAppStatusPill status={waConn.status} disconnect={waConn.disconnect} webhookOk={waConn.webhookOk} configureWebhook={waConn.configureWebhook} />
             </button>
             <button
               onClick={() => setActiveChannel('instagram')}
@@ -927,16 +861,12 @@ export default function InternoWhatsAppChat() {
 
       <div className={`flex-1 flex flex-col min-w-0 ${!selectedPhone ? 'hidden md:flex' : 'flex'}`}>
         {!selectedPhone ? (
-          waConn.status !== 'open'
-            ? <WhatsAppConnectPanel {...waConn} />
-            : (
-              <div className="flex-1 flex items-center justify-center">
-                <div className="text-center">
-                  <MessageCircle className="w-16 h-16 text-muted-foreground/20 mx-auto mb-4" />
-                  <p className="text-muted-foreground">Selecione uma conversa</p>
-                </div>
-              </div>
-            )
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-center">
+              <MessageCircle className="w-16 h-16 text-muted-foreground/20 mx-auto mb-4" />
+              <p className="text-muted-foreground">Selecione uma conversa</p>
+            </div>
+          </div>
         ) : (
           <>
             <div className="p-4 border-b flex items-center gap-3">
@@ -1040,18 +970,13 @@ export default function InternoWhatsAppChat() {
                 <Input
                   value={replyText} onChange={e => setReplyText(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSendReply()}
-                  placeholder={
-                    activeChannel === 'instagram' ? 'Enviar mensagem no Instagram...' :
-                    waConn.status === 'open' ? 'Digite uma mensagem...' :
-                    is24hWindowOpen ? 'Digite uma mensagem (janela de 24h)...' :
-                    'Fora da janela de 24h — use template'
-                  }
+                  placeholder={activeChannel === 'instagram' ? 'Enviar mensagem no Instagram...' : 'Digite uma mensagem...'}
                   className="flex-1"
-                  disabled={sending || (activeChannel === 'whatsapp' && waConn.status !== 'open' && !is24hWindowOpen)}
+                  disabled={sending}
                 />
                 <Button
                   onClick={handleSendReply}
-                  disabled={!replyText.trim() || sending || (activeChannel === 'whatsapp' && waConn.status !== 'open' && !is24hWindowOpen)}
+                  disabled={!replyText.trim() || sending}
                   className={activeChannel === 'instagram'
                     ? 'bg-gradient-to-r from-[#833AB4] via-[#E4405F] to-[#FCAF45] hover:opacity-90 text-white'
                     : 'bg-[#25D366] hover:bg-[#20BD5A] text-white'
@@ -1060,13 +985,6 @@ export default function InternoWhatsAppChat() {
                   <Send className="w-4 h-4" />
                 </Button>
               </div>
-              {activeChannel === 'whatsapp' && waConn.status !== 'open' && (
-                <p className="text-[10px] text-muted-foreground text-center mt-2">
-                  {is24hWindowOpen
-                    ? '⚠️ Janela de 24 horas ativa para resposta manual'
-                    : '⚠️ Fora da janela de 24 horas — esse contato precisa receber template primeiro'}
-                </p>
-              )}
             </div>
           </>
         )}

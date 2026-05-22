@@ -32,6 +32,8 @@ export default function InternoLayout() {
   const [zigTicketsOpen, setZigTicketsOpen] = useState(false);
   const [adsOpen, setAdsOpen] = useState(false);
   const [designOpen, setDesignOpen] = useState(false);
+  const [blueticketOpen, setBlueticketOpen] = useState(false);
+  const [zigTicketsDropdownOpen, setZigTicketsDropdownOpen] = useState(false);
   const [zigEvents, setZigEvents] = useState<EventItem[]>([]);
   const location = useLocation();
   const navigate = useNavigate();
@@ -65,9 +67,10 @@ export default function InternoLayout() {
 
   useEffect(() => {
     if (location.pathname.startsWith('/interno/whatsapp')) setWhatsappOpen(true);
-    if (location.pathname.startsWith('/interno/zig-tickets')) setZigTicketsOpen(true);
+    if (location.pathname.startsWith('/interno/zig-tickets')) setZigTicketsDropdownOpen(true);
     if (location.pathname.startsWith('/interno/ads') || location.pathname.startsWith('/interno/trafego-gpt')) setAdsOpen(true);
     if (location.pathname.startsWith('/interno/marketing/design') || location.pathname.startsWith('/interno/marketing/referencias')) setDesignOpen(true);
+    if (location.pathname === '/interno/lebai' || location.pathname === '/interno/aura') setBlueticketOpen(true);
     if (
       location.pathname === '/interno/eventos' ||
       location.pathname.startsWith('/interno/aniversariantes') ||
@@ -121,18 +124,21 @@ export default function InternoLayout() {
     if (location.pathname === '/interno/ads/criar') return 'Nova Campanha';
     if (location.pathname === '/interno/ads/pixel') return 'Pixel & Públicos';
     if (location.pathname.startsWith('/interno/ads')) return 'Ads';
-    if (location.pathname === '/interno/eventos-dashboard') return 'Eventos';
-    if (location.pathname === '/interno/eventos') return 'CRM';
+    if (location.pathname === '/interno/eventos-dashboard') return 'Eventos Dashboard';
+    if (location.pathname === '/interno/eventos') return 'Eventos';
+    if (location.pathname === '/interno/zig-tickets/geral' || location.pathname === '/interno/zig-tickets') return 'Zig Tickets - Geral';
+    if (location.pathname.startsWith('/interno/zig-tickets')) return 'Zig Tickets';
     if (location.pathname === '/interno/tarefas') return 'Tarefas';
     if (location.pathname === '/interno/whatsapp/chat') return 'Chat';
     if (location.pathname.startsWith('/interno/whatsapp')) return 'WhatsApp';
-    if (location.pathname.startsWith('/interno/zig-tickets')) return 'Zig Tickets';
     if (location.pathname.startsWith('/interno/marketing/design')) return 'Design';
     if (location.pathname.startsWith('/interno/marketing/referencias')) return 'Referências';
     if (location.pathname.startsWith('/interno/perfil')) return 'Perfil';
     if (location.pathname.startsWith('/interno/grafos')) return 'RMKT (Grafos)';
     if (location.pathname.startsWith('/interno/dados')) return 'Dados';
     if (location.pathname === '/interno/lebai') return 'Le Bai';
+    if (location.pathname === '/interno/aura') return 'Aura';
+    if (location.pathname === '/interno/base') return 'Base';
     if (location.pathname === '/interno/landing') return 'Landing Page';
     if (location.pathname === '/interno') return 'Home';
     return 'Interno';
@@ -260,7 +266,7 @@ export default function InternoLayout() {
                     setCrmOpen((v) => !v);
                   }
                 }}
-                className={navLinkClass(location.pathname === '/interno/eventos' || location.pathname.startsWith('/interno/aniversariantes') || location.pathname.startsWith('/interno/divulgadores'))}
+                className={navLinkClass(location.pathname === '/interno/eventos' || location.pathname.startsWith('/interno/clientes') || location.pathname.startsWith('/interno/aniversariantes') || location.pathname.startsWith('/interno/divulgadores') || location.pathname.startsWith('/interno/superclientes'))}
                 title={collapsed ? 'CRM' : undefined}
               >
                 <div className={`flex items-center justify-center ${collapsed ? '' : 'mr-2'}`}>
@@ -305,18 +311,123 @@ export default function InternoLayout() {
             </div>
           )}
 
-          {/* Le Bai */}
+          {/* Blueticket */}
+          {canSeeHome && (
+            <div>
+              <button
+                onClick={() => {
+                  if (collapsed) {
+                    navigate('/interno/lebai');
+                    setSidebarOpen(false);
+                  } else {
+                    setBlueticketOpen(v => !v);
+                  }
+                }}
+                className={navLinkClass(location.pathname === '/interno/lebai' || location.pathname === '/interno/aura')}
+                title={collapsed ? 'Blueticket' : undefined}
+              >
+                <div className={`flex items-center justify-center ${collapsed ? '' : 'mr-2'}`}>
+                  <Ticket size={18} />
+                </div>
+                {!collapsed && (
+                  <>
+                    <span className="text-sm font-medium flex-1 text-left">Blueticket</span>
+                    {blueticketOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                  </>
+                )}
+              </button>
+              {!collapsed && blueticketOpen && (
+                <div className="ml-4 mt-1 space-y-0.5 border-l border-[#F5D470]/20 pl-2">
+                  <NavLink
+                    to="/interno/lebai"
+                    onClick={() => setSidebarOpen(false)}
+                    className={({ isActive }) => navLinkClass(isActive) + ' text-xs'}
+                  >
+                    <span className="text-xs">Le Bai</span>
+                  </NavLink>
+                  <NavLink
+                    to="/interno/aura"
+                    onClick={() => setSidebarOpen(false)}
+                    className={({ isActive }) => navLinkClass(isActive) + ' text-xs'}
+                  >
+                    <span className="text-xs">Aura</span>
+                  </NavLink>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Zig Tickets Dropdown */}
+          {canSeeZigTickets && (
+            <div>
+              <button
+                onClick={() => {
+                  if (collapsed) {
+                    navigate('/interno/zig-tickets');
+                    setSidebarOpen(false);
+                  } else {
+                    setZigTicketsDropdownOpen(v => !v);
+                  }
+                }}
+                className={navLinkClass(location.pathname.startsWith('/interno/zig-tickets'))}
+                title={collapsed ? 'Zig Tickets' : undefined}
+              >
+                <div className={`flex items-center justify-center ${collapsed ? '' : 'mr-2'}`}>
+                  <Ticket size={18} />
+                </div>
+                {!collapsed && (
+                  <>
+                    <span className="text-sm font-medium flex-1 text-left">Zig Tickets</span>
+                    {zigTicketsDropdownOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                  </>
+                )}
+              </button>
+              {!collapsed && zigTicketsDropdownOpen && (
+                <div className="ml-4 mt-1 space-y-0.5 border-l border-[#F5D470]/20 pl-2">
+                  <NavLink
+                    to="/interno/zig-tickets/geral"
+                    end
+                    onClick={() => setSidebarOpen(false)}
+                    className={({ isActive }) => navLinkClass(isActive) + ' text-xs'}
+                  >
+                    <span className="text-xs">Geral</span>
+                  </NavLink>
+                  <button className="flex items-center gap-1 w-full px-3 py-1.5 rounded text-xs font-medium text-gray-400 hover:text-gray-700 hover:bg-gray-100">
+                    <Ticket size={12} />
+                    <span>Eventos</span>
+                    <ChevronRight size={10} className="ml-auto" />
+                  </button>
+                  {zigEvents.map((event) => (
+                    <NavLink
+                      key={event.id}
+                      to={`/interno/zig-tickets/${event.id}`}
+                      onClick={() => setSidebarOpen(false)}
+                      className={({ isActive }) => `flex h-7 w-full items-center rounded-lg px-3 pl-7 text-[11px] font-medium transition-all duration-150 ${
+                        isActive
+                          ? 'text-indigo-700 bg-indigo-50'
+                          : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'
+                      }`}
+                    >
+                      {event.name}
+                    </NavLink>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Base */}
           {canSeeHome && (
             <NavLink
-              to="/interno/lebai"
+              to="/interno/base"
               onClick={() => setSidebarOpen(false)}
               className={({ isActive }) => navLinkClass(isActive)}
-              title={collapsed ? 'Le Bai' : undefined}
+              title={collapsed ? 'Base' : undefined}
             >
               <div className={`flex items-center justify-center ${collapsed ? '' : 'mr-2'}`}>
-                <Ticket size={18} />
+                <Users size={18} />
               </div>
-              {!collapsed && <span className="text-sm font-medium">Le Bai</span>}
+              {!collapsed && <span className="text-sm font-medium">Base</span>}
             </NavLink>
           )}
 
