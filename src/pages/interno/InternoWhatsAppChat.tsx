@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { MessageCircle, ArrowLeft, Send, Clock, Check, CheckCheck, Bot, UserRound, DollarSign, Loader2, UserCircle, MapPin, Phone, ShoppingCart, AlertTriangle, Power, Smartphone, BrainCircuit, Plus, Trash2, Calendar, MapPinned, Music, ShieldAlert, FileText, Link as LinkIcon, Pencil, Instagram, RefreshCw, ChevronDown } from 'lucide-react';
+import { MessageCircle, ArrowLeft, Send, Clock, Check, CheckCheck, Bot, UserRound, DollarSign, Loader2, UserCircle, MapPin, Phone, ShoppingCart, AlertTriangle, Power, Smartphone, BrainCircuit, Plus, Trash2, Calendar, MapPinned, Music, ShieldAlert, FileText, Link as LinkIcon, Pencil, Instagram, RefreshCw, ChevronDown, Armchair } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
@@ -80,6 +80,14 @@ interface ApiPhoneNumber {
   verified_name: string;
 }
 
+interface OpenEvent {
+  id: string;
+  nome: string;
+  tag: string | null;
+}
+
+const LOUNGE_NAMES = ['Lounge 1', 'Lounge 2', 'Lounge 3', 'Lounge 4', 'Lounge 5', 'Lounge 6'];
+
 const PROJECT_ID = import.meta.env.VITE_SUPABASE_PROJECT_ID;
 const ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
@@ -142,6 +150,12 @@ export default function InternoWhatsAppChat() {
   const [igAccounts, setIgAccounts] = useState<{ id: string; username: string; profile_picture_url?: string; name?: string }[]>([]);
   const [selectedIgAccount, setSelectedIgAccount] = useState<{ id: string; username: string; profile_picture_url?: string; name?: string } | null>(null);
 
+  // Lounges
+  const [openEvents, setOpenEvents] = useState<OpenEvent[]>([]);
+  const [loungesData, setLoungesData] = useState<Record<string, number[]>>({}); // event_id -> sold lounge numbers
+  const [loadingLounges, setLoadingLounges] = useState(false);
+  const [togglingLounge, setTogglingLounge] = useState<string | null>(null); // `${eventId}-${loungeNum}`
+
   // Load API phone numbers
   const loadApiPhones = async () => {
     setLoadingApiPhones(true);
@@ -167,6 +181,51 @@ export default function InternoWhatsAppChat() {
       console.error('Error loading API phones:', err);
     }
     setLoadingApiPhones(false);
+  };
+
+  // Load lounges data
+  const loadLounges = async () => {
+    setLoadingLounges(true);
+    const { data: events } = await supabase
+      .from('lagun_events')
+      .select('id, nome, tag')
+      .eq('show_on_landing', true)
+      .order('display_order', { ascending: true });
+    if (events) setOpenEvents(events as OpenEvent[]);
+
+    const { data: lounges } = await supabase
+      .from('event_lounges')
+      .select('event_id, lounge_number, is_sold');
+    if (lounges) {
+      const map: Record<string, number[]> = {};
+      lounges.forEach((l: any) => {
+        if (l.is_sold) {
+          if (!map[l.event_id]) map[l.event_id] = [];
+          map[l.event_id].push(l.lounge_number);
+        }
+      });
+      setLoungesData(map);
+    }
+    setLoadingLounges(false);
+  };
+
+  const toggleLounge = async (eventId: string, loungeNum: number) => {
+    const key = `${eventId}-${loungeNum}`;
+    setTogglingLounge(key);
+    const currentSold = loungesData[eventId] || [];
+    const isSold = currentSold.includes(loungeNum);
+    const newSold = isSold ? currentSold.filter(n => n !== loungeNum) : [...currentSold, loungeNum];
+    setLoungesData(prev => ({ ...prev, [eventId]: newSold }));
+
+    const { error } = await supabase
+      .from('event_lounges')
+      .upsert({ event_id: eventId, lounge_number: loungeNum, is_sold: !isSold }, { onConflict: 'event_id,lounge_number' });
+
+    if (error) {
+      toast.error('Erro ao atualizar lounge');
+      setLoungesData(prev => ({ ...prev, [eventId]: currentSold }));
+    }
+    setTogglingLounge(null);
   };
 
   // Load Instagram accounts
@@ -855,6 +914,68 @@ export default function InternoWhatsAppChat() {
               <BrainCircuit className="w-3.5 h-3.5" />
               Memória
             </Button>
+
+            <Popover onOpenChange={(open) => { if (open) loadLounges(); }}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="flex-1 gap-1.5 text-xs">
+                  <Armchair className="w-3.5 h-3.5" />
+                  Lounge
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80 p-3" align="start" side="top">
+                <p className="text-xs font-semibold mb-3 flex items-center gap-1.5">
+                  <Armchair className="w-3.5 h-3.5" />
+                  Lounges por Evento
+                </p>
+                {loadingLounges ? (
+                  <div className="flex items-center justify-center py-4">
+                    <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                  </div>
+                ) : openEvents.length === 0 ? (
+                  <p className="text-xs text-muted-foreground text-center py-4">Nenhum evento aberto na Landing Page</p>
+                ) : (
+                  <div className="space-y-4 max-h-72 overflow-y-auto pr-1">
+                    {openEvents.map(event => {
+                      const soldLounges = loungesData[event.id] || [];
+                      return (
+                        <div key={event.id}>
+                          <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-2 truncate">{event.nome}</p>
+                          <div className="grid grid-cols-3 gap-1.5">
+                            {LOUNGE_NAMES.map((name, idx) => {
+                              const num = idx + 1;
+                              const sold = soldLounges.includes(num);
+                              const loading = togglingLounge === `${event.id}-${num}`;
+                              return (
+                                <button
+                                  key={num}
+                                  onClick={() => toggleLounge(event.id, num)}
+                                  disabled={!!loading}
+                                  className={`flex flex-col items-center justify-center gap-0.5 px-2 py-2 rounded-lg text-[11px] font-medium border transition-all ${
+                                    sold
+                                      ? 'bg-red-50 border-red-300 text-red-600 dark:bg-red-900/20 dark:border-red-700 dark:text-red-400'
+                                      : 'bg-emerald-50 border-emerald-300 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:border-emerald-700 dark:text-emerald-400'
+                                  }`}
+                                  title={sold ? 'Vendido — clique para liberar' : 'Disponível — clique para marcar como vendido'}
+                                >
+                                  {loading
+                                    ? <Loader2 className="w-3 h-3 animate-spin" />
+                                    : <Armchair className="w-3.5 h-3.5" />
+                                  }
+                                  {name}
+                                  <span className={`text-[9px] font-bold ${sold ? 'text-red-500' : 'text-emerald-600'}`}>
+                                    {sold ? 'Vendido' : 'Livre'}
+                                  </span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </PopoverContent>
+            </Popover>
           </div>
         )}
       </div>

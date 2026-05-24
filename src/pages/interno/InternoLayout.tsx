@@ -72,6 +72,7 @@ export default function InternoLayout() {
     if (location.pathname.startsWith('/interno/marketing/design') || location.pathname.startsWith('/interno/marketing/referencias')) setDesignOpen(true);
     if (location.pathname === '/interno/lebai' || location.pathname === '/interno/aura') setBlueticketOpen(true);
     if (
+      location.pathname === '/interno/crm-visao-geral' ||
       location.pathname === '/interno/eventos' ||
       location.pathname.startsWith('/interno/aniversariantes') ||
       location.pathname.startsWith('/interno/divulgadores') ||
@@ -125,6 +126,7 @@ export default function InternoLayout() {
     if (location.pathname === '/interno/ads/pixel') return 'Pixel & Públicos';
     if (location.pathname.startsWith('/interno/ads')) return 'Ads';
     if (location.pathname === '/interno/eventos-dashboard') return 'Eventos Dashboard';
+    if (location.pathname === '/interno/crm-visao-geral') return 'Visão Geral - CRM';
     if (location.pathname === '/interno/eventos') return 'Eventos';
     if (location.pathname === '/interno/zig-tickets/geral' || location.pathname === '/interno/zig-tickets') return 'Zig Tickets - Geral';
     if (location.pathname.startsWith('/interno/zig-tickets')) return 'Zig Tickets';
@@ -260,13 +262,13 @@ export default function InternoLayout() {
               <button
                 onClick={() => {
                   if (collapsed) {
-                    navigate('/interno/eventos');
+                    navigate('/interno/crm-visao-geral');
                     setSidebarOpen(false);
                   } else {
                     setCrmOpen((v) => !v);
                   }
                 }}
-                className={navLinkClass(location.pathname === '/interno/eventos' || location.pathname.startsWith('/interno/clientes') || location.pathname.startsWith('/interno/aniversariantes') || location.pathname.startsWith('/interno/divulgadores') || location.pathname.startsWith('/interno/superclientes'))}
+                className={navLinkClass(location.pathname === '/interno/crm-visao-geral' || location.pathname === '/interno/eventos' || location.pathname.startsWith('/interno/clientes') || location.pathname.startsWith('/interno/aniversariantes') || location.pathname.startsWith('/interno/divulgadores') || location.pathname.startsWith('/interno/superclientes'))}
                 title={collapsed ? 'CRM' : undefined}
               >
                 <div className={`flex items-center justify-center ${collapsed ? '' : 'mr-2'}`}>
@@ -283,7 +285,7 @@ export default function InternoLayout() {
               {!collapsed && crmOpen && (
                 <div className="ml-4 mt-1 space-y-0.5 border-l border-[#F5D470]/20 pl-2">
                   <NavLink
-                    to="/interno/eventos"
+                    to="/interno/crm-visao-geral"
                     end
                     onClick={() => setSidebarOpen(false)}
                     className={({ isActive }) => navLinkClass(isActive) + ' text-xs'}

@@ -133,8 +133,8 @@ export default function InternoTarefas() {
       description: description.trim() || null,
       due_date: dueDate || null,
       priority: priority || null,
-      assigned_to: assignedTo || null,
-      event_id: eventId || null,
+      assigned_to: assignedTo && assignedTo !== 'none' ? assignedTo : null,
+      event_id: eventId && eventId !== 'none' ? eventId : null,
       created_by: user?.id || null,
       attachments: attachmentUrls,
     });

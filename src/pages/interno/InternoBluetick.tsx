@@ -521,7 +521,7 @@ export function EventDashboard({ eventId, autoDispatchSlot, eventDate: eventDate
     parsedWithMeta.forEach(({ data: p }) => {
       const a = Number(p.order?.amount || 0);
       const isPaid = (p.type === 'order_payment' && p.payments?.some(pay => pay.status === 'paid')) ||
-                     (p.order?.status === 'A' && a > 0);
+                     (p.type === 'order_payment' && p.order?.status === 'A' && a > 0);
       if (isPaid && a > 0) paidAmountKeys.add(a.toFixed(2));
     });
 
@@ -582,7 +582,7 @@ export function EventDashboard({ eventId, autoDispatchSlot, eventDate: eventDate
       const explicitQty = getTicketQuantity(p.tickets);
       const inferredQty = explicitQty > 0 ? explicitQty : (inferredQuantityByAmount.get(amount.toFixed(2)) ?? 1);
       const paidByPayment = p.type === 'order_payment' && p.payments?.some(pay => pay.status === 'paid');
-      const paidByOrderStatus = p.order?.status === 'A' && amount > 0;
+      const paidByOrderStatus = p.type === 'order_payment' && p.order?.status === 'A' && amount > 0;
       const isPaid = Boolean(paidByPayment || paidByOrderStatus);
 
       const existing = orderMap.get(orderId);
