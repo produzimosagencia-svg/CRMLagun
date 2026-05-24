@@ -545,19 +545,22 @@ export function EventDashboard({ eventId, autoDispatchSlot, eventDate: eventDate
         candidateScores.set(candidate, score);
       });
 
-      // For each uncovered amount, pick the highest-scoring unit price that divides it cleanly
+      // For each uncovered amount, pick the unit price with the best score/qty ratio.
+      // Using score/qty (weighted score) naturally penalises high-multiplier explanations:
+      // e.g. R$200 = 5×R$40 (4/5=0.8) loses to R$200 = 2×R$100 (2/2=1.0).
       uncoveredAmountKeys.forEach(amountKey => {
         const amount = parseFloat(amountKey);
         let bestQty = 1;
-        let bestScore = -1;
+        let bestWeightedScore = -1;
         allPaidAmounts.forEach(candidate => {
           if (candidate <= amount) {
             const ratio = amount / candidate;
             const rounded = Math.round(ratio);
             if (Math.abs(ratio - rounded) < 0.08 && rounded >= 1) {
               const score = candidateScores.get(candidate) || 0;
-              if (score > bestScore) {
-                bestScore = score;
+              const weightedScore = score / rounded;
+              if (weightedScore > bestWeightedScore) {
+                bestWeightedScore = weightedScore;
                 bestQty = rounded;
               }
             }
