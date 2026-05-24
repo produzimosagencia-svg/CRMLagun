@@ -500,6 +500,7 @@ export function EventDashboard({ eventId, autoDispatchSlot, eventDate: eventDate
 
     const quantityByAmount = new Map<string, Map<number, number>>();
     parsedWithMeta.forEach(({ data: p }) => {
+      if (p.type === 'abandoned_cart') return; // carrinho abandonado não deve influenciar a inferência de quantidade
       const amountKey = Number(p.order?.amount || 0).toFixed(2);
       const qty = getTicketQuantity(p.tickets);
       if (!amountKey || amountKey === '0.00' || qty <= 0) return;
