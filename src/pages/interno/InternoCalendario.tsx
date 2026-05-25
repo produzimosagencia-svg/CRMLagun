@@ -15,6 +15,7 @@ interface CalendarEvent {
   start_time: string | null;
   end_time: string | null;
   description: string | null;
+  partner: string | null;
   color: string;
 }
 
@@ -33,7 +34,7 @@ const DAYS_PT = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 const MONTHS_PT = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
                    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
-const emptyForm = { title: '', date: '', start_time: '', end_time: '', description: '', color: 'indigo' };
+const emptyForm = { title: '', date: '', start_time: '', end_time: '', description: '', partner: '', color: 'indigo' };
 
 export default function InternoCalendario() {
   const today = new Date();
@@ -86,6 +87,7 @@ export default function InternoCalendario() {
       start_time: ev.start_time || '',
       end_time: ev.end_time || '',
       description: ev.description || '',
+      partner: ev.partner || '',
       color: ev.color || 'indigo',
     });
     setModalOpen(true);
@@ -101,6 +103,7 @@ export default function InternoCalendario() {
       start_time: form.start_time || null,
       end_time:   form.end_time   || null,
       description: form.description || null,
+      partner: form.partner || null,
       color: form.color,
     };
     const { error } = editing
@@ -331,6 +334,17 @@ export default function InternoCalendario() {
                 placeholder="Detalhes do evento..."
                 className="mt-1 resize-none"
                 rows={2}
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="cal-partner">Parceiro</Label>
+              <Input
+                id="cal-partner"
+                value={form.partner}
+                onChange={e => setForm(f => ({ ...f, partner: e.target.value }))}
+                placeholder="Nome do parceiro (opcional)"
+                className="mt-1"
               />
             </div>
 
