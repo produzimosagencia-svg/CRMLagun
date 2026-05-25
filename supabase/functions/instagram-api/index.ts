@@ -209,18 +209,17 @@ Deno.serve(async (req) => {
           result = { error: "ig_id, recipient_id, and message are required" }; break;
         }
         const dmToken3 = getDmToken(igId);
+        // Use graph.facebook.com — System User tokens (EAA...) work here
         const resp = await fetch(
-          `${IG_GRAPH_API}/${igId}/messages`,
+          `${GRAPH_API}/${igId}/messages`,
           {
             method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${dmToken3}`,
-            },
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               recipient: { id: recipientId },
               message: { text: messageText },
               messaging_type: "RESPONSE",
+              access_token: dmToken3,
             }),
           }
         );

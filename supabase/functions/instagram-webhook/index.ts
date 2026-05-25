@@ -46,18 +46,17 @@ Regras:
 - Se não souber algo, diga "não tenho essa informação no momento, mas pode chamar no WhatsApp (27) 99778-9988"`;
 
 async function sendIGReply(recipientId: string, senderId: string, text: string, token: string): Promise<boolean> {
+  // Use graph.facebook.com — System User tokens (EAA...) work here
   const res = await fetch(
-    `https://graph.instagram.com/v19.0/${recipientId}/messages`,
+    `https://graph.facebook.com/v21.0/${recipientId}/messages`,
     {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${token}`,
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         recipient: { id: senderId },
         message: { text },
         messaging_type: "RESPONSE",
+        access_token: token,
       }),
     }
   );
@@ -100,9 +99,9 @@ async function getIGUserInfo(
   token: string
 ): Promise<{ name: string; username: string } | null> {
   try {
-    // Use graph.instagram.com conversations endpoint (returns username correctly)
+    // Use graph.facebook.com — System User tokens (EAA...) work here
     const res = await fetch(
-      `https://graph.instagram.com/v19.0/${recipientId}/conversations?platform=instagram&user_id=${senderId}&fields=participants&access_token=${token}`
+      `https://graph.facebook.com/v21.0/${recipientId}/conversations?platform=instagram&user_id=${senderId}&fields=participants&access_token=${token}`
     );
     if (!res.ok) {
       const err = await res.text();
