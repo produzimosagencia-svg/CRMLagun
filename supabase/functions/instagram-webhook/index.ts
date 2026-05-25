@@ -10,6 +10,21 @@ const IG_DM_TOKEN_MAP: Record<string, string> = {
   "17841436376156784": "META_IG_DM_TOKEN_LAGUN",    // @lagunvix
 };
 
+// Map IG IDs → Facebook Page IDs
+const IG_TO_PAGE_MAP: Record<string, string> = {
+  "17841436376156784": "1041049812431226", // @lagunvix → Lagun page
+};
+
+async function getPageAccessToken(pageId: string, systemUserToken: string): Promise<string | null> {
+  try {
+    const resp = await fetch(
+      `https://graph.facebook.com/v21.0/${pageId}?fields=access_token&access_token=${systemUserToken}`
+    );
+    const data = await resp.json();
+    return data.access_token ?? null;
+  } catch { return null; }
+}
+
 const IG_USERNAME_MAP: Record<string, string> = {
   "17841412165311222": "triade.ent",
   "17841464788107057": "maestria.rap",
@@ -46,9 +61,16 @@ Regras:
 - Se não souber algo, diga "não tenho essa informação no momento, mas pode chamar no WhatsApp (27) 99778-9988"`;
 
 async function sendIGReply(recipientId: string, senderId: string, text: string, token: string): Promise<boolean> {
-  // Use graph.facebook.com — System User tokens (EAA...) work here
+  // Use Page ID + Page Access Token for Messenger API
+  const pageId = IG_TO_PAGE_MAP[recipientId];
+  let sendToken = token;
+  let apiSenderId = pageId ?? recipientId;
+  if (pageId) {
+    const pageToken = await getPageAccessToken(pageId, token);
+    if (pageToken) sendToken = pageToken;
+  }
   const res = await fetch(
-    `https://graph.facebook.com/v21.0/${recipientId}/messages`,
+    `https://graph.facebook.com/v21.0/${apiSenderId}/messages`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -56,7 +78,7 @@ async function sendIGReply(recipientId: string, senderId: string, text: string, 
         recipient: { id: senderId },
         message: { text },
         messaging_type: "RESPONSE",
-        access_token: token,
+        access_token: sendToken,
       }),
     }
   );

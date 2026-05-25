@@ -16,6 +16,20 @@ const IG_DM_TOKEN_MAP: Record<string, string> = {
   "17841436376156784": "META_IG_DM_TOKEN_LAGUN",   // @lagunvix
 };
 
+// Map IG account IDs to Facebook Page IDs (needed for Messenger send API)
+const IG_TO_PAGE_MAP: Record<string, string> = {
+  "17841436376156784": "1041049812431226", // @lagunvix → Lagun page
+};
+
+// Get Page Access Token from System User token
+async function getPageAccessToken(pageId: string, systemUserToken: string): Promise<string | null> {
+  const resp = await fetch(
+    `${GRAPH_API}/${pageId}?fields=access_token&access_token=${systemUserToken}`
+  );
+  const data = await resp.json();
+  return data.access_token ?? null;
+}
+
 function getDmToken(igId?: string | null): string {
   if (igId && IG_DM_TOKEN_MAP[igId]) {
     const token = Deno.env.get(IG_DM_TOKEN_MAP[igId]);
@@ -209,9 +223,16 @@ Deno.serve(async (req) => {
           result = { error: "ig_id, recipient_id, and message are required" }; break;
         }
         const dmToken3 = getDmToken(igId);
-        // Use graph.facebook.com — System User tokens (EAA...) work here
+        // Messenger API requires Facebook Page ID + Page Access Token
+        const pageId = IG_TO_PAGE_MAP[igId];
+        let sendToken = dmToken3;
+        let senderId = pageId ?? igId;
+        if (pageId) {
+          const pageToken = await getPageAccessToken(pageId, dmToken3);
+          if (pageToken) sendToken = pageToken;
+        }
         const resp = await fetch(
-          `${GRAPH_API}/${igId}/messages`,
+          `${GRAPH_API}/${senderId}/messages`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -219,11 +240,12 @@ Deno.serve(async (req) => {
               recipient: { id: recipientId },
               message: { text: messageText },
               messaging_type: "RESPONSE",
-              access_token: dmToken3,
+              access_token: sendToken,
             }),
           }
         );
         result = await resp.json();
+        if (result.error) console.error("dm_send error:", JSON.stringify(result));
 
         // Persist to whatsapp_messages table with channel=instagram
         if (!result.error) {
