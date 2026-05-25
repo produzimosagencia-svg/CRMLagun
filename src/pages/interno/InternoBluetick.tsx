@@ -250,10 +250,9 @@ export function EventDashboard({ eventId, autoDispatchSlot, eventDate: eventDate
 
     const [{ data: eventRows }, { data: purchases }] = await Promise.all([
       supabase
-        .from('events')
-        .select('id, name, event_date, platform, status, updated_at, official_tickets, official_revenue')
-        .in('name', candidateNames)
-        .order('updated_at', { ascending: false })
+        .from('lagun_events')
+        .select('id, nome, data, status, official_tickets, official_revenue')
+        .in('nome', candidateNames)
         .limit(1),
       supabase
         .from('crm_purchases')
@@ -262,7 +261,17 @@ export function EventDashboard({ eventId, autoDispatchSlot, eventDate: eventDate
         .order('purchase_date', { ascending: true }),
     ]);
 
-    setEventRecord(eventRows?.[0] ?? null);
+    const rawEvent = eventRows?.[0] as any;
+    setEventRecord(rawEvent ? {
+      id: rawEvent.id,
+      name: rawEvent.nome,
+      event_date: rawEvent.data ?? null,
+      platform: null,
+      status: rawEvent.status ?? null,
+      updated_at: '',
+      official_tickets: rawEvent.official_tickets ?? null,
+      official_revenue: rawEvent.official_revenue ?? null,
+    } : null);
 
     if (!purchases || purchases.length === 0) {
       setCrmData(null);
@@ -545,22 +554,20 @@ export function EventDashboard({ eventId, autoDispatchSlot, eventDate: eventDate
         candidateScores.set(candidate, score);
       });
 
-      // For each uncovered amount, pick the unit price with the best score/qty ratio.
-      // Using score/qty (weighted score) naturally penalises high-multiplier explanations:
-      // e.g. R$200 = 5×R$40 (4/5=0.8) loses to R$200 = 2×R$100 (2/2=1.0).
+      // For each uncovered amount, pick the highest-scoring unit price that divides it cleanly.
+      // Tie-break: prefer smaller qty (higher unit price) among equal scores.
       uncoveredAmountKeys.forEach(amountKey => {
         const amount = parseFloat(amountKey);
         let bestQty = 1;
-        let bestWeightedScore = -1;
+        let bestScore = -1;
         allPaidAmounts.forEach(candidate => {
           if (candidate <= amount) {
             const ratio = amount / candidate;
             const rounded = Math.round(ratio);
             if (Math.abs(ratio - rounded) < 0.08 && rounded >= 1) {
               const score = candidateScores.get(candidate) || 0;
-              const weightedScore = score / rounded;
-              if (weightedScore > bestWeightedScore) {
-                bestWeightedScore = weightedScore;
+              if (score > bestScore || (score === bestScore && rounded < bestQty)) {
+                bestScore = score;
                 bestQty = rounded;
               }
             }
