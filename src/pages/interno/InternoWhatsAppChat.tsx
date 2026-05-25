@@ -252,9 +252,13 @@ export default function InternoWhatsAppChat() {
         }
       }
       setIgAccounts(accounts);
+      const lagunvixFallback = { id: '17841436376156784', username: 'lagunvix', name: 'Lagun' };
       if (accounts.length > 0 && !selectedIgAccount) {
         const preferred = accounts.find(a => a.username === 'lagunvix') || accounts.find(a => a.username === 'triade.ent') || accounts[0];
         setSelectedIgAccount(preferred);
+      } else if (accounts.length === 0 && !selectedIgAccount) {
+        // Fallback: lagunvix sempre disponível mesmo se a API não retornar contas
+        setSelectedIgAccount(lagunvixFallback);
       }
     } catch (err) {
       console.error('Error loading IG accounts:', err);
