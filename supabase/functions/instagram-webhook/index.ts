@@ -94,13 +94,32 @@ async function generateReply(userMessage: string, history: { role: string; conte
   return json.choices?.[0]?.message?.content?.trim() ?? "Oi! Para mais informações, fala com a gente no WhatsApp (27) 99778-9988 😊";
 }
 
-async function getIGUserInfo(igUserId: string, token: string): Promise<{ name: string; username: string } | null> {
-  const res = await fetch(
-    `https://graph.facebook.com/v19.0/${igUserId}?fields=name,username&access_token=${token}`
-  );
-  if (!res.ok) return null;
-  const json = await res.json();
-  return { name: json.name ?? igUserId, username: json.username ?? "" };
+async function getIGUserInfo(
+  senderId: string,
+  recipientId: string,
+  token: string
+): Promise<{ name: string; username: string; profile_pic?: string } | null> {
+  try {
+    // Use conversations API to get participant info (correct approach for DMs)
+    const res = await fetch(
+      `https://graph.facebook.com/v19.0/${recipientId}/conversations?user_id=${senderId}&platform=instagram&fields=participants&access_token=${token}`
+    );
+    if (!res.ok) return null;
+    const json = await res.json();
+    const conversation = json.data?.[0];
+    if (!conversation) return null;
+    const participants: any[] = conversation.participants?.data ?? [];
+    // Find the participant that is NOT our account
+    const sender = participants.find((p: any) => p.id !== recipientId);
+    if (!sender) return null;
+    return {
+      name: sender.name ?? senderId,
+      username: sender.username ?? sender.name ?? senderId,
+      profile_pic: sender.profile_pic ?? undefined,
+    };
+  } catch {
+    return null;
+  }
 }
 
 Deno.serve(async (req) => {
@@ -162,9 +181,9 @@ Deno.serve(async (req) => {
         }
 
         // ── Fetch sender info ──────────────────────────────────────────────
-        const userInfo = await getIGUserInfo(senderId, token);
+        const userInfo = await getIGUserInfo(senderId, recipientId, token);
         const contactName = userInfo?.username
-          ? `@${userInfo.username}`
+          ? userInfo.username
           : (userInfo?.name ?? senderId);
 
         // ── Save inbound message to whatsapp_messages ──────────────────────
