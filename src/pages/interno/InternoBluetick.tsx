@@ -74,6 +74,7 @@ const BLUETICKET_EVENT_NAMES: Record<string, string[]> = {
   '40359': ['Fantástico Mundo do Lukão', 'Fantástico Mundo de Lukão'],
   'lebai': ['Le Bai'],
   '40935': ["Le'Bai - Rodrigo Do CN", "Le'Bai", 'Le Bai'],
+  '40943': ['Aura Black', 'AURA BLACK', 'Aura'],
 };
 
 function formatPhone(phone: string): string {
