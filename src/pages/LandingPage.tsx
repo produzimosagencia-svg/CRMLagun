@@ -193,6 +193,7 @@ export default function LandingPage() {
                 {/* Botão ingresso */}
                 <a
                   href={ev.link}
+                  onClick={() => { (supabase as any).from('link_clicks').insert({ event_id: ev.id }); }}
                   className="shrink-0 flex items-center justify-center transition-all active:opacity-70"
                   style={{ backgroundColor: '#F5D470', borderRadius: '10px', width: 44, height: 44 }}
                 >
@@ -261,6 +262,7 @@ export default function LandingPage() {
                   </div>
                   <a
                     href={ev.link}
+                    onClick={() => { (supabase as any).from('link_clicks').insert({ event_id: ev.id }); }}
                     className="block text-center text-xs tracking-widest py-3 transition-all hover:opacity-90 active:scale-95"
                     style={{
                       background: 'linear-gradient(135deg, #F5D470 0%, #e8b830 50%, #F5D470 100%)',

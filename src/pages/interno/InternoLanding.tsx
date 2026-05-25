@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Plus, Pencil, Trash2, Eye, EyeOff, GripVertical, ExternalLink, Globe, Upload, X } from 'lucide-react';
+import { Plus, Pencil, Trash2, Eye, EyeOff, GripVertical, ExternalLink, Globe, Upload, X, MousePointerClick } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import {
   Dialog,
@@ -40,6 +40,7 @@ const emptyEvent: Omit<LandingEvent, 'id'> = {
 
 export default function InternoLanding() {
   const [events, setEvents] = useState<LandingEvent[]>([]);
+  const [clicks, setClicks] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
@@ -66,11 +67,23 @@ export default function InternoLanding() {
 
   async function fetchEvents() {
     setLoading(true);
-    const { data, error } = await (supabase as any)
-      .from('lagun_events')
-      .select('id, nome, data, dia_semana, artista, guests, tag, link, flyer_mobile_url, flyer_desktop_url, show_on_landing, display_order')
-      .order('display_order', { ascending: true });
-    if (!error && data) setEvents(data as LandingEvent[]);
+    const [{ data: evData }, { data: clickData }] = await Promise.all([
+      (supabase as any)
+        .from('lagun_events')
+        .select('id, nome, data, dia_semana, artista, guests, tag, link, flyer_mobile_url, flyer_desktop_url, show_on_landing, display_order')
+        .order('display_order', { ascending: true }),
+      (supabase as any)
+        .from('link_clicks')
+        .select('event_id'),
+    ]);
+    if (evData) setEvents(evData as LandingEvent[]);
+    if (clickData) {
+      const map: Record<string, number> = {};
+      (clickData as { event_id: string }[]).forEach(({ event_id }) => {
+        map[event_id] = (map[event_id] || 0) + 1;
+      });
+      setClicks(map);
+    }
     setLoading(false);
   }
 
@@ -258,6 +271,15 @@ export default function InternoLanding() {
                     <ExternalLink size={10} /> {ev.link.length > 50 ? ev.link.slice(0, 50) + '…' : ev.link}
                   </a>
                 )}
+              </div>
+
+              {/* Click counter */}
+              <div className="flex flex-col items-center shrink-0 min-w-[52px]" title="Cliques no botão de ingresso">
+                <div className="flex items-center gap-1 text-indigo-500">
+                  <MousePointerClick size={13} />
+                  <span className="text-sm font-bold">{(clicks[ev.id] || 0).toLocaleString('pt-BR')}</span>
+                </div>
+                <span className="text-[10px] text-gray-400 mt-0.5">cliques</span>
               </div>
 
               {/* Order badge */}
