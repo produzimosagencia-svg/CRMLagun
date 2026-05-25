@@ -210,11 +210,14 @@ Deno.serve(async (req) => {
           `${IG_GRAPH_API}/${igId}/messages`,
           {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${dmToken3}`,
+            },
             body: JSON.stringify({
               recipient: { id: recipientId },
               message: { text: messageText },
-              access_token: dmToken3,
+              messaging_type: "RESPONSE",
             }),
           }
         );

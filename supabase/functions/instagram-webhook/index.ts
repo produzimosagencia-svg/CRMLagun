@@ -98,42 +98,27 @@ async function getIGUserInfo(
   senderId: string,
   recipientId: string,
   token: string
-): Promise<{ name: string; username: string; profile_pic?: string } | null> {
+): Promise<{ name: string; username: string } | null> {
   try {
-    // Try 1: Instagram Graph API direct user lookup
-    const res1 = await fetch(
-      `https://graph.instagram.com/v19.0/${senderId}?fields=name,username,profile_pic&access_token=${token}`
+    // Use graph.instagram.com conversations endpoint (returns username correctly)
+    const res = await fetch(
+      `https://graph.instagram.com/v19.0/${recipientId}/conversations?platform=instagram&user_id=${senderId}&fields=participants&access_token=${token}`
     );
-    if (res1.ok) {
-      const json = await res1.json();
-      if (json.username || json.name) {
-        return {
-          name: json.name ?? senderId,
-          username: json.username ?? json.name ?? senderId,
-          profile_pic: json.profile_pic ?? undefined,
-        };
-      }
+    if (!res.ok) {
+      const err = await res.text();
+      console.error("getIGUserInfo error:", err);
+      return null;
     }
-
-    // Try 2: Conversations API with participants
-    const res2 = await fetch(
-      `https://graph.facebook.com/v19.0/${recipientId}/conversations?user_id=${senderId}&platform=instagram&fields=participants%7Bname%2Cusername%2Cprofile_pic%2Cid%7D&access_token=${token}`
-    );
-    if (res2.ok) {
-      const json = await res2.json();
-      const participants: any[] = json.data?.[0]?.participants?.data ?? [];
-      const sender = participants.find((p: any) => p.id !== recipientId);
-      if (sender?.name) {
-        return {
-          name: sender.name,
-          username: sender.username ?? sender.name,
-          profile_pic: sender.profile_pic ?? undefined,
-        };
-      }
+    const json = await res.json();
+    const participants: any[] = json.data?.[0]?.participants?.data ?? [];
+    // Find participant that is NOT our account
+    const sender = participants.find((p: any) => p.id !== recipientId && p.username !== 'lagunvix');
+    if (sender) {
+      return {
+        name: sender.name ?? sender.username ?? senderId,
+        username: sender.username ?? sender.name ?? senderId,
+      };
     }
-
-    const err2 = await res2.json().catch(() => ({}));
-    console.error("getIGUserInfo both methods failed:", JSON.stringify(err2));
     return null;
   } catch (e) {
     console.error("getIGUserInfo exception:", e);
