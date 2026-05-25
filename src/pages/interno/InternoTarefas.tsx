@@ -26,9 +26,9 @@ interface TeamTask {
 }
 
 interface ProfileInfo {
-  user_id: string;
+  id: string;
   full_name: string | null;
-  email: string | null;
+  username: string | null;
 }
 
 interface EventInfo {
@@ -98,7 +98,7 @@ export default function InternoTarefas() {
   const load = useCallback(async () => {
     const [taskRes, profileRes, eventRes] = await Promise.all([
       supabase.from('team_tasks').select('*').order('created_at', { ascending: false }),
-      supabase.from('profiles').select('user_id, full_name, email'),
+      supabase.from('profiles').select('id, full_name, username').order('full_name'),
       (supabase as any).from('lagun_events').select('id, nome, show_on_landing').order('display_order', { ascending: true }),
     ]);
     setTasks((taskRes.data || []) as TeamTask[]);
@@ -117,8 +117,8 @@ export default function InternoTarefas() {
 
   const getProfileName = (userId: string | null) => {
     if (!userId) return null;
-    const p = profiles.find(pr => pr.user_id === userId);
-    return p?.full_name || p?.email?.split('@')[0] || null;
+    const p = profiles.find(pr => pr.id === userId);
+    return p?.full_name || p?.username || null;
   };
 
   const getEvent = (eId: string | null) => {
@@ -477,8 +477,8 @@ export default function InternoTarefas() {
                   <SelectContent>
                     <SelectItem value="none">Ninguém</SelectItem>
                     {profiles.map(p => (
-                      <SelectItem key={p.user_id} value={p.user_id}>
-                        {p.full_name || p.email?.split('@')[0]}
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.full_name || p.username}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -664,8 +664,8 @@ export default function InternoTarefas() {
                     <SelectContent>
                       <SelectItem value="none">Ninguém</SelectItem>
                       {profiles.map(p => (
-                        <SelectItem key={p.user_id} value={p.user_id}>
-                          {p.full_name || p.email?.split('@')[0]}
+                        <SelectItem key={p.id} value={p.id}>
+                          {p.full_name || p.username}
                         </SelectItem>
                       ))}
                     </SelectContent>
