@@ -819,18 +819,18 @@ export default function InternoWhatsAppChat() {
               size="sm"
               onClick={toggleGlobalAi}
               disabled={togglingGlobal}
-              className={`flex-1 gap-1.5 text-xs ${globalAiEnabled ? 'bg-[#25D366] hover:bg-[#20BD5A] text-white' : ''}`}
+              className={`flex-1 gap-1.5 text-xs min-w-0 ${globalAiEnabled ? 'bg-[#25D366] hover:bg-[#20BD5A] text-white' : ''}`}
               title={globalAiEnabled ? 'IA ativa em todas as conversas' : 'IA desativada globalmente'}
             >
-              <Power className="w-3.5 h-3.5" />
-              {togglingGlobal ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : (globalAiEnabled ? 'IA On' : 'IA Off')}
+              <Power className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate">{togglingGlobal ? '…' : (globalAiEnabled ? 'IA On' : 'IA Off')}</span>
             </Button>
 
             <Popover onOpenChange={(open) => { if (open) loadApiPhones(); }}>
               <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="flex-1 gap-1.5 text-xs">
-                  <Smartphone className="w-3.5 h-3.5" />
-                  API
+                <Button variant="outline" size="sm" className="flex-1 gap-1.5 text-xs min-w-0">
+                  <Smartphone className="w-3.5 h-3.5 shrink-0" />
+                  <span className="truncate">API</span>
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-72 p-3" align="start">
@@ -861,18 +861,18 @@ export default function InternoWhatsAppChat() {
               variant="outline"
               size="sm"
               onClick={openKnowledge}
-              className="flex-1 gap-1.5 text-xs"
+              className="flex-1 gap-1.5 text-xs min-w-0"
               title="Memória da IA"
             >
-              <BrainCircuit className="w-3.5 h-3.5" />
-              Memória
+              <BrainCircuit className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate">Memória</span>
             </Button>
 
             <Popover onOpenChange={(open) => { if (open) loadLounges(); }}>
               <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="flex-1 gap-1.5 text-xs">
-                  <Armchair className="w-3.5 h-3.5" />
-                  Lounge
+                <Button variant="outline" size="sm" className="flex-1 gap-1.5 text-xs min-w-0">
+                  <Armchair className="w-3.5 h-3.5 shrink-0" />
+                  <span className="truncate">Lounge</span>
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-80 p-3" align="start" side="top">
