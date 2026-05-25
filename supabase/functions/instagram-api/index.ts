@@ -70,16 +70,19 @@ Deno.serve(async (req) => {
       });
     }
 
-    const token = Deno.env.get("META_INSTAGRAM_TOKEN");
-    if (!token) {
+    const token = Deno.env.get("META_INSTAGRAM_TOKEN") ?? "";
+
+    const url = new URL(req.url);
+    const action = url.searchParams.get("action");
+
+    // Actions that require META_INSTAGRAM_TOKEN
+    const tokenRequiredActions = ["accounts", "insights", "media", "media_insights", "comments", "publish"];
+    if (tokenRequiredActions.includes(action ?? "") && !token) {
       return new Response(JSON.stringify({ error: "META_INSTAGRAM_TOKEN not configured" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-
-    const url = new URL(req.url);
-    const action = url.searchParams.get("action");
 
     let result;
 
