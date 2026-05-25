@@ -29,8 +29,8 @@ interface IGMedia {
   permalink: string;
 }
 
-const ALLOWED_USERNAMES = ['triade.ent', 'maestria.rap', 'boomrapfestival', 'vitoriafestival'];
-const USERNAME_ORDER: Record<string, number> = { 'triade.ent': 0, 'maestria.rap': 1, 'boomrapfestival': 2, 'vitoriafestival': 3 };
+const ALLOWED_USERNAMES = ['lagunvix', 'triade.ent', 'maestria.rap', 'boomrapfestival', 'vitoriafestival'];
+const USERNAME_ORDER: Record<string, number> = { 'lagunvix': 0, 'triade.ent': 1, 'maestria.rap': 2, 'boomrapfestival': 3, 'vitoriafestival': 4 };
 
 async function callInstagram(action: string, params: Record<string, string> = {}) {
   const queryStr = new URLSearchParams({ action, ...params }).toString();
