@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, GripVertical, Calendar, Flag, Paperclip, Circle, Loader2, CheckCircle2, Trash2, Upload, X, LayoutGrid, List } from 'lucide-react';
+import { Plus, GripVertical, Calendar, Flag, Paperclip, Circle, Loader2, CheckCircle2, Trash2, Upload, X, LayoutGrid, List, Home } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -34,8 +34,11 @@ interface ProfileInfo {
 interface EventInfo {
   id: string;
   name: string;
-  avatar_url: string | null;
+  show_on_landing?: boolean;
 }
+
+// Evento fixo da casa
+const LAGUN_EVENT: EventInfo = { id: 'lagun-fixo', name: 'Lagun', show_on_landing: false };
 
 const STATUS_COLUMNS = [
   { key: 'pendente', label: 'Pendente', color: 'bg-yellow-500', bg: 'bg-yellow-500/10', text: 'text-yellow-600', border: 'border-yellow-500/20', icon: Circle },
@@ -82,6 +85,9 @@ export default function InternoTarefas() {
   const [assignedTo, setAssignedTo] = useState('');
   const [eventId, setEventId] = useState('');
   const [files, setFiles] = useState<File[]>([]);
+  const [showCreateEvent, setShowCreateEvent] = useState(false);
+  const [newEventName, setNewEventName] = useState('');
+  const [creatingEvent, setCreatingEvent] = useState(false);
 
   // Detail editing
   const [editingTitle, setEditingTitle] = useState(false);
@@ -93,11 +99,17 @@ export default function InternoTarefas() {
     const [taskRes, profileRes, eventRes] = await Promise.all([
       supabase.from('team_tasks').select('*').order('created_at', { ascending: false }),
       supabase.from('profiles').select('user_id, full_name, email'),
-      supabase.from('events').select('id, name, avatar_url').order('name'),
+      (supabase as any).from('lagun_events').select('id, nome, show_on_landing').order('display_order', { ascending: true }),
     ]);
     setTasks((taskRes.data || []) as TeamTask[]);
     setProfiles(profileRes.data || []);
-    setEvents(eventRes.data || []);
+    // Map lagun_events.nome → name; Lagun fixo já está no LAGUN_EVENT
+    const mapped: EventInfo[] = (eventRes.data || []).map((r: any) => ({
+      id: r.id,
+      name: r.nome,
+      show_on_landing: r.show_on_landing,
+    }));
+    setEvents(mapped);
     setLoading(false);
   }, []);
 
@@ -111,8 +123,16 @@ export default function InternoTarefas() {
 
   const getEvent = (eId: string | null) => {
     if (!eId) return null;
+    if (eId === LAGUN_EVENT.id) return LAGUN_EVENT;
     return events.find(ev => ev.id === eId) || null;
   };
+
+  // Lista completa: Lagun fixo + ativos na landing + demais
+  const allEvents = [
+    LAGUN_EVENT,
+    ...events.filter(e => e.show_on_landing),
+    ...events.filter(e => !e.show_on_landing),
+  ];
 
   async function handleCreate() {
     if (!title.trim()) { toast.error('Título é obrigatório'); return; }
@@ -147,6 +167,24 @@ export default function InternoTarefas() {
       load();
     }
     setSaving(false);
+  }
+
+  async function handleCreateEvent() {
+    if (!newEventName.trim()) { toast.error('Nome do evento obrigatório'); return; }
+    setCreatingEvent(true);
+    const { data, error } = await (supabase as any)
+      .from('lagun_events')
+      .insert({ nome: newEventName.trim(), show_on_landing: false, display_order: 999 })
+      .select('id, nome, show_on_landing')
+      .single();
+    setCreatingEvent(false);
+    if (error) { toast.error('Erro ao criar evento'); return; }
+    const newEv: EventInfo = { id: data.id, name: data.nome, show_on_landing: false };
+    setEvents(prev => [...prev, newEv]);
+    setEventId(data.id);
+    setNewEventName('');
+    setShowCreateEvent(false);
+    toast.success(`Evento "${data.nome}" criado!`);
   }
 
   async function handleStatusChange(taskId: string, newStatus: string) {
@@ -299,7 +337,7 @@ export default function InternoTarefas() {
                 {event && (
                   <span className="inline-flex items-center gap-1.5 text-[11px] text-gray-500 bg-gray-50 dark:bg-gray-800 rounded-full px-2 py-0.5">
                     <Avatar className="h-4 w-4">
-                      <AvatarImage src={event.avatar_url ?? undefined} />
+                      <AvatarImage src={undefined} />
                       <AvatarFallback className="text-[7px] bg-gradient-to-br from-pink-500 to-orange-400 text-white font-bold">
                         {event.name.charAt(0)}
                       </AvatarFallback>
@@ -401,7 +439,7 @@ export default function InternoTarefas() {
                 <span className="text-sm font-medium text-gray-900 dark:text-gray-100 flex-1 truncate">{t.title}</span>
                 {event && (
                   <Avatar className="h-5 w-5">
-                    <AvatarImage src={event.avatar_url ?? undefined} />
+                    <AvatarImage src={undefined} />
                     <AvatarFallback className="text-[8px] bg-gradient-to-br from-pink-500 to-orange-400 text-white font-bold">{event.name.charAt(0)}</AvatarFallback>
                   </Avatar>
                 )}
@@ -467,19 +505,61 @@ export default function InternoTarefas() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">Nenhum</SelectItem>
-                    {events.map(ev => (
-                      <SelectItem key={ev.id} value={ev.id}>
-                        <div className="flex items-center gap-2">
-                          <Avatar className="h-4 w-4">
-                            <AvatarImage src={ev.avatar_url ?? undefined} />
-                            <AvatarFallback className="text-[7px] bg-gradient-to-br from-pink-500 to-orange-400 text-white font-bold">{ev.name.charAt(0)}</AvatarFallback>
-                          </Avatar>
-                          {ev.name}
-                        </div>
-                      </SelectItem>
+                    {/* Lagun fixo */}
+                    <SelectItem value={LAGUN_EVENT.id}>
+                      <div className="flex items-center gap-2">
+                        <Home size={12} className="text-amber-500" />
+                        <span className="font-semibold">Lagun</span>
+                      </div>
+                    </SelectItem>
+                    {/* Ativos na Landing Page */}
+                    {events.filter(e => e.show_on_landing).length > 0 && (
+                      <div className="px-2 py-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Landing Page</div>
+                    )}
+                    {events.filter(e => e.show_on_landing).map(ev => (
+                      <SelectItem key={ev.id} value={ev.id}>{ev.name}</SelectItem>
+                    ))}
+                    {/* Outros eventos */}
+                    {events.filter(e => !e.show_on_landing).length > 0 && (
+                      <div className="px-2 py-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Outros</div>
+                    )}
+                    {events.filter(e => !e.show_on_landing).map(ev => (
+                      <SelectItem key={ev.id} value={ev.id}>{ev.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+                {/* Criar novo evento inline */}
+                {!showCreateEvent ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowCreateEvent(true)}
+                    className="mt-1.5 flex items-center gap-1 text-[11px] text-indigo-500 hover:text-indigo-700 font-medium"
+                  >
+                    <Plus size={11} /> Criar novo evento
+                  </button>
+                ) : (
+                  <div className="mt-2 flex items-center gap-2">
+                    <input
+                      autoFocus
+                      value={newEventName}
+                      onChange={e => setNewEventName(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && handleCreateEvent()}
+                      placeholder="Nome do evento"
+                      className="flex-1 text-xs rounded-lg border border-gray-200 dark:border-gray-700 px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-400 bg-white dark:bg-gray-900"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleCreateEvent}
+                      disabled={creatingEvent}
+                      className="text-xs bg-indigo-600 text-white px-2.5 py-1.5 rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+                    >
+                      {creatingEvent ? '...' : 'Criar'}
+                    </button>
+                    <button type="button" onClick={() => { setShowCreateEvent(false); setNewEventName(''); }} className="text-gray-400 hover:text-gray-600">
+                      <X size={13} />
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
             <div>
@@ -562,7 +642,7 @@ export default function InternoTarefas() {
                           <SelectItem key={ev.id} value={ev.id}>
                             <div className="flex items-center gap-2">
                               <Avatar className="h-4 w-4">
-                                <AvatarImage src={ev.avatar_url ?? undefined} />
+                                <AvatarImage src={undefined} />
                                 <AvatarFallback className="text-[7px] bg-gradient-to-br from-pink-500 to-orange-400 text-white font-bold">{ev.name.charAt(0)}</AvatarFallback>
                               </Avatar>
                               {ev.name}
