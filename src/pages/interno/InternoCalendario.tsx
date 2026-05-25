@@ -49,6 +49,8 @@ export default function InternoCalendario() {
   const [saving, setSaving]         = useState(false);
   const [deleting, setDeleting]     = useState(false);
   const [form, setForm]             = useState({ ...emptyForm });
+  const [draggedId, setDraggedId]   = useState<string | null>(null);
+  const [dragOver, setDragOver]     = useState<string | null>(null);
 
   useEffect(() => { fetchEvents(); }, [year, month]);
 
@@ -125,6 +127,47 @@ export default function InternoCalendario() {
     toast.success('Evento excluído');
     setModalOpen(false);
     fetchEvents();
+  }
+
+  function handleDragStart(ev: React.DragEvent, eventId: string) {
+    setDraggedId(eventId);
+    ev.dataTransfer.effectAllowed = 'move';
+    ev.dataTransfer.setData('text/plain', eventId);
+  }
+
+  function handleDragOver(ev: React.DragEvent, dateStr: string) {
+    ev.preventDefault();
+    ev.dataTransfer.dropEffect = 'move';
+    setDragOver(dateStr);
+  }
+
+  function handleDragLeave() {
+    setDragOver(null);
+  }
+
+  async function handleDrop(ev: React.DragEvent, targetDate: string) {
+    ev.preventDefault();
+    setDragOver(null);
+    const id = ev.dataTransfer.getData('text/plain') || draggedId;
+    if (!id) return;
+    const original = events.find(e => e.id === id);
+    if (!original || original.date === targetDate) return;
+
+    // Optimistic update
+    setEvents(prev => prev.map(e => e.id === id ? { ...e, date: targetDate } : e));
+
+    const { error } = await (supabase as any)
+      .from('calendar_events')
+      .update({ date: targetDate })
+      .eq('id', id);
+
+    if (error) {
+      toast.error('Erro ao mover evento');
+      setEvents(prev => prev.map(e => e.id === id ? { ...e, date: original.date } : e));
+    } else {
+      toast.success('Evento movido!');
+    }
+    setDraggedId(null);
   }
 
   function prevMonth() {
@@ -221,12 +264,17 @@ export default function InternoCalendario() {
             <div
               key={idx}
               onClick={() => openNew(ds)}
+              onDragOver={e => handleDragOver(e, ds)}
+              onDragLeave={handleDragLeave}
+              onDrop={e => handleDrop(e, ds)}
               className={[
                 'border-b border-r border-gray-100 dark:border-gray-800 p-1.5 cursor-pointer group relative transition-colors',
                 !current  ? 'bg-gray-50/70 dark:bg-gray-950/50'            : '',
                 current && isWeekend ? 'bg-gray-50/40 dark:bg-gray-800/20' : '',
                 current && !isWeekend ? 'bg-white dark:bg-gray-900'        : '',
-                'hover:bg-indigo-50/40 dark:hover:bg-indigo-950/20',
+                dragOver === ds
+                  ? 'bg-indigo-100/70 dark:bg-indigo-900/30 ring-2 ring-inset ring-indigo-400'
+                  : 'hover:bg-indigo-50/40 dark:hover:bg-indigo-950/20',
               ].join(' ')}
             >
               {/* Day number */}
@@ -252,9 +300,16 @@ export default function InternoCalendario() {
                 {evs.slice(0, 3).map(ev => (
                   <button
                     key={ev.id}
+                    draggable
+                    onDragStart={e => { e.stopPropagation(); handleDragStart(e, ev.id); }}
+                    onDragEnd={() => { setDraggedId(null); setDragOver(null); }}
                     onClick={e => openEdit(ev, e)}
                     title={ev.title}
-                    className={`w-full text-left px-1.5 py-[2px] rounded text-[11px] font-medium truncate leading-snug ${colorLight(ev.color)}`}
+                    className={[
+                      'w-full text-left px-1.5 py-[2px] rounded text-[11px] font-medium truncate leading-snug cursor-grab active:cursor-grabbing transition-opacity',
+                      colorLight(ev.color),
+                      draggedId === ev.id ? 'opacity-40' : '',
+                    ].join(' ')}
                   >
                     {ev.start_time ? `${ev.start_time.slice(0, 5)} ` : ''}{ev.title}
                   </button>
