@@ -710,7 +710,8 @@ export function EventDashboard({ eventId, autoDispatchSlot, eventDate: eventDate
     }));
 
     const finalTickets = hasOfficialNumbers ? eventRecord!.official_tickets! : (useCrmMetrics ? crmData?.totalTickets || 0 : webhookTickets);
-    const finalRevenue = hasOfficialNumbers ? eventRecord!.official_revenue! : (useCrmMetrics ? crmData?.totalRevenue || 0 : webhookRevenue);
+    const webhookOrCrmRevenue = useCrmMetrics ? crmData?.totalRevenue || 0 : webhookRevenue;
+    const finalRevenue = (hasOfficialNumbers && eventRecord?.official_revenue != null) ? eventRecord.official_revenue : webhookOrCrmRevenue;
 
     return {
       totalTickets: finalTickets,
