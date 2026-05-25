@@ -633,10 +633,8 @@ export default function InternoWhatsAppChat() {
 
     // Instagram DM send
     if (activeChannel === 'instagram') {
-      if (!selectedIgAccount) {
-        toast.error('Nenhuma conta Instagram selecionada');
-        return;
-      }
+      // Always fallback to lagunvix if no account selected
+      const igAccount = selectedIgAccount ?? { id: '17841436376156784', username: 'lagunvix' };
       setSending(true);
       try {
         const { data: { session } } = await supabase.auth.getSession();
@@ -648,7 +646,7 @@ export default function InternoWhatsAppChat() {
           method: 'POST',
           headers: { Authorization: `Bearer ${token}`, apikey: ANON_KEY, 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            ig_id: selectedIgAccount.id,
+            ig_id: igAccount.id,
             recipient_id: selectedPhone,
             message: replyText,
             contact_name: contactName,
