@@ -13,6 +13,7 @@ const IG_GRAPH_API = "https://graph.instagram.com/v25.0";
 const IG_DM_TOKEN_MAP: Record<string, string> = {
   "17841412165311222": "META_IG_DM_TOKEN",         // @triade.ent
   "17841464788107057": "META_IG_DM_TOKEN_MAESTRIA", // @maestria.rap
+  "17841436376156784": "META_IG_DM_TOKEN_LAGUN",   // @lagunvix
 };
 
 function getDmToken(igId?: string | null): string {
