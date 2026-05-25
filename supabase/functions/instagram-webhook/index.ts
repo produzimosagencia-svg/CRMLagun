@@ -102,9 +102,13 @@ async function getIGUserInfo(
   try {
     // Use conversations API to get participant info (correct approach for DMs)
     const res = await fetch(
-      `https://graph.facebook.com/v19.0/${recipientId}/conversations?user_id=${senderId}&platform=instagram&fields=participants&access_token=${token}`
+      `https://graph.facebook.com/v19.0/${recipientId}/conversations?user_id=${senderId}&platform=instagram&fields=participants%7Bname%2Cusername%2Cprofile_pic%2Cid%7D&access_token=${token}`
     );
-    if (!res.ok) return null;
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      console.error("getIGUserInfo error:", JSON.stringify(err));
+      return null;
+    }
     const json = await res.json();
     const conversation = json.data?.[0];
     if (!conversation) return null;
