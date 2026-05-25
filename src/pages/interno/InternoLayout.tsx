@@ -6,7 +6,7 @@ import {
   ChevronsRight, Ticket, Radio, MessageCircle, Send,
   ChevronDown, ChevronRight, Settings, User, Moon, Sun, Zap, Sparkles,
   Megaphone, BarChart3, Trophy, Users, ClipboardList, Palette, Image, Cake,
-  Database, Plus, CalendarDays, Globe,
+  Database, Plus, CalendarDays, Globe, CalendarRange,
 } from 'lucide-react';
 import { MetaIcon } from '@/components/icons/MetaIcon';
 import { supabase } from '@/integrations/supabase/client';
@@ -142,6 +142,7 @@ export default function InternoLayout() {
     if (location.pathname === '/interno/aura') return 'Aura';
     if (location.pathname === '/interno/base') return 'Base';
     if (location.pathname === '/interno/landing') return 'Landing Page';
+    if (location.pathname === '/interno/calendario') return 'Calendário';
     if (location.pathname === '/interno') return 'Home';
     return 'Interno';
   };
@@ -444,6 +445,19 @@ export default function InternoLayout() {
               <ClipboardList size={18} />
             </div>
             {!collapsed && <span className="text-sm font-medium">Tarefas</span>}
+          </NavLink>
+
+          {/* 2.6. Calendário */}
+          <NavLink
+            to="/interno/calendario"
+            onClick={() => setSidebarOpen(false)}
+            className={({ isActive }) => navLinkClass(isActive)}
+            title={collapsed ? 'Calendário' : undefined}
+          >
+            <div className={`flex items-center justify-center ${collapsed ? '' : 'mr-2'}`}>
+              <CalendarRange size={18} />
+            </div>
+            {!collapsed && <span className="text-sm font-medium">Calendário</span>}
           </NavLink>
 
           {/* Dados removido do sidebar */}

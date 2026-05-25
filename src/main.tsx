@@ -46,6 +46,7 @@ const InternoGrafos = lazy(() => import("./pages/interno/InternoGrafos.tsx"));
 const InternoGrafosLista = lazy(() => import("./pages/interno/InternoGrafosLista.tsx"));
 const InternoDados = lazy(() => import("./pages/interno/InternoDados.tsx"));
 const InternoLanding = lazy(() => import("./pages/interno/InternoLanding.tsx"));
+const InternoCalendario = lazy(() => import("./pages/interno/InternoCalendario.tsx"));
 const Privacidade = lazy(() => import("./pages/Privacidade.tsx"));
 const Termos = lazy(() => import("./pages/Termos.tsx"));
 const ExclusaoDados = lazy(() => import("./pages/ExclusaoDados.tsx"));
@@ -107,6 +108,7 @@ createRoot(document.getElementById("root")!).render(
           <Route path="grafos/:id" element={<InternoGrafos />} />
           <Route path="dados" element={<InternoDados />} />
           <Route path="landing" element={<InternoLanding />} />
+          <Route path="calendario" element={<InternoCalendario />} />
           <Route path="marketing" element={<InternoMarketing />}>
             <Route index element={null} />
             <Route path="creators" element={<CrmCreators />} />
