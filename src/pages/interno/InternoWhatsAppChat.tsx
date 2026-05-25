@@ -253,8 +253,7 @@ export default function InternoWhatsAppChat() {
       }
       setIgAccounts(accounts);
       if (accounts.length > 0 && !selectedIgAccount) {
-        // Default to triade.ent
-        const preferred = accounts.find(a => a.username === 'triade.ent') || accounts[0];
+        const preferred = accounts.find(a => a.username === 'lagunvix') || accounts.find(a => a.username === 'triade.ent') || accounts[0];
         setSelectedIgAccount(preferred);
       }
     } catch (err) {
@@ -754,64 +753,18 @@ export default function InternoWhatsAppChat() {
               Instagram
             </button>
           </div>
-          {activeChannel === 'instagram' && (
-            <div className="px-3 py-2 space-y-2 border-b">
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-full justify-between gap-2 h-9 text-xs font-medium">
-                    <div className="flex items-center gap-2 min-w-0">
-                      {selectedIgAccount?.profile_picture_url ? (
-                        <img src={selectedIgAccount.profile_picture_url} alt="" className="w-5 h-5 rounded-full object-cover shrink-0" />
-                      ) : (
-                        <Instagram className="w-4 h-4 shrink-0 text-[#E4405F]" />
-                      )}
-                      <span className="truncate">@{selectedIgAccount?.username || 'Selecionar conta'}</span>
-                    </div>
-                    <ChevronDown className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-64 p-1.5" align="start">
-                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-2 py-1.5">Contas Instagram</p>
-                  <div className="space-y-0.5">
-                    {igAccounts.map(acc => (
-                      <button
-                        key={acc.id}
-                        onClick={() => setSelectedIgAccount(acc)}
-                        className={`w-full flex items-center gap-2.5 px-2 py-2 rounded-md text-left transition-colors text-xs ${
-                          selectedIgAccount?.id === acc.id
-                            ? 'bg-[#E4405F]/10 text-[#E4405F] font-semibold'
-                            : 'hover:bg-muted/70 text-foreground'
-                        }`}
-                      >
-                        {acc.profile_picture_url ? (
-                          <img src={acc.profile_picture_url} alt="" className="w-7 h-7 rounded-full object-cover shrink-0" />
-                        ) : (
-                          <div className="w-7 h-7 rounded-full bg-[#E4405F]/20 flex items-center justify-center shrink-0">
-                            <Instagram className="w-3.5 h-3.5 text-[#E4405F]" />
-                          </div>
-                        )}
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate font-medium">@{acc.username}</p>
-                          {acc.name && <p className="truncate text-[10px] text-muted-foreground">{acc.name}</p>}
-                        </div>
-                        {selectedIgAccount?.id === acc.id && (
-                          <Check className="w-3.5 h-3.5 shrink-0 text-[#E4405F]" />
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                </PopoverContent>
-              </Popover>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={syncInstagramDMs}
-                disabled={syncingInstagram}
-                className="w-full gap-1.5 text-xs"
-              >
-                {syncingInstagram ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
-                Sincronizar DMs
-              </Button>
+          {activeChannel === 'instagram' && selectedIgAccount && (
+            <div className="px-3 py-2 border-b flex items-center gap-2">
+              {selectedIgAccount.profile_picture_url ? (
+                <img src={selectedIgAccount.profile_picture_url} alt="" className="w-6 h-6 rounded-full object-cover shrink-0" />
+              ) : (
+                <Instagram className="w-4 h-4 shrink-0 text-[#E4405F]" />
+              )}
+              <span className="text-xs font-medium text-muted-foreground">@{selectedIgAccount.username}</span>
+              <span className="ml-auto text-[10px] text-emerald-500 font-semibold flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
+                Automático
+              </span>
             </div>
           )}
         </div>
