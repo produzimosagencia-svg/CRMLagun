@@ -223,29 +223,41 @@ Deno.serve(async (req) => {
           result = { error: "ig_id, recipient_id, and message are required" }; break;
         }
         const dmToken3 = getDmToken(igId);
-        // Messenger API requires Facebook Page ID + Page Access Token
         const pageId = IG_TO_PAGE_MAP[igId];
-        let sendToken = dmToken3;
-        let senderId = pageId ?? igId;
-        if (pageId) {
-          const pageToken = await getPageAccessToken(pageId, dmToken3);
-          if (pageToken) sendToken = pageToken;
-        }
-        const resp = await fetch(
-          `${GRAPH_API}/${senderId}/messages`,
-          {
+        const pageToken = pageId ? await getPageAccessToken(pageId, dmToken3) : null;
+
+        console.log("dm_send igId:", igId, "pageId:", pageId, "hasPageToken:", !!pageToken);
+
+        // Try 1: Page ID + Page Access Token (Messenger API for Instagram)
+        if (pageId && pageToken) {
+          const r1 = await fetch(`${GRAPH_API}/${pageId}/messages`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               recipient: { id: recipientId },
               message: { text: messageText },
               messaging_type: "RESPONSE",
-              access_token: sendToken,
+              access_token: pageToken,
             }),
-          }
-        );
-        result = await resp.json();
-        if (result.error) console.error("dm_send error:", JSON.stringify(result));
+          });
+          result = await r1.json();
+          console.log("dm_send try1 (page+pageToken):", JSON.stringify(result));
+          if (!result.error) break;
+        }
+
+        // Try 2: IG ID + System User token directly
+        const r2 = await fetch(`${GRAPH_API}/${igId}/messages`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            recipient: { id: recipientId },
+            message: { text: messageText },
+            messaging_type: "RESPONSE",
+            access_token: dmToken3,
+          }),
+        });
+        result = await r2.json();
+        console.log("dm_send try2 (igId+systemToken):", JSON.stringify(result));
 
         // Persist to whatsapp_messages table with channel=instagram
         if (!result.error) {
