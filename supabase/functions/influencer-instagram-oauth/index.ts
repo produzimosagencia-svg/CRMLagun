@@ -14,9 +14,16 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const IG_APP_ID     = Deno.env.get("IG_APP_ID")     ?? "";
 const IG_APP_SECRET = Deno.env.get("IG_APP_SECRET") ?? "";
 
+const CORS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
 Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method !== "POST") {
-    return new Response("Method not allowed", { status: 405 });
+    return new Response("Method not allowed", { status: 405, headers: CORS });
   }
 
   const supabase = createClient(
@@ -151,6 +158,6 @@ Deno.serve(async (req) => {
 function json(data: any, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...CORS },
   });
 }
