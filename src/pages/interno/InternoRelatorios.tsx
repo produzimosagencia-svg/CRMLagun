@@ -121,8 +121,6 @@ const DATE_PRESETS = [
   { value: 'last_14d', label: 'Últimos 14 dias' },
   { value: 'last_30d', label: 'Últimos 30 dias' },
   { value: 'last_90d', label: 'Últimos 90 dias' },
-  { value: 'last_360d', label: 'Últimos 360 dias' },
-  { value: 'last_1000d', label: 'Últimos 1000 dias' },
 ];
 
 function formatCurrency(value: number) {

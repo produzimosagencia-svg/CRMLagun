@@ -5,9 +5,9 @@ const OPENAI_KEY   = Deno.env.get("OPENAI_API_KEY") ?? "";
 
 // Map IG account IDs → token secret names (same as instagram-api)
 const IG_DM_TOKEN_MAP: Record<string, string> = {
-  "17841412165311222": "META_IG_DM_TOKEN",          // @triade.ent
-  "17841464788107057": "META_IG_DM_TOKEN_MAESTRIA",  // @maestria.rap
-  "17841436376156784": "META_IG_DM_TOKEN_LAGUN",    // @lagunvix
+  "17841412165311222": "META_IG_DM_TOKEN",           // @triade.ent    (EAA)
+  "17841464788107057": "META_IG_DM_TOKEN_MAESTRIA",  // @maestria.rap  (EAA)
+  "17841436376156784": "INSTAGRAM_USER_TOKEN_LAGUN", // @lagunvix      (IGAA)
 };
 
 // Map IG IDs → Facebook Page IDs
@@ -61,27 +61,46 @@ Regras:
 - Se não souber algo, diga "não tenho essa informação no momento, mas pode chamar no WhatsApp (27) 99778-9988"`;
 
 async function sendIGReply(recipientId: string, senderId: string, text: string, token: string): Promise<boolean> {
-  // Use Page ID + Page Access Token for Messenger API
-  const pageId = IG_TO_PAGE_MAP[recipientId];
-  let sendToken = token;
-  let apiSenderId = pageId ?? recipientId;
-  if (pageId) {
-    const pageToken = await getPageAccessToken(pageId, token);
-    if (pageToken) sendToken = pageToken;
+  const isIgaaToken = token.startsWith("IGAA");
+  let res: Response;
+
+  if (isIgaaToken) {
+    // IGAA token → graph.instagram.com with Authorization header
+    res = await fetch(
+      `https://graph.instagram.com/v21.0/${recipientId}/messages`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          recipient: { id: senderId },
+          message: { text },
+          messaging_type: "RESPONSE",
+        }),
+      }
+    );
+  } else {
+    // EAA token → graph.facebook.com with Page Token
+    const pageId = IG_TO_PAGE_MAP[recipientId];
+    const pageToken = pageId ? await getPageAccessToken(pageId, token) : null;
+    const apiId = pageId ?? recipientId;
+    const apiToken = pageToken ?? token;
+    res = await fetch(
+      `https://graph.facebook.com/v21.0/${apiId}/messages`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          recipient: { id: senderId },
+          message: { text },
+          messaging_type: "RESPONSE",
+          access_token: apiToken,
+        }),
+      }
+    );
   }
-  const res = await fetch(
-    `https://graph.facebook.com/v21.0/${apiSenderId}/messages`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        recipient: { id: senderId },
-        message: { text },
-        messaging_type: "RESPONSE",
-        access_token: sendToken,
-      }),
-    }
-  );
   const json = await res.json();
   if (!res.ok) {
     console.error("IG send error:", JSON.stringify(json));
@@ -232,6 +251,14 @@ Deno.serve(async (req) => {
         // ── Only auto-reply to text messages ───────────────────────────────
         if (!msgText.trim()) continue;
         if (!OPENAI_KEY) continue;
+
+        // Check if IG auto-reply is enabled (stored in whatsapp_bot_settings)
+        const { data: igSetting } = await supabase
+          .from("whatsapp_bot_settings")
+          .select("bot_enabled")
+          .eq("phone", "ig_auto_reply_global")
+          .maybeSingle();
+        if (igSetting?.bot_enabled !== true) continue;
 
         // Get history for context
         const { data: historyRows } = await supabase

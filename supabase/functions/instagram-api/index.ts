@@ -11,9 +11,9 @@ const IG_GRAPH_API = "https://graph.instagram.com/v25.0";
 
 // Map IG account IDs to their respective DM token env var names
 const IG_DM_TOKEN_MAP: Record<string, string> = {
-  "17841412165311222": "META_IG_DM_TOKEN",         // @triade.ent
-  "17841464788107057": "META_IG_DM_TOKEN_MAESTRIA", // @maestria.rap
-  "17841436376156784": "META_IG_DM_TOKEN_LAGUN",   // @lagunvix
+  "17841412165311222": "META_IG_DM_TOKEN",           // @triade.ent    (EAA - facebook)
+  "17841464788107057": "META_IG_DM_TOKEN_MAESTRIA",  // @maestria.rap  (EAA - facebook)
+  "17841436376156784": "INSTAGRAM_USER_TOKEN_LAGUN", // @lagunvix      (IGAA - instagram)
 };
 
 // Map IG account IDs to Facebook Page IDs (needed for Messenger send API)
@@ -223,41 +223,42 @@ Deno.serve(async (req) => {
           result = { error: "ig_id, recipient_id, and message are required" }; break;
         }
         const dmToken3 = getDmToken(igId);
-        const pageId = IG_TO_PAGE_MAP[igId];
-        const pageToken = pageId ? await getPageAccessToken(pageId, dmToken3) : null;
+        const isIgaaToken = dmToken3.startsWith("IGAA");
 
-        console.log("dm_send igId:", igId, "pageId:", pageId, "hasPageToken:", !!pageToken);
-
-        // Try 1: Page ID + Page Access Token (Messenger API for Instagram)
-        if (pageId && pageToken) {
-          const r1 = await fetch(`${GRAPH_API}/${pageId}/messages`, {
+        if (isIgaaToken) {
+          // IGAA token → use graph.instagram.com with Authorization header
+          const r = await fetch(`${IG_GRAPH_API}/${igId}/messages`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${dmToken3}`,
+            },
+            body: JSON.stringify({
+              recipient: { id: recipientId },
+              message: { text: messageText },
+              messaging_type: "RESPONSE",
+            }),
+          });
+          result = await r.json();
+        } else {
+          // EAA token → use graph.facebook.com with Page Access Token
+          const pageId = IG_TO_PAGE_MAP[igId];
+          const pageToken = pageId ? await getPageAccessToken(pageId, dmToken3) : null;
+          const sendId = pageId ?? igId;
+          const sendToken = pageToken ?? dmToken3;
+          const r = await fetch(`${GRAPH_API}/${sendId}/messages`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               recipient: { id: recipientId },
               message: { text: messageText },
               messaging_type: "RESPONSE",
-              access_token: pageToken,
+              access_token: sendToken,
             }),
           });
-          result = await r1.json();
-          console.log("dm_send try1 (page+pageToken):", JSON.stringify(result));
-          if (!result.error) break;
+          result = await r.json();
         }
-
-        // Try 2: IG ID + System User token directly
-        const r2 = await fetch(`${GRAPH_API}/${igId}/messages`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            recipient: { id: recipientId },
-            message: { text: messageText },
-            messaging_type: "RESPONSE",
-            access_token: dmToken3,
-          }),
-        });
-        result = await r2.json();
-        console.log("dm_send try2 (igId+systemToken):", JSON.stringify(result));
+        if (result.error) console.error("dm_send error:", JSON.stringify(result));
 
         // Persist to whatsapp_messages table with channel=instagram
         if (!result.error) {

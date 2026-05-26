@@ -149,6 +149,8 @@ export default function InternoWhatsAppChat() {
   const [syncingInstagram, setSyncingInstagram] = useState(false);
   const [igAccounts, setIgAccounts] = useState<{ id: string; username: string; profile_picture_url?: string; name?: string }[]>([]);
   const [selectedIgAccount, setSelectedIgAccount] = useState<{ id: string; username: string; profile_picture_url?: string; name?: string } | null>(null);
+  const [igAutoReply, setIgAutoReply] = useState(false);
+  const [togglingIgAi, setTogglingIgAi] = useState(false);
 
   // Lounges
   const [openEvents, setOpenEvents] = useState<OpenEvent[]>([]);
@@ -332,13 +334,30 @@ export default function InternoWhatsAppChat() {
     setLoading(false);
   };
 
-  // Load IG accounts on mount  
+  const toggleIgAutoReply = async () => {
+    setTogglingIgAi(true);
+    const newVal = !igAutoReply;
+    setIgAutoReply(newVal);
+    await supabase.from('whatsapp_bot_settings')
+      .upsert({ phone: 'ig_auto_reply_global', bot_enabled: newVal, updated_at: new Date().toISOString() }, { onConflict: 'phone' });
+    toast.success(newVal ? 'IA do Instagram ativada' : 'IA do Instagram desativada');
+    setTogglingIgAi(false);
+  };
+
+  // Load IG accounts on mount
   useEffect(() => {
     const init = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
         loadIgAccounts();
       }
+      // Load IG auto-reply setting
+      const { data: igSetting } = await supabase
+        .from('whatsapp_bot_settings')
+        .select('bot_enabled')
+        .eq('phone', 'ig_auto_reply_global')
+        .maybeSingle();
+      setIgAutoReply(igSetting?.bot_enabled === true);
     };
     init();
   }, []);
@@ -813,6 +832,22 @@ export default function InternoWhatsAppChat() {
             </button>
           ))}
         </ScrollArea>
+
+        {activeChannel === 'instagram' && (
+          <div className="border-t p-2">
+            <Button
+              variant={igAutoReply ? 'default' : 'outline'}
+              size="sm"
+              onClick={toggleIgAutoReply}
+              disabled={togglingIgAi}
+              className={`w-full gap-1.5 text-xs ${igAutoReply ? 'bg-[#E4405F] hover:bg-[#d03050] text-white border-0' : ''}`}
+              title={igAutoReply ? 'IA ativa — responde automaticamente no Instagram' : 'IA desativada no Instagram'}
+            >
+              <Bot className="w-3.5 h-3.5 shrink-0" />
+              {togglingIgAi ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : (igAutoReply ? 'IA On' : 'IA Off')}
+            </Button>
+          </div>
+        )}
 
         {activeChannel === 'whatsapp' && (
           <div className="border-t p-2 grid grid-cols-2 gap-1">
