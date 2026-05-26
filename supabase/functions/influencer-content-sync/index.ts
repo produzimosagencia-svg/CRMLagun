@@ -151,20 +151,30 @@ async function syncAccount(supabase: any, account: any, monitoredUsernames: stri
     const detectedMention = monitoredUsernames.find(u => caption.includes(u)) ?? null;
     if (!detectedMention) continue;
 
-    // Dedup
+    // Dedup — check if already exists
     const { data: existing } = await supabase
       .from("influencer_detections")
-      .select("id")
+      .select("id, reach")
       .eq("ig_media_id", item.id)
       .maybeSingle();
-    if (existing) continue;
 
     // Fetch insights for this post
     const { reach, saves, shares } = await fetchInsights(igUserId, item.id, item.media_type, token);
+    const likes    = item.like_count     ?? 0;
+    const comments = item.comments_count ?? 0;
 
-    const likes    = item.like_count      ?? 0;
-    const comments = item.comments_count  ?? 0;
-    const score    = calcDetectionScore(item.media_type, reach, likes, comments, saves, shares);
+    if (existing) {
+      // Update metrics if reach was zero (e.g. insights permission just granted)
+      if ((existing.reach ?? 0) === 0 && reach > 0) {
+        await supabase.from("influencer_detections").update({
+          reach, saves, shares, likes, comments, synced_at: new Date().toISOString(),
+        }).eq("id", existing.id);
+        console.log(`Updated metrics for ${item.id}: reach=${reach}`);
+      }
+      continue;
+    }
+
+    const score = calcDetectionScore(item.media_type, reach, likes, comments, saves, shares);
 
     const { error } = await supabase.from("influencer_detections").insert({
       influencer_id:    account.influencer_id,
