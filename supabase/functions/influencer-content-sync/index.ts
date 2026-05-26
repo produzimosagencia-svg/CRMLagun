@@ -147,7 +147,8 @@ async function syncAccount(supabase: any, account: any, monitoredUsernames: stri
 
   for (const item of items) {
     const caption: string = (item.caption ?? "").toLowerCase();
-    const detectedMention = monitoredUsernames.find(u => caption.includes(`@${u}`)) ?? null;
+    // Match either @username or plain keyword (e.g. "ingressos", "ingresso")
+    const detectedMention = monitoredUsernames.find(u => caption.includes(u)) ?? null;
     if (!detectedMention) continue;
 
     // Dedup
