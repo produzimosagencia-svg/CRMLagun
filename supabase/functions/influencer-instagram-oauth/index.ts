@@ -1,8 +1,10 @@
 /**
  * influencer-instagram-oauth
  *
- * Exchanges Instagram OAuth code for a long-lived token and saves the
- * IG account linked to the influencer identified by their invite_token.
+ * Exchanges Facebook OAuth code for a token, finds the linked Instagram
+ * Business/Creator account, and saves it to influencer_ig_accounts.
+ *
+ * Uses the new "API do Instagram com login do Facebook" (Basic Display deprecated Dec 2024).
  *
  * Body: { code: string, invite_token: string, redirect_uri: string }
  */
@@ -41,61 +43,86 @@ Deno.serve(async (req) => {
     return json({ error: "Invalid invite token" }, 400);
   }
 
-  // 2. Exchange code → short-lived token
-  const tokenRes = await fetch("https://api.instagram.com/oauth/access_token", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      client_id:     IG_APP_ID,
-      client_secret: IG_APP_SECRET,
-      grant_type:    "authorization_code",
-      redirect_uri,
-      code,
-    }),
-  });
+  // 2. Exchange Facebook OAuth code → user access token
+  const tokenUrl = new URL("https://graph.facebook.com/oauth/access_token");
+  tokenUrl.searchParams.set("client_id",     IG_APP_ID);
+  tokenUrl.searchParams.set("client_secret", IG_APP_SECRET);
+  tokenUrl.searchParams.set("redirect_uri",  redirect_uri);
+  tokenUrl.searchParams.set("code",          code);
 
+  const tokenRes = await fetch(tokenUrl.toString());
   const tokenData = await tokenRes.json();
-  if (!tokenRes.ok || tokenData.error_type) {
-    console.error("IG token exchange error:", JSON.stringify(tokenData));
-    return json({ error: tokenData.error_message ?? "Token exchange failed" }, 400);
+
+  if (!tokenRes.ok || tokenData.error) {
+    console.error("FB token exchange error:", JSON.stringify(tokenData));
+    return json({ error: tokenData.error?.message ?? "Token exchange failed" }, 400);
   }
 
-  const shortToken = tokenData.access_token as string;
-  const igUserId   = String(tokenData.user_id);
+  const userAccessToken: string = tokenData.access_token;
 
-  // 3. Exchange short-lived → long-lived token (60-day)
-  const longRes = await fetch(
-    `https://graph.instagram.com/access_token?grant_type=ig_exchange_token&client_secret=${IG_APP_SECRET}&access_token=${shortToken}`
-  );
-  const longData = await longRes.json();
-  const longToken = (longData.access_token as string) ?? shortToken;
-  const expiresIn = (longData.expires_in as number) ?? 5183944; // ~60 days
+  // 3. Extend to long-lived token (~60 days)
+  const extendUrl = new URL("https://graph.facebook.com/oauth/access_token");
+  extendUrl.searchParams.set("grant_type",        "fb_exchange_token");
+  extendUrl.searchParams.set("client_id",         IG_APP_ID);
+  extendUrl.searchParams.set("client_secret",     IG_APP_SECRET);
+  extendUrl.searchParams.set("fb_exchange_token", userAccessToken);
 
+  const extendRes  = await fetch(extendUrl.toString());
+  const extendData = await extendRes.json();
+  const longToken  = (extendData.access_token as string) ?? userAccessToken;
+  const expiresIn  = (extendData.expires_in   as number) ?? 5183944; // ~60 days
   const tokenExpiresAt = new Date(Date.now() + expiresIn * 1000).toISOString();
 
-  // 4. Fetch IG profile
-  const profileRes = await fetch(
-    `https://graph.instagram.com/${igUserId}?fields=id,username,followers_count,media_count,profile_picture_url&access_token=${longToken}`
+  // 4. Get linked Instagram Business/Creator account via Facebook Pages
+  //    GET /me/accounts → pages → instagram_business_account
+  const pagesRes = await fetch(
+    `https://graph.facebook.com/me/accounts?fields=instagram_business_account{id,username,followers_count,profile_picture_url,media_count}&access_token=${longToken}`
   );
-  const profile = await profileRes.json();
-  if (!profileRes.ok) {
-    console.error("IG profile fetch error:", JSON.stringify(profile));
-    return json({ error: "Could not fetch Instagram profile" }, 400);
+  const pagesData = await pagesRes.json();
+
+  if (!pagesRes.ok || pagesData.error) {
+    console.error("FB pages fetch error:", JSON.stringify(pagesData));
+    return json({ error: "Could not fetch Facebook Pages. Make sure your Instagram account is linked to a Facebook Page." }, 400);
   }
 
-  const username            = profile.username            as string;
-  const followersCount      = (profile.followers_count   as number) ?? 0;
-  const mediaCount          = (profile.media_count       as number) ?? 0;
-  const profilePictureUrl   = (profile.profile_picture_url as string) ?? null;
+  // Find first page that has an IG business account linked
+  const pages: any[] = pagesData.data ?? [];
+  let igAccount: any = null;
+  let pageAccessToken: string = longToken;
 
-  // 5. Upsert influencer_ig_accounts
+  for (const page of pages) {
+    if (page.instagram_business_account) {
+      igAccount = page.instagram_business_account;
+      // Get page-specific access token for longer-lived operations
+      const pageTokenRes = await fetch(
+        `https://graph.facebook.com/${page.id}?fields=access_token&access_token=${longToken}`
+      );
+      const pageTokenData = await pageTokenRes.json();
+      if (pageTokenData.access_token) pageAccessToken = pageTokenData.access_token;
+      break;
+    }
+  }
+
+  if (!igAccount) {
+    return json({
+      error: "Nenhuma conta Instagram Business/Creator encontrada vinculada a uma Página do Facebook. Conecte sua conta IG profissional a uma Página do Facebook e tente novamente.",
+    }, 400);
+  }
+
+  const igUserId           = String(igAccount.id);
+  const username           = igAccount.username            as string ?? "";
+  const followersCount     = (igAccount.followers_count    as number) ?? 0;
+  const mediaCount         = (igAccount.media_count        as number) ?? 0;
+  const profilePictureUrl  = (igAccount.profile_picture_url as string) ?? null;
+
+  // 5. Upsert influencer_ig_accounts (store page access token for API calls)
   const { error: igErr } = await supabase
     .from("influencer_ig_accounts")
     .upsert({
       influencer_id:       influencer.id,
       ig_user_id:          igUserId,
       username,
-      access_token:        longToken,
+      access_token:        pageAccessToken,
       token_expires_at:    tokenExpiresAt,
       followers_count:     followersCount,
       media_count:         mediaCount,
@@ -116,7 +143,7 @@ Deno.serve(async (req) => {
     .update({ status: "connected", connected_at: new Date().toISOString() })
     .eq("id", influencer.id);
 
-  console.log(`Influencer ${influencer.full_name} (${influencer.id}) connected IG @${username}`);
+  console.log(`Influencer ${influencer.full_name} (${influencer.id}) connected IG @${username} (${igUserId})`);
 
   return json({ ok: true, username, followers_count: followersCount });
 });

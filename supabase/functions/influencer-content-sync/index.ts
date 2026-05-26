@@ -74,9 +74,9 @@ async function syncAccount(
   const token = account.access_token;
   const igUserId = account.ig_user_id;
 
-  // Fetch recent media
+  // Fetch recent media via Graph API (new Instagram API uses graph.facebook.com)
   const mediaRes = await fetch(
-    `https://graph.instagram.com/${igUserId}/media?fields=id,media_type,permalink,thumbnail_url,caption,timestamp,like_count,comments_count&limit=${MAX_MEDIA_PER_INFLUENCER}&access_token=${token}`
+    `https://graph.facebook.com/v21.0/${igUserId}/media?fields=id,media_type,permalink,thumbnail_url,caption,timestamp,like_count,comments_count&limit=${MAX_MEDIA_PER_INFLUENCER}&access_token=${token}`
   );
   if (!mediaRes.ok) {
     const err = await mediaRes.text();
@@ -133,7 +133,7 @@ async function syncAccount(
 async function updateProfileStats(supabase: any, account: any) {
   try {
     const profileRes = await fetch(
-      `https://graph.instagram.com/${account.ig_user_id}?fields=followers_count,media_count,profile_picture_url&access_token=${account.access_token}`
+      `https://graph.facebook.com/v21.0/${account.ig_user_id}?fields=followers_count,media_count,profile_picture_url&access_token=${account.access_token}`
     );
     if (!profileRes.ok) return;
     const profile = await profileRes.json();
@@ -154,8 +154,11 @@ async function updateProfileStats(supabase: any, account: any) {
 
 async function refreshToken(supabase: any, account: any) {
   try {
+    // New Instagram API tokens are Facebook user tokens — they don't refresh the same way.
+    // Just log; token renewal requires user to reconnect.
+    console.log(`Token for @${account.username} near expiry — user needs to reconnect.`);
     const res = await fetch(
-      `https://graph.instagram.com/refresh_access_token?grant_type=ig_refresh_token&access_token=${account.access_token}`
+      `https://graph.facebook.com/oauth/access_token?grant_type=fb_exchange_token&client_id=${Deno.env.get("IG_APP_ID")}&client_secret=${Deno.env.get("IG_APP_SECRET")}&fb_exchange_token=${account.access_token}`
     );
     if (!res.ok) return;
     const data = await res.json();

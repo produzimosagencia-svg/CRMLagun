@@ -31,10 +31,11 @@ export default function InfluenciadorConectar() {
   function handleConnect() {
     const appId = import.meta.env.VITE_IG_APP_ID ?? '1543082849685824';
     const redirectUri = encodeURIComponent(`${window.location.origin}/influenciadores/callback`);
-    const scope = encodeURIComponent('instagram_basic,instagram_content_publish,pages_show_list');
+    // New Instagram API uses Facebook OAuth dialog (Basic Display API deprecated Dec 2024)
+    const scope = encodeURIComponent('instagram_basic,pages_show_list,business_management');
     const stateParam = encodeURIComponent(token);
     window.location.href =
-      `https://api.instagram.com/oauth/authorize?client_id=${appId}&redirect_uri=${redirectUri}&scope=${scope}&response_type=code&state=${stateParam}`;
+      `https://www.facebook.com/dialog/oauth?client_id=${appId}&redirect_uri=${redirectUri}&scope=${scope}&response_type=code&state=${stateParam}`;
   }
 
   return (
