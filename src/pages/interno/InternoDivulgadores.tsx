@@ -7,7 +7,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
-import { Users, Instagram, Plus, Copy, Check, RefreshCw, Trash2, ExternalLink, Crown, BarChart3, Link2, Search } from 'lucide-react';
+import {
+  Users, Instagram, Plus, Copy, Check, RefreshCw, Trash2,
+  ExternalLink, Crown, BarChart3, Link2, Search, Trophy, Medal, Star
+} from 'lucide-react';
 
 interface Influencer {
   id: string;
@@ -20,6 +23,9 @@ interface Influencer {
   notes: string | null;
   created_at: string;
   connected_at: string | null;
+  score: number;
+  level: string;
+  score_updated_at: string | null;
   ig_account?: {
     username: string;
     followers_count: number;
@@ -36,15 +42,48 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   inactive:  { label: 'Inativo',     color: 'bg-gray-100 text-gray-500' },
 };
 
+const LEVEL_CONFIG: Record<string, { label: string; color: string; bg: string; icon: any; min: number; max: number }> = {
+  bronze:   { label: 'Bronze',   color: 'text-amber-700',  bg: 'bg-amber-50 border-amber-200',   icon: Medal,  min: 0,   max: 299 },
+  prata:    { label: 'Prata',    color: 'text-slate-500',  bg: 'bg-slate-50 border-slate-200',   icon: Star,   min: 300, max: 599 },
+  ouro:     { label: 'Ouro',     color: 'text-yellow-500', bg: 'bg-yellow-50 border-yellow-200', icon: Trophy, min: 600, max: 899 },
+  diamante: { label: 'Diamante', color: 'text-blue-500',   bg: 'bg-blue-50 border-blue-200',     icon: Crown,  min: 900, max: Infinity },
+};
+
+function LevelBadge({ level, score }: { level: string; score: number }) {
+  const cfg = LEVEL_CONFIG[level] ?? LEVEL_CONFIG.bronze;
+  const Icon = cfg.icon;
+  return (
+    <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border ${cfg.bg} ${cfg.color}`}>
+      <Icon size={10} /> {cfg.label} · {Math.round(score)} pts
+    </span>
+  );
+}
+
+function ScoreBar({ score }: { score: number }) {
+  const level = score >= 900 ? 'diamante' : score >= 600 ? 'ouro' : score >= 300 ? 'prata' : 'bronze';
+  const cfg = LEVEL_CONFIG[level];
+  const next = cfg.max === Infinity ? null : cfg.max + 1;
+  const pct = next ? Math.min(100, ((score - cfg.min) / (next - cfg.min)) * 100) : 100;
+  const barColors: Record<string, string> = {
+    bronze: 'bg-amber-400', prata: 'bg-slate-400', ouro: 'bg-yellow-400', diamante: 'bg-blue-400',
+  };
+  return (
+    <div className="w-full h-1 bg-gray-100 rounded-full overflow-hidden">
+      <div className={`h-full rounded-full ${barColors[level]}`} style={{ width: `${pct}%` }} />
+    </div>
+  );
+}
+
 export default function InternoDivulgadores() {
   const [influencers, setInfluencers] = useState<Influencer[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
-  const [addOpen, setAddOpen] = useState(false);
-  const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [form, setForm] = useState({ full_name: '', email: '', phone: '', instagram_username: '', notes: '' });
-  const [saving, setSaving] = useState(false);
-  const [syncing, setSyncing] = useState(false);
+  const [loading, setLoading]         = useState(true);
+  const [search, setSearch]           = useState('');
+  const [tab, setTab]                 = useState<'lista' | 'ranking'>('lista');
+  const [addOpen, setAddOpen]         = useState(false);
+  const [copiedId, setCopiedId]       = useState<string | null>(null);
+  const [form, setForm]               = useState({ full_name: '', email: '', phone: '', instagram_username: '', notes: '' });
+  const [saving, setSaving]           = useState(false);
+  const [syncing, setSyncing]         = useState(false);
   const [totalDetections, setTotalDetections] = useState(0);
 
   const baseUrl = window.location.origin;
@@ -54,7 +93,7 @@ export default function InternoDivulgadores() {
     const { data: infs } = await supabase
       .from('influencers')
       .select('*')
-      .order('created_at', { ascending: false });
+      .order('score', { ascending: false });
 
     if (!infs) { setLoading(false); return; }
 
@@ -66,17 +105,18 @@ export default function InternoDivulgadores() {
     ]);
 
     const igMap: Record<string, any> = {};
-    for (const a of igRes.data || []) igMap[a.influencer_id] = a;
+    for (const a of igRes.data ?? []) igMap[a.influencer_id] = a;
 
     const detMap: Record<string, number> = {};
-    for (const d of detRes.data || []) detMap[d.influencer_id] = (detMap[d.influencer_id] || 0) + 1;
+    for (const d of detRes.data ?? []) detMap[d.influencer_id] = (detMap[d.influencer_id] || 0) + 1;
 
-    setTotalDetections(detRes.data?.length || 0);
-
+    setTotalDetections(detRes.data?.length ?? 0);
     setInfluencers(infs.map(i => ({
       ...i,
-      ig_account: igMap[i.id] || null,
-      detections_count: detMap[i.id] || 0,
+      score: i.score ?? 0,
+      level: i.level ?? 'bronze',
+      ig_account: igMap[i.id] ?? null,
+      detections_count: detMap[i.id] ?? 0,
     })));
     setLoading(false);
   }
@@ -111,8 +151,7 @@ export default function InternoDivulgadores() {
   }
 
   function copyLink(token: string, id: string) {
-    const link = `${baseUrl}/influenciadores/conectar?token=${token}`;
-    navigator.clipboard.writeText(link);
+    navigator.clipboard.writeText(`${baseUrl}/influenciadores/conectar?token=${token}`);
     setCopiedId(id);
     toast.success('Link copiado!');
     setTimeout(() => setCopiedId(null), 2000);
@@ -137,7 +176,10 @@ export default function InternoDivulgadores() {
     i.ig_account?.username?.toLowerCase().includes(search.toLowerCase())
   );
 
-  const connected = influencers.filter(i => i.ig_account?.status === 'active').length;
+  const connected    = influencers.filter(i => i.ig_account?.status === 'active').length;
+  const topScore     = influencers[0]?.score ?? 0;
+
+  const rankingList = [...influencers].sort((a, b) => b.score - a.score);
 
   return (
     <div className="space-y-5">
@@ -145,7 +187,7 @@ export default function InternoDivulgadores() {
       <div className="flex items-center justify-between gap-3">
         <div>
           <h2 className="text-base font-semibold text-foreground">Influenciadores</h2>
-          <p className="text-xs text-muted-foreground">Gerencie o programa e acompanhe as menções à Lagun.</p>
+          <p className="text-xs text-muted-foreground">Programa de criadores de conteúdo Lagun.</p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={handleSync} disabled={syncing} className="gap-1.5 text-xs">
@@ -189,103 +231,191 @@ export default function InternoDivulgadores() {
         </div>
       </div>
 
-      {/* Search */}
-      <div className="relative">
-        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          placeholder="Buscar influenciador..."
-          className="pl-8 text-sm h-9"
-        />
+      {/* Tabs */}
+      <div className="flex gap-1 border-b">
+        {(['lista', 'ranking'] as const).map(t => (
+          <button
+            key={t}
+            onClick={() => setTab(t)}
+            className={`px-4 py-2 text-xs font-medium capitalize transition-colors ${
+              tab === t
+                ? 'border-b-2 border-pink-600 text-pink-600'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            {t === 'ranking' ? '🏆 Ranking' : 'Lista'}
+          </button>
+        ))}
       </div>
 
-      {/* List */}
+      {/* Search (lista only) */}
+      {tab === 'lista' && (
+        <div className="relative">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Buscar influenciador..."
+            className="pl-8 text-sm h-9"
+          />
+        </div>
+      )}
+
+      {/* Content */}
       {loading ? (
         <p className="text-sm text-muted-foreground text-center py-8">Carregando...</p>
-      ) : filtered.length === 0 ? (
-        <div className="text-center py-12 border rounded-xl bg-white">
-          <Crown size={32} className="mx-auto text-pink-200 mb-3" />
-          <p className="text-sm font-medium text-gray-600">Nenhum influenciador ainda</p>
-          <p className="text-xs text-muted-foreground mt-1">Clique em "Adicionar" para começar</p>
-        </div>
-      ) : (
-        <div className="space-y-2">
-          {filtered.map(inf => {
-            const st = STATUS_LABELS[inf.status] || STATUS_LABELS.pending;
-            const ig = inf.ig_account;
-            return (
-              <div key={inf.id} className="rounded-xl border bg-white p-4 flex items-center gap-4 hover:border-gray-200 transition-all">
-                {/* Avatar */}
-                {ig?.profile_picture_url ? (
-                  <img src={ig.profile_picture_url} alt="" className="w-11 h-11 rounded-full object-cover shrink-0 border" />
-                ) : (
-                  <div className="w-11 h-11 rounded-full bg-pink-50 flex items-center justify-center shrink-0 border border-pink-100">
-                    <span className="text-sm font-bold text-pink-400">{inf.full_name.slice(0,2).toUpperCase()}</span>
-                  </div>
-                )}
+      ) : tab === 'lista' ? (
+        // ── Lista ──
+        filtered.length === 0 ? (
+          <div className="text-center py-12 border rounded-xl bg-white">
+            <Crown size={32} className="mx-auto text-pink-200 mb-3" />
+            <p className="text-sm font-medium text-gray-600">Nenhum influenciador ainda</p>
+            <p className="text-xs text-muted-foreground mt-1">Clique em "Adicionar" para começar</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {filtered.map(inf => {
+              const st = STATUS_LABELS[inf.status] ?? STATUS_LABELS.pending;
+              const ig = inf.ig_account;
+              return (
+                <div key={inf.id} className="rounded-xl border bg-white p-4 flex items-center gap-4 hover:border-gray-200 transition-all">
+                  {ig?.profile_picture_url ? (
+                    <img src={ig.profile_picture_url} alt="" className="w-11 h-11 rounded-full object-cover shrink-0 border" />
+                  ) : (
+                    <div className="w-11 h-11 rounded-full bg-pink-50 flex items-center justify-center shrink-0 border border-pink-100">
+                      <span className="text-sm font-bold text-pink-400">{inf.full_name.slice(0,2).toUpperCase()}</span>
+                    </div>
+                  )}
 
-                {/* Info */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <p className="text-sm font-semibold truncate">{inf.full_name}</p>
-                    <Badge className={`text-[10px] px-2 py-0.5 ${st.color} border-0`}>{st.label}</Badge>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-sm font-semibold truncate">{inf.full_name}</p>
+                      <Badge className={`text-[10px] px-2 py-0.5 ${st.color} border-0`}>{st.label}</Badge>
+                    </div>
+                    <div className="flex items-center gap-3 mt-0.5 flex-wrap">
+                      {ig ? (
+                        <span className="text-xs text-pink-600 flex items-center gap-1">
+                          <Instagram size={11} /> @{ig.username}
+                          <span className="text-muted-foreground">· {ig.followers_count.toLocaleString('pt-BR')} seg.</span>
+                        </span>
+                      ) : inf.instagram_username ? (
+                        <span className="text-xs text-muted-foreground flex items-center gap-1">
+                          <Instagram size={11} /> @{inf.instagram_username}
+                          <span className="text-yellow-600">(aguardando)</span>
+                        </span>
+                      ) : null}
+                      {inf.detections_count! > 0 && (
+                        <span className="text-xs text-purple-600">{inf.detections_count} post{inf.detections_count !== 1 ? 's' : ''}</span>
+                      )}
+                    </div>
+                    {inf.score > 0 && (
+                      <div className="mt-1.5">
+                        <LevelBadge level={inf.level} score={inf.score} />
+                      </div>
+                    )}
                   </div>
-                  <div className="flex items-center gap-3 mt-0.5">
-                    {ig ? (
-                      <span className="text-xs text-pink-600 flex items-center gap-1">
-                        <Instagram size={11} /> @{ig.username}
-                        <span className="text-muted-foreground">· {ig.followers_count.toLocaleString('pt-BR')} seg.</span>
-                      </span>
-                    ) : inf.instagram_username ? (
-                      <span className="text-xs text-muted-foreground flex items-center gap-1">
-                        <Instagram size={11} /> @{inf.instagram_username}
-                        <span className="text-yellow-600">(aguardando)</span>
-                      </span>
-                    ) : null}
+
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <Button variant="outline" size="sm" onClick={() => copyLink(inf.invite_token, inf.id)} className="gap-1.5 text-xs h-8" title="Copiar link">
+                      {copiedId === inf.id ? <Check size={12} className="text-green-500" /> : <Link2 size={12} />}
+                      {copiedId === inf.id ? 'Copiado' : 'Link'}
+                    </Button>
+                    {ig && (
+                      <Button variant="ghost" size="sm" className="h-8 px-2" onClick={() => window.open(`https://instagram.com/${ig.username}`, '_blank')}>
+                        <ExternalLink size={12} />
+                      </Button>
+                    )}
+                    <Button variant="ghost" size="sm" className="h-8 px-2 text-red-400 hover:text-red-600 hover:bg-red-50" onClick={() => handleDelete(inf.id)}>
+                      <Trash2 size={12} />
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )
+      ) : (
+        // ── Ranking ──
+        rankingList.length === 0 ? (
+          <div className="text-center py-12 border rounded-xl bg-white">
+            <Trophy size={32} className="mx-auto text-yellow-200 mb-3" />
+            <p className="text-sm font-medium text-gray-600">Nenhuma pontuação ainda</p>
+            <p className="text-xs text-muted-foreground mt-1">Sincronize os conteúdos para gerar o ranking</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {/* Level summary pills */}
+            <div className="grid grid-cols-4 gap-2">
+              {Object.entries(LEVEL_CONFIG).map(([key, cfg]) => {
+                const count = influencers.filter(i => i.level === key).length;
+                const Icon = cfg.icon;
+                return (
+                  <div key={key} className={`rounded-xl border p-3 text-center ${cfg.bg}`}>
+                    <Icon size={16} className={`mx-auto mb-1 ${cfg.color}`} />
+                    <p className={`text-lg font-bold ${cfg.color}`}>{count}</p>
+                    <p className="text-[10px] text-muted-foreground">{cfg.label}</p>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Ranking list */}
+            {rankingList.map((inf, idx) => {
+              const ig = inf.ig_account;
+              const cfg = LEVEL_CONFIG[inf.level] ?? LEVEL_CONFIG.bronze;
+              const nextLevel = Object.entries(LEVEL_CONFIG).find(([, c]) => c.min > inf.score);
+              const ptsToNext = nextLevel ? nextLevel[1].min - inf.score : null;
+              const medals = ['🥇', '🥈', '🥉'];
+              const medal = medals[idx] ?? `#${idx + 1}`;
+
+              return (
+                <div key={inf.id} className={`rounded-xl border bg-white p-4 flex items-center gap-4 ${idx === 0 ? 'ring-1 ring-yellow-300' : ''}`}>
+                  {/* Position */}
+                  <div className="w-8 text-center shrink-0">
+                    <span className="text-lg">{medal}</span>
+                  </div>
+
+                  {/* Avatar */}
+                  {ig?.profile_picture_url ? (
+                    <img src={ig.profile_picture_url} alt="" className="w-10 h-10 rounded-full object-cover shrink-0 border" />
+                  ) : (
+                    <div className="w-10 h-10 rounded-full bg-pink-50 flex items-center justify-center shrink-0 border border-pink-100">
+                      <span className="text-sm font-bold text-pink-400">{inf.full_name.slice(0,2).toUpperCase()}</span>
+                    </div>
+                  )}
+
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-semibold truncate">{inf.full_name}</p>
+                      {ig && <span className="text-xs text-muted-foreground">@{ig.username}</span>}
+                    </div>
+                    <div className="mt-1">
+                      <LevelBadge level={inf.level} score={inf.score} />
+                    </div>
+                    <div className="mt-1.5">
+                      <ScoreBar score={inf.score} />
+                      {ptsToNext !== null && ptsToNext > 0 && (
+                        <p className="text-[10px] text-muted-foreground mt-0.5">
+                          {Math.round(ptsToNext)} pts para {Object.entries(LEVEL_CONFIG).find(([,c]) => c.min > inf.score)?.[1].label}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Score */}
+                  <div className="text-right shrink-0">
+                    <p className={`text-xl font-bold ${cfg.color}`}>{Math.round(inf.score)}</p>
+                    <p className="text-[10px] text-muted-foreground">pontos</p>
                     {inf.detections_count! > 0 && (
-                      <span className="text-xs text-purple-600">
-                        {inf.detections_count} post{inf.detections_count !== 1 ? 's' : ''}
-                      </span>
+                      <p className="text-[10px] text-purple-500 mt-0.5">{inf.detections_count} posts</p>
                     )}
                   </div>
                 </div>
-
-                {/* Actions */}
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => copyLink(inf.invite_token, inf.id)}
-                    className="gap-1.5 text-xs h-8"
-                    title="Copiar link de conexão"
-                  >
-                    {copiedId === inf.id ? <Check size={12} className="text-green-500" /> : <Link2 size={12} />}
-                    {copiedId === inf.id ? 'Copiado' : 'Link'}
-                  </Button>
-                  {ig && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 px-2"
-                      onClick={() => window.open(`https://instagram.com/${ig.username}`, '_blank')}
-                    >
-                      <ExternalLink size={12} />
-                    </Button>
-                  )}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 px-2 text-red-400 hover:text-red-600 hover:bg-red-50"
-                    onClick={() => handleDelete(inf.id)}
-                  >
-                    <Trash2 size={12} />
-                  </Button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )
       )}
 
       {/* Add Dialog */}

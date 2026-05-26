@@ -142,8 +142,8 @@ Deno.serve(async (req) => {
     }, { onConflict: "influencer_id" });
 
   if (igErr) {
-    console.error("upsert influencer_ig_accounts:", igErr);
-    return json({ error: "DB error saving IG account" }, 500);
+    console.error("upsert influencer_ig_accounts:", JSON.stringify(igErr));
+    return json({ error: `DB error: ${igErr.message} (code: ${igErr.code})` });
   }
 
   // 6. Update influencer status → connected
