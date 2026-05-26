@@ -50,6 +50,8 @@ const InternoCalendario = lazy(() => import("./pages/interno/InternoCalendario.t
 const Privacidade = lazy(() => import("./pages/Privacidade.tsx"));
 const Termos = lazy(() => import("./pages/Termos.tsx"));
 const ExclusaoDados = lazy(() => import("./pages/ExclusaoDados.tsx"));
+const InfluenciadorConectar = lazy(() => import("./pages/InfluenciadorConectar.tsx"));
+const InfluenciadorCallback = lazy(() => import("./pages/InfluenciadorCallback.tsx"));
 
 const Fallback = () => (
   <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -66,6 +68,8 @@ createRoot(document.getElementById("root")!).render(
         <Route path="/privacidade" element={<Privacidade />} />
         <Route path="/termos" element={<Termos />} />
         <Route path="/exclusao-de-dados" element={<ExclusaoDados />} />
+        <Route path="/influenciadores/conectar" element={<InfluenciadorConectar />} />
+        <Route path="/influenciadores/callback" element={<InfluenciadorCallback />} />
 
         <Route path="/interno/login" element={<InternoLogin />} />
         <Route path="/interno/trafego-gpt" element={<InternoTrafegoGPT />} />
