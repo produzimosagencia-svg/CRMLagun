@@ -30,7 +30,18 @@ export default function InfluenciadorCallback() {
           },
         });
 
-        if (fnErr) throw new Error(fnErr.message);
+        if (fnErr) {
+          // Try to extract the real error message from the function response
+          let msg = fnErr.message;
+          try {
+            const ctx = (fnErr as any).context;
+            if (ctx) {
+              const parsed = typeof ctx === 'string' ? JSON.parse(ctx) : ctx;
+              if (parsed?.error) msg = parsed.error;
+            }
+          } catch {}
+          throw new Error(msg);
+        }
         if (data?.error) throw new Error(data.error);
 
         setIgUsername(data?.username ?? '');
@@ -98,7 +109,15 @@ export default function InfluenciadorCallback() {
                 <p className="text-sm text-white/50 mt-2">{errorMsg}</p>
               </div>
               <button
-                onClick={() => window.history.back()}
+                onClick={() => {
+                  // Go back to the connect page with the invite token so user can retry
+                  const inviteToken = new URLSearchParams(window.location.search).get('state');
+                  if (inviteToken) {
+                    window.location.href = `/influenciadores/conectar?token=${inviteToken}`;
+                  } else {
+                    window.history.back();
+                  }
+                }}
                 className="text-xs text-amber-400 underline"
               >
                 ← Voltar e tentar novamente
