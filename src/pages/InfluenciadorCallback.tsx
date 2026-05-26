@@ -21,11 +21,12 @@ export default function InfluenciadorCallback() {
 
     async function exchange() {
       try {
+        const prodOrigin = import.meta.env.VITE_APP_URL ?? 'https://lagunvitoria.com.br';
         const { data, error: fnErr } = await supabase.functions.invoke('influencer-instagram-oauth', {
           body: {
             code,
             invite_token: state,
-            redirect_uri: `${window.location.origin}/influenciadores/callback`,
+            redirect_uri: `${prodOrigin}/influenciadores/callback`,
           },
         });
 
