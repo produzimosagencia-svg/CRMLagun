@@ -12,7 +12,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const IG_APP_ID     = Deno.env.get("IG_APP_ID")     ?? "";
-const IG_APP_SECRET = Deno.env.get("IG_APP_SECRET") ?? "";
+const IG_APP_SECRET = Deno.env.get("META_AUTH") ?? Deno.env.get("IG_APP_SECRET") ?? "";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
