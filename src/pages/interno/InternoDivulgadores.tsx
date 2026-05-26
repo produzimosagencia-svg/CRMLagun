@@ -407,7 +407,8 @@ export default function InternoDivulgadores() {
               const medal = medals[idx] ?? `#${idx + 1}`;
 
               return (
-                <div key={inf.id} className={`rounded-xl border bg-white p-4 flex items-center gap-4 ${idx === 0 ? 'ring-1 ring-yellow-300' : ''}`}>
+                <div key={inf.id}>
+                <div className={`rounded-xl border bg-white p-4 flex items-center gap-4 ${idx === 0 ? 'ring-1 ring-yellow-300' : ''}`}>
                   {/* Position */}
                   <div className="w-8 text-center shrink-0">
                     <span className="text-lg">{medal}</span>
@@ -512,6 +513,7 @@ export default function InternoDivulgadores() {
                     )}
                   </div>
                 )}
+                </div>
               );
             })}
           </div>

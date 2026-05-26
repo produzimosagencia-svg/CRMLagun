@@ -211,27 +211,35 @@ async function fetchInsights(
   token: string
 ): Promise<{ reach: number; saves: number; shares: number }> {
   try {
-    // Stories use different metrics
     const metrics = mediaType === "STORY"
       ? "reach,exits,replies"
-      : "reach,saved,shares";
+      : "reach,saved,shares,total_interactions";
 
-    const res = await fetch(
-      `https://graph.facebook.com/v21.0/${mediaId}/insights?metric=${metrics}&access_token=${token}`
-    );
-
-    if (!res.ok) return { reach: 0, saves: 0, shares: 0 };
-
+    const url = `https://graph.facebook.com/v21.0/${mediaId}/insights?metric=${metrics}&access_token=${token}`;
+    const res = await fetch(url);
     const data = await res.json();
+
+    console.log(`Insights for ${mediaId} (${mediaType}):`, JSON.stringify(data));
+
+    if (!res.ok || data.error) {
+      console.error(`Insights error for ${mediaId}:`, JSON.stringify(data.error ?? data));
+      return { reach: 0, saves: 0, shares: 0 };
+    }
+
     const byName: Record<string, number> = {};
-    for (const m of data.data ?? []) byName[m.name] = m.values?.[0]?.value ?? m.value ?? 0;
+    for (const m of data.data ?? []) {
+      byName[m.name] = m.values?.[0]?.value ?? m.value ?? 0;
+    }
+
+    console.log(`Metrics extracted:`, JSON.stringify(byName));
 
     return {
       reach:  byName["reach"]  ?? 0,
       saves:  byName["saved"]  ?? 0,
       shares: byName["shares"] ?? 0,
     };
-  } catch {
+  } catch (e) {
+    console.error("fetchInsights exception:", e);
     return { reach: 0, saves: 0, shares: 0 };
   }
 }
