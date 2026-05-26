@@ -316,9 +316,16 @@ export default function InternoDivulgadores() {
                   </div>
 
                   <div className="flex items-center gap-1.5 shrink-0">
-                    <Button variant="outline" size="sm" onClick={() => copyLink(inf.invite_token, inf.id)} className="gap-1.5 text-xs h-8" title="Copiar link">
+                    <Button variant="outline" size="sm" onClick={() => copyLink(inf.invite_token, inf.id)} className="gap-1.5 text-xs h-8" title="Copiar link de conexão">
                       {copiedId === inf.id ? <Check size={12} className="text-green-500" /> : <Link2 size={12} />}
                       {copiedId === inf.id ? 'Copiado' : 'Link'}
+                    </Button>
+                    <Button
+                      variant="ghost" size="sm" className="h-8 px-2 text-amber-500 hover:text-amber-700 hover:bg-amber-50"
+                      title="Ver portal do influenciador"
+                      onClick={() => window.open(`/influenciadores/portal?token=${inf.invite_token}`, '_blank')}
+                    >
+                      <Trophy size={12} />
                     </Button>
                     {ig && (
                       <Button variant="ghost" size="sm" className="h-8 px-2" onClick={() => window.open(`https://instagram.com/${ig.username}`, '_blank')}>
