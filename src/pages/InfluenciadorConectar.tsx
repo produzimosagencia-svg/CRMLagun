@@ -33,7 +33,7 @@ export default function InfluenciadorConectar() {
     const prodOrigin = import.meta.env.VITE_APP_URL ?? 'https://lagunvitoria.com.br';
     const redirectUri = encodeURIComponent(`${prodOrigin}/influenciadores/callback`);
     // New Instagram API uses Facebook OAuth dialog (Basic Display API deprecated Dec 2024)
-    const scope = encodeURIComponent('instagram_basic,pages_show_list,business_management');
+    const scope = encodeURIComponent('instagram_basic,pages_show_list,business_management,instagram_manage_insights,instagram_manage_contents,instagram_manage_engagement');
     const stateParam = encodeURIComponent(token);
     window.location.href =
       `https://www.facebook.com/dialog/oauth?client_id=${appId}&redirect_uri=${redirectUri}&scope=${scope}&response_type=code&state=${stateParam}`;
