@@ -60,9 +60,11 @@ Deno.serve(async (req) => {
   const tokenRes = await fetch(tokenUrl.toString());
   const tokenData = await tokenRes.json();
 
+  console.log("Token exchange response:", JSON.stringify(tokenData));
   if (!tokenRes.ok || tokenData.error) {
-    console.error("FB token exchange error:", JSON.stringify(tokenData));
-    return json({ error: tokenData.error?.message ?? "Token exchange failed" }, 400);
+    const errMsg = tokenData.error?.message ?? tokenData.error_description ?? JSON.stringify(tokenData);
+    console.error("FB token exchange error:", errMsg);
+    return json({ error: `Token exchange failed: ${errMsg}` });
   }
 
   const userAccessToken: string = tokenData.access_token;
@@ -155,9 +157,10 @@ Deno.serve(async (req) => {
   return json({ ok: true, username, followers_count: followersCount });
 });
 
-function json(data: any, status = 200) {
+// Always return 200 so the Supabase client doesn't swallow the error body
+function json(data: any, _status = 200) {
   return new Response(JSON.stringify(data), {
-    status,
+    status: 200,
     headers: { "Content-Type": "application/json", ...CORS },
   });
 }
