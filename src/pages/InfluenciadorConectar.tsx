@@ -29,7 +29,7 @@ export default function InfluenciadorConectar() {
   }, [token]);
 
   function handleConnect() {
-    const appId = import.meta.env.VITE_IG_APP_ID ?? '1543082849685824';
+    const appId = import.meta.env.VITE_IG_APP_ID ?? '2161508277968015';
     const redirectUri = encodeURIComponent(`${window.location.origin}/influenciadores/callback`);
     // New Instagram API uses Facebook OAuth dialog (Basic Display API deprecated Dec 2024)
     const scope = encodeURIComponent('instagram_basic,pages_show_list,business_management');
