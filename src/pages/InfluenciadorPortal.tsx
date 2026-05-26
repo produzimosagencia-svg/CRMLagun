@@ -126,13 +126,27 @@ export default function InfluenciadorPortal() {
   const { influencer, ig, detections, rank, total } = data;
   const level = (influencer.level as Level) ?? 'bronze';
   const lvl = LEVEL[level];
-  const score = Math.round(influencer.score ?? 0);
+
+  const totalCreation   = detections.reduce((s, d) => s + (d.media_type === 'VIDEO' ? 30 : d.media_type === 'STORY' ? 10 : 20), 0);
+  const totalReach      = detections.reduce((s, d) => {
+    const r = d.reach ?? 0;
+    let pts = 0;
+    if (d.media_type === 'VIDEO') {
+      pts = r >= 50000 ? 100 : r >= 20000 ? 60 : r >= 5000 ? 30 : 10;
+    } else if (d.media_type === 'STORY') {
+      pts = r >= 5000 ? 30 : r >= 2000 ? 18 : r >= 500 ? 8 : 2;
+    } else {
+      pts = r >= 20000 ? 60 : r >= 8000 ? 35 : r >= 2000 ? 15 : 5;
+    }
+    return s + pts;
+  }, 0);
+  const totalEngagement = detections.reduce((s, d) => s + (d.saves ?? 0) * 0.5 + (d.shares ?? 0) * 0.5 + (d.comments ?? 0) * 0.2 + (d.likes ?? 0) * 0.05, 0);
+  const calculatedScore = totalCreation + totalReach + Math.round(totalEngagement);
+
+  const score = calculatedScore > 0 ? calculatedScore : Math.round(influencer.score ?? 0);
   const nextPts = lvl.next ? lvl.next - score : null;
   const prevPts = level === 'bronze' ? 0 : level === 'prata' ? 300 : level === 'ouro' ? 600 : 900;
   const pct = lvl.next ? Math.min(100, ((score - prevPts) / (lvl.next - prevPts)) * 100) : 100;
-
-  const totalCreation  = detections.reduce((s, d) => s + (d.media_type === 'VIDEO' ? 30 : d.media_type === 'STORY' ? 10 : 20), 0);
-  const totalEngagement = detections.reduce((s, d) => s + d.saves * 0.5 + d.shares * 0.5 + d.comments * 0.2 + d.likes * 0.05, 0);
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-white">
@@ -205,7 +219,7 @@ export default function InfluenciadorPortal() {
           <div className="space-y-2.5">
             {[
               { label: 'Criação', pts: totalCreation, color: '#f472b6', tip: `${detections.length} posts` },
-              { label: 'Alcance', pts: score - totalCreation - Math.round(totalEngagement), color: '#34d399', tip: 'por faixas' },
+              { label: 'Alcance', pts: totalReach, color: '#34d399', tip: 'por faixas' },
               { label: 'Engajamento', pts: Math.round(totalEngagement), color: '#a78bfa', tip: 'saves, shares, comentários' },
             ].map(item => (
               <div key={item.label}>
