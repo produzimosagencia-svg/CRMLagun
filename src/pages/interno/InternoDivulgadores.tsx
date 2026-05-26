@@ -8,8 +8,9 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import {
-  Users, Instagram, Plus, Copy, Check, RefreshCw, Trash2,
-  ExternalLink, Crown, BarChart3, Link2, Search, Trophy, Medal, Star
+  Users, Instagram, Plus, Check, RefreshCw, Trash2,
+  ExternalLink, Crown, BarChart3, Link2, Search, Trophy, Medal, Star,
+  ChevronDown, ChevronUp, Film, Image, Radio
 } from 'lucide-react';
 
 interface Influencer {
@@ -85,6 +86,8 @@ export default function InternoDivulgadores() {
   const [saving, setSaving]           = useState(false);
   const [syncing, setSyncing]         = useState(false);
   const [totalDetections, setTotalDetections] = useState(0);
+  const [expandedId, setExpandedId]   = useState<string | null>(null);
+  const [detections, setDetections]   = useState<Record<string, any[]>>({});
 
   const baseUrl = window.location.origin;
 
@@ -156,6 +159,34 @@ export default function InternoDivulgadores() {
     toast.success('Link copiado!');
     setTimeout(() => setCopiedId(null), 2000);
   }
+
+  async function toggleExpand(infId: string) {
+    if (expandedId === infId) { setExpandedId(null); return; }
+    setExpandedId(infId);
+    if (detections[infId]) return;
+    const { data } = await supabase
+      .from('influencer_detections')
+      .select('*')
+      .eq('influencer_id', infId)
+      .order('posted_at', { ascending: false });
+    setDetections(prev => ({ ...prev, [infId]: data ?? [] }));
+  }
+
+  function calcPostScore(d: any): number {
+    const creation = d.media_type === 'VIDEO' ? 30 : d.media_type === 'STORY' ? 10 : 20;
+    let reach = 0;
+    if (d.media_type === 'VIDEO') {
+      if (d.reach >= 50000) reach = 100; else if (d.reach >= 20000) reach = 60; else if (d.reach >= 5000) reach = 30; else reach = 10;
+    } else if (d.media_type === 'STORY') {
+      if (d.reach >= 5000) reach = 30; else if (d.reach >= 2000) reach = 18; else if (d.reach >= 500) reach = 8; else reach = 2;
+    } else {
+      if (d.reach >= 20000) reach = 60; else if (d.reach >= 8000) reach = 35; else if (d.reach >= 2000) reach = 15; else reach = 5;
+    }
+    return creation + reach + (d.saves ?? 0) * 0.5 + (d.shares ?? 0) * 0.5 + (d.comments ?? 0) * 0.2 + (d.likes ?? 0) * 0.05;
+  }
+
+  const MEDIA_ICONS: Record<string, any> = { VIDEO: Film, IMAGE: Image, CAROUSEL_ALBUM: Image, STORY: Radio };
+  const MEDIA_LABELS: Record<string, string> = { VIDEO: 'Reel', IMAGE: 'Post', CAROUSEL_ALBUM: 'Carrossel', STORY: 'Story' };
 
   async function handleSync() {
     setSyncing(true);
@@ -410,15 +441,77 @@ export default function InternoDivulgadores() {
                     </div>
                   </div>
 
-                  {/* Score */}
-                  <div className="text-right shrink-0">
+                  {/* Score + expand */}
+                  <div className="text-right shrink-0 flex flex-col items-end gap-1">
                     <p className={`text-xl font-bold ${cfg.color}`}>{Math.round(inf.score)}</p>
                     <p className="text-[10px] text-muted-foreground">pontos</p>
                     {inf.detections_count! > 0 && (
-                      <p className="text-[10px] text-purple-500 mt-0.5">{inf.detections_count} posts</p>
+                      <button
+                        onClick={() => toggleExpand(inf.id)}
+                        className="text-[10px] text-purple-500 hover:text-purple-700 flex items-center gap-0.5 mt-0.5"
+                      >
+                        {inf.detections_count} posts
+                        {expandedId === inf.id ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
+                      </button>
                     )}
                   </div>
                 </div>
+
+                {/* Expanded posts */}
+                {expandedId === inf.id && (
+                  <div className="mt-3 border-t pt-3 space-y-2">
+                    {!detections[inf.id] ? (
+                      <p className="text-xs text-muted-foreground text-center py-2">Carregando...</p>
+                    ) : detections[inf.id].length === 0 ? (
+                      <p className="text-xs text-muted-foreground text-center py-2">Nenhum post detectado</p>
+                    ) : (
+                      detections[inf.id].map((d: any) => {
+                        const Icon = MEDIA_ICONS[d.media_type] ?? Image;
+                        const score = Math.round(calcPostScore(d));
+                        return (
+                          <div key={d.id} className="flex items-center gap-3 p-2 rounded-lg bg-gray-50 border text-xs">
+                            {d.thumbnail_url ? (
+                              <img src={d.thumbnail_url} alt="" className="w-10 h-10 rounded object-cover shrink-0" />
+                            ) : (
+                              <div className="w-10 h-10 rounded bg-gray-100 flex items-center justify-center shrink-0">
+                                <Icon size={14} className="text-gray-400" />
+                              </div>
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1.5 mb-0.5">
+                                <span className="text-[10px] bg-white border rounded px-1.5 py-0.5 text-muted-foreground flex items-center gap-1">
+                                  <Icon size={9} /> {MEDIA_LABELS[d.media_type] ?? 'Post'}
+                                </span>
+                                {d.posted_at && (
+                                  <span className="text-[10px] text-muted-foreground">
+                                    {new Date(d.posted_at).toLocaleDateString('pt-BR')}
+                                  </span>
+                                )}
+                                <span className="text-[10px] text-amber-600 font-medium">palavra: {d.detected_mention}</span>
+                              </div>
+                              <p className="text-muted-foreground truncate">{d.caption?.slice(0, 80) ?? '—'}</p>
+                              <div className="flex gap-2 mt-1 text-[10px] text-muted-foreground">
+                                {d.reach > 0 && <span>👁 {d.reach.toLocaleString('pt-BR')}</span>}
+                                {d.likes > 0 && <span>❤️ {d.likes}</span>}
+                                {d.saves > 0 && <span>🔖 {d.saves}</span>}
+                                {d.shares > 0 && <span>↗ {d.shares}</span>}
+                                {d.comments > 0 && <span>💬 {d.comments}</span>}
+                              </div>
+                            </div>
+                            <div className="text-right shrink-0 flex flex-col items-end gap-1">
+                              <span className="font-bold text-amber-600 text-sm">+{score} pts</span>
+                              {d.permalink && (
+                                <a href={d.permalink} target="_blank" rel="noreferrer" className="text-muted-foreground hover:text-foreground">
+                                  <ExternalLink size={11} />
+                                </a>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                )}
               );
             })}
           </div>
