@@ -871,12 +871,12 @@ export function EventDashboard({ eventId, autoDispatchSlot, eventDate: eventDate
       ) : (
         <>
           {/* Stat Cards */}
-          <div className="grid grid-cols-6 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
             {statCards.map(card => (
-              <div key={card.label} className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-3.5 hover:border-gray-300 dark:hover:border-gray-700 transition-all flex flex-col gap-2">
+              <div key={card.label} className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 hover:border-gray-300 dark:hover:border-gray-700 transition-all flex flex-col gap-2">
                 <div className="flex items-center justify-between">
-                  <div className={`flex h-7 w-7 items-center justify-center rounded-lg ${card.color}`}>
-                    <card.icon size={13} />
+                  <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${card.color}`}>
+                    <card.icon size={14} />
                   </div>
                   {card.label === 'Ingressos' && eventRecord?.id && !editingTickets && (
                     <button
@@ -907,48 +907,48 @@ export function EventDashboard({ eventId, autoDispatchSlot, eventDate: eventDate
                       </button>
                     </div>
                   ) : (
-                    <p className="text-lg font-bold text-gray-900 dark:text-gray-100 leading-tight">{card.value}</p>
+                    <p className="text-xl font-bold text-gray-900 dark:text-gray-100 leading-tight">{card.value}</p>
                   )}
-                  <p className="text-[10px] text-gray-400 dark:text-gray-500">
+                  <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5 truncate">
                     {card.label === 'Ingressos' && metrics.source === 'oficial' ? 'Corrigido manualmente' : card.subtitle}
                   </p>
-                  <p className="text-[10px] font-medium text-gray-500 dark:text-gray-400 mt-1">{card.label}</p>
+                  <p className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 mt-1">{card.label}</p>
                 </div>
               </div>
             ))}
             {/* Abandoned Carts card */}
-            <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-3.5 hover:border-gray-300 dark:hover:border-gray-700 transition-all flex flex-col gap-2">
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg text-orange-500 bg-orange-50 dark:bg-orange-900/30">
-                <ShoppingCart size={13} />
+            <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 hover:border-gray-300 dark:hover:border-gray-700 transition-all flex flex-col gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg text-orange-500 bg-orange-50 dark:bg-orange-900/30">
+                <ShoppingCart size={14} />
               </div>
               <div>
-                <p className="text-lg font-bold text-gray-900 dark:text-gray-100 leading-tight">{metrics.abandonedCarts}</p>
-                <p className="text-xs font-semibold text-red-500 dark:text-red-400">{abandonedValue}</p>
-                <p className="text-[10px] font-medium text-gray-500 dark:text-gray-400 mt-1">Carrinhos Abandonados</p>
+                <p className="text-xl font-bold text-gray-900 dark:text-gray-100 leading-tight">{metrics.abandonedCarts}</p>
+                <p className="text-[11px] font-semibold text-red-500 dark:text-red-400 mt-0.5 truncate">{abandonedValue}</p>
+                <p className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 mt-1">Carrinhos Abandonados</p>
               </div>
             </div>
             {/* Recovered Carts card */}
-            <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-3.5 hover:border-gray-300 dark:hover:border-gray-700 transition-all flex flex-col gap-2">
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg text-emerald-500 bg-emerald-50 dark:bg-emerald-900/30">
-                <ShoppingCart size={13} />
+            <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 hover:border-gray-300 dark:hover:border-gray-700 transition-all flex flex-col gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg text-emerald-500 bg-emerald-50 dark:bg-emerald-900/30">
+                <ShoppingCart size={14} />
               </div>
               <div>
-                <p className="text-lg font-bold text-gray-900 dark:text-gray-100 leading-tight">
+                <p className="text-xl font-bold text-gray-900 dark:text-gray-100 leading-tight">
                   {metrics.recoveredCarts} <span className="text-xs font-semibold text-gray-900 dark:text-gray-100">de</span> <span className="text-xs font-semibold text-red-500 dark:text-red-400">{metrics.abandonedCarts}</span>
                 </p>
-                <p className="text-xs font-semibold text-emerald-500 dark:text-emerald-400">{formatCurrency(metrics.recoveredCartsRevenue)}</p>
-                <p className="text-[10px] font-medium text-gray-500 dark:text-gray-400 mt-1">Carrinhos Recuperados</p>
+                <p className="text-[11px] font-semibold text-emerald-500 dark:text-emerald-400 mt-0.5 truncate">{formatCurrency(metrics.recoveredCartsRevenue)}</p>
+                <p className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 mt-1">Carrinhos Recuperados</p>
               </div>
             </div>
             {/* Days until event */}
-            <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-3.5 hover:border-gray-300 dark:hover:border-gray-700 transition-all flex flex-col gap-2">
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg text-indigo-500 bg-indigo-50 dark:bg-indigo-900/30">
-                <Calendar size={13} />
+            <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 hover:border-gray-300 dark:hover:border-gray-700 transition-all flex flex-col gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg text-indigo-500 bg-indigo-50 dark:bg-indigo-900/30">
+                <Calendar size={14} />
               </div>
               <div>
-                <p className="text-lg font-bold text-gray-900 dark:text-gray-100 leading-tight">{daysUntilEvent ?? '—'}</p>
-                <p className="text-[10px] text-gray-400 dark:text-gray-500">{isEventEnded ? 'evento realizado' : 'para o evento'}</p>
-                <p className="text-[10px] font-medium text-gray-500 dark:text-gray-400 mt-1">{isEventEnded ? 'Evento encerrado' : daysUntilEvent !== null ? `Faltam ${daysUntilEvent} dia${daysUntilEvent === 1 ? '' : 's'}` : 'Data não definida'}</p>
+                <p className="text-xl font-bold text-gray-900 dark:text-gray-100 leading-tight">{daysUntilEvent ?? '—'}</p>
+                <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">{isEventEnded ? 'evento realizado' : 'para o evento'}</p>
+                <p className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 mt-1">{isEventEnded ? 'Evento encerrado' : daysUntilEvent !== null ? `Faltam ${daysUntilEvent} dia${daysUntilEvent === 1 ? '' : 's'}` : 'Data não definida'}</p>
               </div>
             </div>
           </div>
