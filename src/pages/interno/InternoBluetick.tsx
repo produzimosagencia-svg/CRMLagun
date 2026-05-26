@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo, type ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Copy, Check, Download, Ticket, DollarSign, ShoppingCart, Crown, CalendarCheck, Calendar, ChevronDown, ChevronUp, Radio, Send, Loader2, TrendingUp, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Copy, Check, Download, Ticket, DollarSign, ShoppingCart, Crown, CalendarCheck, Calendar, ChevronDown, ChevronUp, Radio, Send, Loader2, TrendingUp, RefreshCw, Pencil, X } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } from 'recharts';
 import { toast } from 'sonner';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -237,6 +238,9 @@ export function EventDashboard({ eventId, autoDispatchSlot, eventDate: eventDate
   const [lastWebhookAt, setLastWebhookAt] = useState<string | null>(null);
   // phone (com 55) → timestamp do último disparo
   const [dispatchedPhones, setDispatchedPhones] = useState<Map<string, string>>(new Map());
+  const [editingTickets, setEditingTickets] = useState(false);
+  const [ticketEditValue, setTicketEditValue] = useState('');
+  const [savingTickets, setSavingTickets] = useState(false);
 
   async function loadEventContext(discoveredEventName?: string, webhookTimestamp?: string | null) {
     const candidateNames = [...new Set([...(BLUETICKET_EVENT_NAMES[eventId] || []), discoveredEventName].filter(Boolean) as string[])];
@@ -728,6 +732,21 @@ export function EventDashboard({ eventId, autoDispatchSlot, eventDate: eventDate
     };
   }, [parsedWithMeta, eventRecord?.status, crmData]);
 
+  async function saveOfficialTickets() {
+    if (!eventRecord?.id) { toast.error('Evento não encontrado no banco'); return; }
+    const val = parseInt(ticketEditValue);
+    if (isNaN(val) || val < 0) { toast.error('Número inválido'); return; }
+    setSavingTickets(true);
+    const { error } = await supabase.from('lagun_events').update({ official_tickets: val }).eq('id', eventRecord.id);
+    if (error) { toast.error('Erro ao salvar'); }
+    else {
+      setEventRecord(prev => prev ? { ...prev, official_tickets: val } : prev);
+      toast.success(`Ingressos corrigidos para ${val}`);
+      setEditingTickets(false);
+    }
+    setSavingTickets(false);
+  }
+
   function handleCopy() {
     navigator.clipboard.writeText(webhookUrl);
     setCopied(true);
@@ -859,10 +878,40 @@ export function EventDashboard({ eventId, autoDispatchSlot, eventDate: eventDate
                   <div className={`flex h-7 w-7 items-center justify-center rounded-lg ${card.color}`}>
                     <card.icon size={13} />
                   </div>
+                  {card.label === 'Ingressos' && eventRecord?.id && !editingTickets && (
+                    <button
+                      onClick={() => { setTicketEditValue(String(metrics.totalTickets)); setEditingTickets(true); }}
+                      className="text-gray-300 hover:text-gray-500 dark:text-gray-600 dark:hover:text-gray-400 transition-colors"
+                      title="Corrigir contagem"
+                    >
+                      <Pencil size={11} />
+                    </button>
+                  )}
                 </div>
                 <div>
-                  <p className="text-lg font-bold text-gray-900 dark:text-gray-100 leading-tight">{card.value}</p>
-                  <p className="text-[10px] text-gray-400 dark:text-gray-500">{card.subtitle}</p>
+                  {card.label === 'Ingressos' && editingTickets ? (
+                    <div className="flex items-center gap-1">
+                      <Input
+                        type="number"
+                        value={ticketEditValue}
+                        onChange={e => setTicketEditValue(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') saveOfficialTickets(); if (e.key === 'Escape') setEditingTickets(false); }}
+                        className="h-7 text-sm font-bold px-1.5 w-16"
+                        autoFocus
+                      />
+                      <button onClick={saveOfficialTickets} disabled={savingTickets} className="text-emerald-500 hover:text-emerald-700">
+                        {savingTickets ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
+                      </button>
+                      <button onClick={() => setEditingTickets(false)} className="text-gray-400 hover:text-gray-600">
+                        <X size={13} />
+                      </button>
+                    </div>
+                  ) : (
+                    <p className="text-lg font-bold text-gray-900 dark:text-gray-100 leading-tight">{card.value}</p>
+                  )}
+                  <p className="text-[10px] text-gray-400 dark:text-gray-500">
+                    {card.label === 'Ingressos' && metrics.source === 'oficial' ? 'Corrigido manualmente' : card.subtitle}
+                  </p>
                   <p className="text-[10px] font-medium text-gray-500 dark:text-gray-400 mt-1">{card.label}</p>
                 </div>
               </div>
