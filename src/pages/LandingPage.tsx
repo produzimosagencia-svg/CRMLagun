@@ -559,10 +559,6 @@ export default function LandingPage() {
             >
               Você estava lá? <em style={{ color: '#F5D470' }}>Confira as fotos.</em>
             </h2>
-            <p className="text-sm leading-relaxed max-w-md" style={{ color: 'rgba(255,255,255,0.45)' }}>
-              Todas as fotos das nossas noites ficam disponíveis para download gratuito. Salve a sua lembrança.
-            </p>
-
             <a
               href="https://drive.google.com/drive/folders/1tPlchdcRarsHs2K2s9IisR5QRiCFNLC9"
               target="_blank"
