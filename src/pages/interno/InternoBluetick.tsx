@@ -652,21 +652,26 @@ export function EventDashboard({ eventId, autoDispatchSlot, eventDate: eventDate
       webhookDailySalesData.push({ date: label, fullDate: key, qty: dailyMap.get(key) || 0 });
     }
 
-    const useCrmMetrics = Boolean(eventRecord?.status === 'ended' && crmData?.totalTickets);
     const hasOfficialNumbers = Boolean(eventRecord?.official_tickets && eventRecord?.official_tickets > 0);
+
+    // Prefer CRM data whenever it exists — it comes from the official Blueticket CSV import
+    // and is always more reliable than webhook counting (which can miss or duplicate events).
+    // Fall back to webhook only when no CRM data is available (e.g. import not done yet).
+    const useCrmMetrics = Boolean(crmData && crmData.totalTickets > 0);
+
     const crmDailySalesData = webhookDailySalesData.map((entry) => ({
       ...entry,
       qty: crmData?.dailySales.get(entry.fullDate) || 0,
     }));
 
-    const finalTickets = hasOfficialNumbers ? eventRecord!.official_tickets! : (useCrmMetrics ? crmData?.totalTickets || 0 : webhookTickets);
-    const webhookOrCrmRevenue = useCrmMetrics ? crmData?.totalRevenue || 0 : webhookRevenue;
+    const finalTickets = hasOfficialNumbers ? eventRecord!.official_tickets! : (useCrmMetrics ? crmData!.totalTickets : webhookTickets);
+    const webhookOrCrmRevenue = useCrmMetrics ? crmData!.totalRevenue : webhookRevenue;
     const finalRevenue = (hasOfficialNumbers && eventRecord?.official_revenue != null) ? eventRecord.official_revenue : webhookOrCrmRevenue;
 
     return {
       totalTickets: finalTickets,
       totalRevenue: finalRevenue,
-      todayTickets: useCrmMetrics ? crmData?.todayTickets || 0 : webhookTodayTickets,
+      todayTickets: useCrmMetrics ? crmData!.todayTickets : webhookTodayTickets,
       dailySalesData: useCrmMetrics ? crmDailySalesData : webhookDailySalesData,
       abandonedCarts: abandonedCarts.length,
       recoveredCarts: recoveredCount,
@@ -737,8 +742,8 @@ export function EventDashboard({ eventId, autoDispatchSlot, eventDate: eventDate
       label: 'Ingressos',
       value: metrics.totalTickets,
       subtitle: metrics.source === 'crm'
-        ? `CRM consolidado em ${formatShortDate(crmData?.lastSaleDate)}`
-        : 'Baseado nos webhooks ao vivo',
+        ? `Importado da Blueticket${crmData?.lastSaleDate ? ` · ${formatShortDate(crmData.lastSaleDate)}` : ''}`
+        : 'Estimativa via webhooks',
       icon: Ticket,
       color: 'text-blue-500 bg-blue-50 dark:bg-blue-900/30'
     },
@@ -799,7 +804,7 @@ export function EventDashboard({ eventId, autoDispatchSlot, eventDate: eventDate
 
       <p className="text-xs text-gray-400 dark:text-gray-500">
         {metrics.source === 'crm'
-          ? `Evento encerrado • exibindo CRM consolidado${crmData?.lastSaleDate ? ` até ${formatShortDate(crmData.lastSaleDate)}` : ''}`
+          ? `Dados do CRM (importação Blueticket)${crmData?.lastSaleDate ? ` · última venda em ${formatShortDate(crmData.lastSaleDate)}` : ''}`
           : `Último webhook recebido em ${formatDateTime(lastWebhookAt)}`}
       </p>
 
