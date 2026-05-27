@@ -319,6 +319,26 @@ export default function LandingPage() {
               Comemore seu aniversário!
             </span>
           </a>
+          <a
+            href="https://drive.google.com/drive/folders/1tPlchdcRarsHs2K2s9IisR5QRiCFNLC9"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full flex items-center justify-center gap-2 py-3 transition-all active:scale-95"
+            style={{
+              borderRadius: '14px',
+              border: '1px solid rgba(245,212,112,0.15)',
+              backgroundColor: 'transparent',
+            }}
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="rgba(245,212,112,0.5)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            <span className="text-xs tracking-widest uppercase" style={{ color: 'rgba(245,212,112,0.45)', letterSpacing: '0.15em' }}>
+              Fotos da noite
+            </span>
+          </a>
         </div>
 
         {/* Rodapé mobile */}
