@@ -6,7 +6,7 @@ import {
   ChevronsRight, Ticket, Radio, MessageCircle, Send,
   ChevronDown, ChevronRight, Settings, User, Moon, Sun, Zap, Sparkles,
   Megaphone, BarChart3, Trophy, Users, ClipboardList, Palette, Image, Cake,
-  Database, Plus, CalendarDays, Globe, CalendarRange,
+  Database, Plus, Globe, CalendarRange,
 } from 'lucide-react';
 import { MetaIcon } from '@/components/icons/MetaIcon';
 import { supabase } from '@/integrations/supabase/client';
@@ -229,18 +229,6 @@ export default function InternoLayout() {
             </>
           )}
 
-          {/* 1. Eventos Dashboard */}
-          <NavLink
-            to="/interno/eventos-dashboard"
-            onClick={() => setSidebarOpen(false)}
-            className={({ isActive }) => navLinkClass(isActive)}
-            title={collapsed ? 'Eventos' : undefined}
-          >
-            <div className={`flex items-center justify-center ${collapsed ? '' : 'mr-2'}`}>
-              <CalendarDays size={18} />
-            </div>
-            {!collapsed && <span className="text-sm font-medium">Eventos</span>}
-          </NavLink>
 
           {/* 1.5. Landing Page CMS */}
           {canSeeHome && (
