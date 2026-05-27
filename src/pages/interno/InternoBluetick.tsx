@@ -509,78 +509,12 @@ export function EventDashboard({ eventId, autoDispatchSlot, eventDate: eventDate
       }).format(new Date(iso));
     };
 
-    const getTicketQuantity = (tickets?: ParsedData['tickets']) =>
-      tickets?.reduce((sum, ticket) => sum + (Number(ticket.quantity) || 0), 0) || 0;
-
-    const quantityByAmount = new Map<string, Map<number, number>>();
-    parsedWithMeta.forEach(({ data: p }) => {
-      if (p.type === 'abandoned_cart') return; // carrinho abandonado não deve influenciar a inferência de quantidade
-      const amountKey = Number(p.order?.amount || 0).toFixed(2);
-      const qty = getTicketQuantity(p.tickets);
-      if (!amountKey || amountKey === '0.00' || qty <= 0) return;
-      const current = quantityByAmount.get(amountKey) || new Map<number, number>();
-      current.set(qty, (current.get(qty) || 0) + 1);
-      quantityByAmount.set(amountKey, current);
-    });
-
-    const inferredQuantityByAmount = new Map<string, number>();
-    quantityByAmount.forEach((freqMap, amountKey) => {
-      const [bestQty] = [...freqMap.entries()].sort((a, b) => b[1] - a[1] || b[0] - a[0])[0];
-      inferredQuantityByAmount.set(amountKey, bestQty);
-    });
-
-    // For paid order amounts NOT covered by explicit ticket data, infer qty via multi-tier unit price detection.
-    // NOTE: abandoned carts may populate inferredQuantityByAmount for some amounts (e.g. R$38),
-    // but paid orders at other amounts (R$76, R$190, R$142.50) may still be missing — run fallback for those.
-    const paidAmountKeys = new Set<string>();
-    parsedWithMeta.forEach(({ data: p }) => {
-      const a = Number(p.order?.amount || 0);
-      const isPaid = (p.type === 'order_payment' && p.payments?.some(pay => pay.status === 'paid')) ||
-                     (p.type === 'order_payment' && p.order?.status === 'A' && a > 0);
-      if (isPaid && a > 0) paidAmountKeys.add(a.toFixed(2));
-    });
-
-    const uncoveredAmountKeys = [...paidAmountKeys].filter(k => !inferredQuantityByAmount.has(k));
-
-    if (uncoveredAmountKeys.length > 0) {
-      const allPaidAmounts = [...paidAmountKeys].map(k => parseFloat(k)).sort((a, b) => a - b);
-
-      // Score each candidate unit price by how many paid amounts it cleanly divides
-      const candidateScores = new Map<number, number>();
-      allPaidAmounts.forEach(candidate => {
-        let score = 0;
-        allPaidAmounts.forEach(amount => {
-          if (amount >= candidate) {
-            const ratio = amount / candidate;
-            const rounded = Math.round(ratio);
-            if (Math.abs(ratio - rounded) < 0.08 && rounded >= 1) score++;
-          }
-        });
-        candidateScores.set(candidate, score);
-      });
-
-      // For each uncovered amount, pick the highest-scoring unit price that divides it cleanly.
-      // Tie-break: prefer smaller qty (higher unit price) among equal scores.
-      uncoveredAmountKeys.forEach(amountKey => {
-        const amount = parseFloat(amountKey);
-        let bestQty = 1;
-        let bestScore = -1;
-        allPaidAmounts.forEach(candidate => {
-          if (candidate <= amount) {
-            const ratio = amount / candidate;
-            const rounded = Math.round(ratio);
-            if (Math.abs(ratio - rounded) < 0.08 && rounded >= 1) {
-              const score = candidateScores.get(candidate) || 0;
-              if (score > bestScore || (score === bestScore && rounded < bestQty)) {
-                bestScore = score;
-                bestQty = rounded;
-              }
-            }
-          }
-        });
-        inferredQuantityByAmount.set(amountKey, bestQty);
-      });
-    }
+    // Bug fix: use tickets.length as fallback when items exist but quantity fields are 0/null
+    const getTicketQuantity = (tickets?: ParsedData['tickets']) => {
+      if (!tickets || tickets.length === 0) return 0;
+      const sum = tickets.reduce((s, t) => s + (Number(t.quantity) || 0), 0);
+      return sum > 0 ? sum : tickets.length;
+    };
 
     const orderMap = new Map<string, {
       data: ParsedData;
@@ -588,18 +522,24 @@ export function EventDashboard({ eventId, autoDispatchSlot, eventDate: eventDate
       amount: number;
       qty: number;
       paid: boolean;
+      refunded: boolean;
     }>();
 
     parsedWithMeta.forEach(({ data: p, received_at }) => {
-      const orderId = String(p.order?.id || '');
+      // Bug fix: use ?? to avoid treating order ID 0 as empty
+      const orderId = String(p.order?.id ?? '');
       if (!orderId) return;
 
       const amount = Number(p.order?.amount || 0);
       const explicitQty = getTicketQuantity(p.tickets);
-      const inferredQty = explicitQty > 0 ? explicitQty : (inferredQuantityByAmount.get(amount.toFixed(2)) ?? 1);
+      // Simpler fallback: use explicit qty if available, otherwise 1 per ticket item, otherwise 1
+      const qty = explicitQty > 0 ? explicitQty : 1;
+
       const paidByPayment = p.type === 'order_payment' && p.payments?.some(pay => pay.status === 'paid');
       const paidByOrderStatus = p.type === 'order_payment' && p.order?.status === 'A' && amount > 0;
       const isPaid = Boolean(paidByPayment || paidByOrderStatus);
+      // Treat refund/cancellation events as unpaid
+      const isRefund = p.type === 'order_refund' || p.order?.status === 'C' || p.order?.status === 'R';
 
       const existing = orderMap.get(orderId);
       if (!existing) {
@@ -607,14 +547,19 @@ export function EventDashboard({ eventId, autoDispatchSlot, eventDate: eventDate
           data: p,
           received_at,
           amount,
-          qty: inferredQty,
+          qty,
           paid: isPaid,
+          refunded: isRefund,
         });
         return;
       }
 
-      const betterQty = Math.max(existing.qty, inferredQty);
-      const betterAmount = Math.max(existing.amount, amount);
+      // If a newer event is a refund/cancellation, mark the order as refunded
+      const nowRefunded = existing.refunded || isRefund;
+      // Keep the highest qty and amount seen (from the most complete event)
+      const betterQty = Math.max(existing.qty, qty);
+      // For amount: only update if the newer event has an explicit payment (avoid overwriting with 0)
+      const betterAmount = amount > 0 ? Math.max(existing.amount, amount) : existing.amount;
       const betterReceivedAt = new Date(received_at) > new Date(existing.received_at) ? received_at : existing.received_at;
       const betterData = paidByPayment || (!existing.paid && isPaid) || explicitQty > getTicketQuantity(existing.data.tickets)
         ? p
@@ -626,17 +571,18 @@ export function EventDashboard({ eventId, autoDispatchSlot, eventDate: eventDate
         amount: betterAmount,
         qty: betterQty,
         paid: existing.paid || isPaid,
+        refunded: nowRefunded,
       });
     });
 
-    const paidOrdersList = [...orderMap.values()].filter(order => order.paid);
+    const paidOrdersList = [...orderMap.values()].filter(order => order.paid && !order.refunded);
     const todayKey = getBrazilDateKey(new Date().toISOString());
 
     const seenAbandonedIds = new Set<string>();
     const abandonedCarts: { data: ParsedData; received_at: string }[] = [];
     parsedWithMeta.forEach(({ data: p, received_at }) => {
       if (p.type !== 'abandoned_cart') return;
-      const orderId = String(p.order?.id || '');
+      const orderId = String(p.order?.id ?? '');
       if (orderId && seenAbandonedIds.has(orderId)) return;
       if (orderId) seenAbandonedIds.add(orderId);
       abandonedCarts.push({ data: p, received_at });
@@ -745,6 +691,14 @@ export function EventDashboard({ eventId, autoDispatchSlot, eventDate: eventDate
       setEditingTickets(false);
     }
     setSavingTickets(false);
+  }
+
+  async function resetOfficialTickets() {
+    if (!eventRecord?.id) return;
+    const { error } = await supabase.from('lagun_events').update({ official_tickets: null, official_revenue: null }).eq('id', eventRecord.id);
+    if (error) { toast.error('Erro ao resetar'); return; }
+    setEventRecord(prev => prev ? { ...prev, official_tickets: null, official_revenue: null } : prev);
+    toast.success('Voltando para cálculo automático do webhook');
   }
 
   function handleCopy() {
@@ -879,13 +833,24 @@ export function EventDashboard({ eventId, autoDispatchSlot, eventDate: eventDate
                     <card.icon size={14} />
                   </div>
                   {card.label === 'Ingressos' && eventRecord?.id && !editingTickets && (
-                    <button
-                      onClick={() => { setTicketEditValue(String(metrics.totalTickets)); setEditingTickets(true); }}
-                      className="text-gray-300 hover:text-gray-500 dark:text-gray-600 dark:hover:text-gray-400 transition-colors"
-                      title="Corrigir contagem"
-                    >
-                      <Pencil size={11} />
-                    </button>
+                    <div className="flex items-center gap-1.5">
+                      {metrics.source === 'oficial' && (
+                        <button
+                          onClick={resetOfficialTickets}
+                          className="text-orange-300 hover:text-orange-500 dark:text-orange-600 dark:hover:text-orange-400 transition-colors"
+                          title="Resetar para cálculo automático"
+                        >
+                          <RefreshCw size={11} />
+                        </button>
+                      )}
+                      <button
+                        onClick={() => { setTicketEditValue(String(metrics.totalTickets)); setEditingTickets(true); }}
+                        className="text-gray-300 hover:text-gray-500 dark:text-gray-600 dark:hover:text-gray-400 transition-colors"
+                        title="Corrigir contagem manualmente"
+                      >
+                        <Pencil size={11} />
+                      </button>
+                    </div>
                   )}
                 </div>
                 <div>
