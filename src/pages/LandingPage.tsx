@@ -522,6 +522,55 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ── SEÇÃO · FOTOS ───────────────────────────────────────────────────── */}
+      <section
+        className="reveal hidden md:block px-4 md:px-10 py-20"
+        id="fotos"
+        style={{ borderTop: '1px solid rgba(245,212,112,0.08)' }}
+      >
+        <div className="max-w-6xl mx-auto">
+          <div className="flex flex-col items-center text-center gap-6">
+            <span className="text-xs tracking-[0.35em] uppercase" style={{ color: '#F5D470' }}>
+              Memórias da noite
+            </span>
+            <h2
+              className="text-4xl md:text-5xl font-light leading-tight"
+              style={{ fontFamily: "'Crimson Pro', serif", color: 'white' }}
+            >
+              Você estava lá? <em style={{ color: '#F5D470' }}>Confira as fotos.</em>
+            </h2>
+            <p className="text-sm leading-relaxed max-w-md" style={{ color: 'rgba(255,255,255,0.45)' }}>
+              Todas as fotos das nossas noites ficam disponíveis para download gratuito. Salve a sua lembrança.
+            </p>
+
+            <a
+              href="https://drive.google.com/drive/folders/1tPlchdcRarsHs2K2s9IisR5QRiCFNLC9"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-3 px-10 py-4 text-xs tracking-widest font-semibold transition-all hover:opacity-90 active:scale-95"
+              style={{
+                background: 'linear-gradient(135deg, #F5D470 0%, #e8b830 50%, #F5D470 100%)',
+                color: '#1A0800',
+                borderRadius: '12px',
+                boxShadow: '0 0 24px rgba(245,212,112,0.5), 0 4px 16px rgba(245,212,112,0.3)',
+                border: '1px solid rgba(255,235,130,0.6)',
+              }}
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+              ACESSAR ÁLBUM DE FOTOS
+            </a>
+
+            <p className="text-[11px]" style={{ color: 'rgba(255,255,255,0.2)' }}>
+              Google Drive · acesso gratuito · sem necessidade de login
+            </p>
+          </div>
+        </div>
+      </section>
+
       {/* ── SEÇÃO 4 · SUPORTE ───────────────────────────────────────────────── */}
       <section
         className="reveal hidden md:block px-4 md:px-10 py-20"
