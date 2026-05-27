@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import {
   Search, Users, DollarSign, Trophy, ChevronLeft, ChevronRight,
-  X, Download, Loader2, TrendingUp, Calendar,
+  X, Download, Loader2, TrendingUp, Calendar, Repeat2,
 } from 'lucide-react';
 
 const PAGE_SIZE = 50;
@@ -76,6 +76,7 @@ export default function InternoCrmVisaoGeral() {
   const [newCustomers30d, setNewCustomers30d] = useState(0);
   const [eventStats, setEventStats]       = useState<EventStat[]>([]);
   const [top10, setTop10]                 = useState<Top10Entry[]>([]);
+  const [freqTop10, setFreqTop10]         = useState<Top10Entry[]>([]);
 
   // filters / sidebar
   const [selectedEvent, setSelectedEvent] = useState<string | null>(null);
@@ -176,21 +177,35 @@ export default function InternoCrmVisaoGeral() {
         .sort((a, b) => b.customers - a.customers);
       setEventStats(evStats);
 
-      // Top 10 by total spent
+      // Top 10 by total spent + Top 10 by event count
       const t10: Top10Entry[] = [];
       pm.forEach(({ total, events }, cid) => {
         t10.push({ id: cid, name: '', phone: null, total_spent: total, event_count: events.length });
       });
       t10.sort((a, b) => b.total_spent - a.total_spent);
-      const top10ids = t10.slice(0, 10).map(e => e.id);
-      if (top10ids.length > 0) {
+
+      const freq10 = [...t10].sort((a, b) => b.event_count - a.event_count);
+
+      const allTop20ids = [...new Set([
+        ...t10.slice(0, 10).map(e => e.id),
+        ...freq10.slice(0, 10).map(e => e.id),
+      ])];
+
+      if (allTop20ids.length > 0) {
         const { data: topCustomers } = await supabase
           .from('crm_customers')
           .select('id, full_name, phone')
-          .in('id', top10ids);
+          .in('id', allTop20ids);
         const nameMap = new Map((topCustomers ?? []).map(c => [c.id, { name: c.full_name, phone: c.phone }]));
         setTop10(
           t10.slice(0, 10).map(e => ({
+            ...e,
+            name: nameMap.get(e.id)?.name ?? '—',
+            phone: nameMap.get(e.id)?.phone ?? null,
+          }))
+        );
+        setFreqTop10(
+          freq10.slice(0, 10).map(e => ({
             ...e,
             name: nameMap.get(e.id)?.name ?? '—',
             phone: nameMap.get(e.id)?.phone ?? null,
@@ -414,42 +429,85 @@ export default function InternoCrmVisaoGeral() {
             ))}
           </div>
 
-          {/* Top 10 */}
-          <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden">
-            <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Trophy size={14} className="text-yellow-500" />
-                <h2 className="text-sm font-semibold text-gray-800 dark:text-gray-200">Top 10 — maiores gastadores</h2>
+          {/* Rankings — dois Top 10 lado a lado */}
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+
+            {/* Top 10 por gasto */}
+            <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden">
+              <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Trophy size={14} className="text-yellow-500" />
+                  <h2 className="text-sm font-semibold text-gray-800 dark:text-gray-200">Top 10 — maiores gastadores</h2>
+                </div>
+                <div className="flex items-center gap-1">
+                  <DollarSign size={12} className="text-emerald-500" />
+                  <span className="text-xs text-gray-400">{fmtBRL(totalRevenue)} total</span>
+                </div>
               </div>
-              <div className="flex items-center gap-1">
-                <DollarSign size={12} className="text-emerald-500" />
-                <span className="text-xs text-gray-400">{fmtBRL(totalRevenue)} total</span>
+              <div>
+                {top10.length === 0
+                  ? Array.from({ length: 5 }).map((_, i) => (
+                      <div key={i} className="flex items-center gap-3 px-4 py-2.5 border-b border-gray-50 dark:border-gray-800/70">
+                        <div className="h-4 bg-gray-100 dark:bg-gray-800 rounded animate-pulse flex-1" />
+                      </div>
+                    ))
+                  : top10.map((c, i) => (
+                      <div key={c.id} className="flex items-center gap-3 px-4 py-2.5 border-b border-gray-50 dark:border-gray-800/70 last:border-0">
+                        <span className="w-6 text-sm text-center shrink-0">
+                          {MEDAL[i] !== undefined ? MEDAL[i] : <span className="text-xs font-bold text-gray-400">{i + 1}</span>}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{c.name}</p>
+                          <p className="text-xs text-gray-400">{formatPhone(c.phone)}</p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="text-sm font-bold text-emerald-600 dark:text-emerald-400">{fmtBRL(c.total_spent)}</p>
+                          <p className="text-xs text-gray-400">{c.event_count}× evento{c.event_count !== 1 ? 's' : ''}</p>
+                        </div>
+                      </div>
+                    ))
+                }
               </div>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2">
-              {top10.length === 0
-                ? Array.from({ length: 10 }).map((_, i) => (
-                    <div key={i} className="flex items-center gap-3 px-4 py-2.5 border-b border-gray-50 dark:border-gray-800/70">
-                      <div className="h-4 bg-gray-100 dark:bg-gray-800 rounded animate-pulse flex-1" />
-                    </div>
-                  ))
-                : top10.map((c, i) => (
-                    <div key={c.id} className="flex items-center gap-3 px-4 py-2.5 border-b border-gray-50 dark:border-gray-800/70 last:border-0">
-                      <span className="w-6 text-sm text-center shrink-0">
-                        {MEDAL[i] !== undefined ? MEDAL[i] : <span className="text-xs font-bold text-gray-400">{i + 1}</span>}
-                      </span>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{c.name}</p>
-                        <p className="text-xs text-gray-400">{formatPhone(c.phone)}</p>
+
+            {/* Top 10 por frequência */}
+            <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden">
+              <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Repeat2 size={14} className="text-blue-500" />
+                  <h2 className="text-sm font-semibold text-gray-800 dark:text-gray-200">Top 10 — mais eventos</h2>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Users size={12} className="text-blue-400" />
+                  <span className="text-xs text-gray-400">{superfans.toLocaleString('pt-BR')} superfãs</span>
+                </div>
+              </div>
+              <div>
+                {freqTop10.length === 0
+                  ? Array.from({ length: 5 }).map((_, i) => (
+                      <div key={i} className="flex items-center gap-3 px-4 py-2.5 border-b border-gray-50 dark:border-gray-800/70">
+                        <div className="h-4 bg-gray-100 dark:bg-gray-800 rounded animate-pulse flex-1" />
                       </div>
-                      <div className="text-right shrink-0">
-                        <p className="text-sm font-bold text-emerald-600 dark:text-emerald-400">{fmtBRL(c.total_spent)}</p>
-                        <p className="text-xs text-gray-400">{c.event_count}× evento{c.event_count !== 1 ? 's' : ''}</p>
+                    ))
+                  : freqTop10.map((c, i) => (
+                      <div key={c.id} className="flex items-center gap-3 px-4 py-2.5 border-b border-gray-50 dark:border-gray-800/70 last:border-0">
+                        <span className="w-6 text-sm text-center shrink-0">
+                          {MEDAL[i] !== undefined ? MEDAL[i] : <span className="text-xs font-bold text-gray-400">{i + 1}</span>}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{c.name}</p>
+                          <p className="text-xs text-gray-400">{formatPhone(c.phone)}</p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="text-sm font-bold text-blue-600 dark:text-blue-400">{c.event_count}× eventos</p>
+                          <p className="text-xs text-gray-400">{fmtBRL(c.total_spent)}</p>
+                        </div>
                       </div>
-                    </div>
-                  ))
-              }
+                    ))
+                }
+              </div>
             </div>
+
           </div>
 
           {/* Active filter badge */}
