@@ -581,7 +581,7 @@ export default function LandingPage() {
                 <polyline points="7 10 12 15 17 10" />
                 <line x1="12" y1="15" x2="12" y2="3" />
               </svg>
-              ACESSAR ÁLBUM DE FOTOS
+              CONFIRA AS FOTOS
             </a>
 
             <p className="text-[11px]" style={{ color: 'rgba(255,255,255,0.2)' }}>
