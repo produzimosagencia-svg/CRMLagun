@@ -31,12 +31,18 @@ async function sendWhatsAppTemplate(
       template: {
         name: templateName,
         language: { code: templateLanguage || "pt_BR" },
-        components: [
-          {
-            type: "body",
-            parameters: [{ type: "text", text: name?.trim() || "cliente" }],
-          },
-        ],
+        // Só inclui components se o template tiver variável {{1}} no nome
+        // Templates sem variáveis (ex: carrinho_aura) não devem receber components
+        ...(name?.trim()
+          ? {
+              components: [
+                {
+                  type: "body",
+                  parameters: [{ type: "text", text: name.trim() }],
+                },
+              ],
+            }
+          : {}),
       },
     }),
   });
@@ -104,12 +110,14 @@ Deno.serve(async (req) => {
 
       if (config?.phone_number_id && config?.template_name) {
         const token = Deno.env.get("META_WHATSAPP_TOKEN") || "";
+        // Só passa o nome como variável se o template tiver {{1}} (template_variable_count >= 1)
+        const nameForTemplate = (config.template_variable_count ?? 0) >= 1 ? (customer.name || "") : "";
         const result = await sendWhatsAppTemplate(
           config.phone_number_id,
           config.template_name,
           config.template_language || "pt_BR",
           customer.phone,
-          customer.name || "",
+          nameForTemplate,
           token
         );
 

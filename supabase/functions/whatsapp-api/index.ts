@@ -139,6 +139,45 @@ Deno.serve(async (req) => {
         const sent = results.filter((r) => r.status === "sent").length;
         const errors = results.filter((r) => r.status === "error").length;
         result = { total: contacts.length, sent, errors, details: results };
+
+        // Salvar histórico de envios bem-sucedidos em whatsapp_messages
+        const supabaseUrlBulk = Deno.env.get("SUPABASE_URL");
+        const serviceRoleKeyBulk = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+        if (supabaseUrlBulk && serviceRoleKeyBulk) {
+          const supabaseBulk = createClient(supabaseUrlBulk, serviceRoleKeyBulk);
+          const rows = results
+            .filter((r) => r.status === "sent")
+            .map((r) => ({
+              phone: r.to,
+              contact_name: r.name || null,
+              direction: "outgoing",
+              message_type: "template",
+              message_text: `[Auto-disparo] Template: ${template_name}`,
+              status: "sent",
+              wamid: r.wamid || null,
+            }));
+          if (rows.length > 0) {
+            const { error: bulkInsertError } = await supabaseBulk.from("whatsapp_messages").insert(rows);
+            if (bulkInsertError) console.error("Failed to persist bulk sends:", bulkInsertError);
+          }
+        }
+        break;
+      }
+
+      case "save_records": {
+        // Salva registros de mensagens já enviadas externamente no histórico
+        const body = await req.json();
+        const { records } = body;
+        if (!Array.isArray(records) || records.length === 0) {
+          throw new Error("records array is required");
+        }
+        const supabaseUrlSave = Deno.env.get("SUPABASE_URL");
+        const serviceRoleKeySave = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+        if (!supabaseUrlSave || !serviceRoleKeySave) throw new Error("Supabase service role not configured");
+        const supabaseSave = createClient(supabaseUrlSave, serviceRoleKeySave);
+        const { error: saveError } = await supabaseSave.from("whatsapp_messages").insert(records);
+        if (saveError) throw new Error(saveError.message);
+        result = { saved: records.length };
         break;
       }
 
