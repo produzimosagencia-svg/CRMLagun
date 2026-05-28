@@ -125,7 +125,6 @@ export default function InternoLayout() {
     if (location.pathname === '/interno/ads/criar') return 'Nova Campanha';
     if (location.pathname === '/interno/ads/pixel') return 'Pixel & Públicos';
     if (location.pathname.startsWith('/interno/ads')) return 'Ads';
-    if (location.pathname === '/interno/eventos-dashboard') return 'Eventos Dashboard';
     if (location.pathname === '/interno/crm-visao-geral') return 'Visão Geral - CRM';
     if (location.pathname === '/interno/eventos') return 'Eventos';
     if (location.pathname === '/interno/zig-tickets/geral' || location.pathname === '/interno/zig-tickets') return 'Zig Tickets - Geral';
