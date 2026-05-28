@@ -654,10 +654,9 @@ export function EventDashboard({ eventId, autoDispatchSlot, eventDate: eventDate
 
     const hasOfficialNumbers = Boolean(eventRecord?.official_tickets && eventRecord?.official_tickets > 0);
 
-    // Prefer CRM data whenever it exists — it comes from the official Blueticket CSV import
-    // and is always more reliable than webhook counting (which can miss or duplicate events).
-    // Fall back to webhook only when no CRM data is available (e.g. import not done yet).
-    const useCrmMetrics = Boolean(crmData && crmData.totalTickets > 0);
+    // Use CRM data only for ended events — it comes from the official Blueticket CSV import.
+    // For live/active events, always use real-time webhook data so the count stays current.
+    const useCrmMetrics = Boolean(eventRecord?.status === 'ended' && crmData?.totalTickets);
 
     const crmDailySalesData = webhookDailySalesData.map((entry) => ({
       ...entry,
