@@ -71,6 +71,7 @@ export default function InternoLanding() {
       (supabase as any)
         .from('lagun_events')
         .select('id, nome, data, dia_semana, artista, guests, tag, link, flyer_mobile_url, flyer_desktop_url, show_on_landing, display_order')
+        .order('show_on_landing', { ascending: false })
         .order('display_order', { ascending: true }),
       (supabase as any)
         .from('link_clicks')
