@@ -76,7 +76,11 @@ const BLUETICKET_EVENT_NAMES: Record<string, string[]> = {
   'lebai': ["Le'Bai - Rodrigo Do CN", "Le'Bai", 'Le Bai'],
   '40935': ["Le'Bai - Rodrigo Do CN", "Le'Bai", 'Le Bai'],
   '40943': ['Aura Black', 'AURA BLACK', 'Aura'],
+  '41169': ['Gabriel Boni'],
 };
+
+// Eventos encerrados — ocultos do sidebar mas ainda acessíveis via URL
+const HIDDEN_EVENT_IDS = new Set([40935, 40943]);
 
 function formatPhone(phone: string): string {
   const digits = phone.replace(/\D/g, '');
@@ -116,6 +120,7 @@ function EventSelector() {
 
   const predefinedEvents = [
     { id: 99901, name: 'Sambinha' },
+    { id: 41169, name: 'Gabriel Boni' },
   ];
 
   useEffect(() => {
@@ -146,7 +151,9 @@ function EventSelector() {
         }
       });
 
-      const dynamicEvents = [...eventMap.entries()].map(([id, v]) => ({ id, ...v }));
+      const dynamicEvents = [...eventMap.entries()]
+        .filter(([id]) => !HIDDEN_EVENT_IDS.has(id))
+        .map(([id, v]) => ({ id, ...v }));
       predefinedEvents.forEach(pe => {
         if (!dynamicEvents.find(e => e.name.toLowerCase() === pe.name.toLowerCase())) {
           dynamicEvents.push({ ...pe, count: 0 });

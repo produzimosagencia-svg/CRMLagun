@@ -43,6 +43,27 @@ const lounges = [
 
 const loungePhotos = [fotoLounge, fotoLounge2, fotoLounge3, fotoLounge4];
 
+// Registra o clique via fetch com keepalive: a requisição sobrevive à navegação
+// para a ticketeira. O builder do supabase-js é lazy e nunca dispararia aqui.
+function trackClick(eventId: string) {
+  try {
+    const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+    fetch(`${import.meta.env.VITE_SUPABASE_URL}/rest/v1/link_clicks`, {
+      method: 'POST',
+      keepalive: true,
+      headers: {
+        apikey: key,
+        Authorization: `Bearer ${key}`,
+        'Content-Type': 'application/json',
+        Prefer: 'return=minimal',
+      },
+      body: JSON.stringify({ event_id: eventId }),
+    }).catch(() => {});
+  } catch {
+    // tracking nunca deve impedir a navegação
+  }
+}
+
 export default function LandingPage() {
   const revealRef = useRef<HTMLDivElement>(null);
   const [carouselIndex, setCarouselIndex] = useState(0);
@@ -193,7 +214,7 @@ export default function LandingPage() {
                 {/* Botão ingresso */}
                 <a
                   href={ev.link}
-                  onClick={() => { (supabase as any).from('link_clicks').insert({ event_id: ev.id }); }}
+                  onClick={() => trackClick(ev.id)}
                   className="shrink-0 flex items-center justify-center transition-all active:opacity-70"
                   style={{ backgroundColor: '#F5D470', borderRadius: '10px', width: 44, height: 44 }}
                 >
@@ -262,7 +283,7 @@ export default function LandingPage() {
                   </div>
                   <a
                     href={ev.link}
-                    onClick={() => { (supabase as any).from('link_clicks').insert({ event_id: ev.id }); }}
+                    onClick={() => trackClick(ev.id)}
                     className="block text-center text-xs tracking-widest py-3 transition-all hover:opacity-90 active:scale-95"
                     style={{
                       background: 'linear-gradient(135deg, #F5D470 0%, #e8b830 50%, #F5D470 100%)',
