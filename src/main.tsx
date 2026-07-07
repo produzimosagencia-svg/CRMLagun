@@ -45,6 +45,7 @@ const InternoGrafosLista = lazy(() => import("./pages/interno/InternoGrafosLista
 const InternoDados = lazy(() => import("./pages/interno/InternoDados.tsx"));
 const InternoLanding = lazy(() => import("./pages/interno/InternoLanding.tsx"));
 const InternoCalendario = lazy(() => import("./pages/interno/InternoCalendario.tsx"));
+const InternoPrive = lazy(() => import("./pages/interno/InternoPrive.tsx"));
 const Privacidade = lazy(() => import("./pages/Privacidade.tsx"));
 const Termos = lazy(() => import("./pages/Termos.tsx"));
 const ExclusaoDados = lazy(() => import("./pages/ExclusaoDados.tsx"));
@@ -91,6 +92,7 @@ createRoot(document.getElementById("root")!).render(
           <Route path="whatsapp/chat" element={<InternoWhatsAppChat />} />
           <Route path="lebai" element={<InternoLeBai />} />
           <Route path="aura" element={<InternoAura />} />
+          <Route path="prive" element={<InternoPrive />} />
           <Route path="base" element={<InternoBase />} />
           <Route path="blueticket" element={<InternoBluetick />} />
           <Route path="blueticket/:eventId" element={<InternoBluetick />} />

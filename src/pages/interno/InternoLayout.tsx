@@ -139,6 +139,7 @@ export default function InternoLayout() {
     if (location.pathname.startsWith('/interno/dados')) return 'Dados';
     if (location.pathname === '/interno/lebai') return 'Le Bai';
     if (location.pathname === '/interno/aura') return 'Aura';
+    if (location.pathname.startsWith('/interno/prive')) return 'Privê';
     if (location.pathname === '/interno/base') return 'Base';
     if (location.pathname === '/interno/landing') return 'Landing Page';
     if (location.pathname === '/interno/calendario') return 'Calendário';
@@ -345,6 +346,29 @@ export default function InternoLayout() {
                 </div>
               )}
             </div>
+          )}
+
+          {/* Privê — ecossistema com identidade escura */}
+          {canSeeHome && (
+            <NavLink
+              to="/interno/prive"
+              onClick={() => setSidebarOpen(false)}
+              className={({ isActive }) =>
+                `relative flex h-9 w-full items-center rounded-lg transition-all duration-150 ${
+                  collapsed ? 'justify-center px-0' : 'px-3'
+                } ${
+                  isActive
+                    ? 'bg-black text-white font-semibold border-l-2 border-white/60'
+                    : 'text-gray-500 hover:bg-black hover:text-white'
+                }`
+              }
+              title={collapsed ? 'Privê' : undefined}
+            >
+              <div className={`flex items-center justify-center ${collapsed ? '' : 'mr-2'}`}>
+                <Moon size={18} />
+              </div>
+              {!collapsed && <span className="text-sm font-medium tracking-widest uppercase">Privê</span>}
+            </NavLink>
           )}
 
           {/* Zig Tickets Dropdown */}
