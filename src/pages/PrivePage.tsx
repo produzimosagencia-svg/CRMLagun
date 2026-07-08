@@ -1,11 +1,17 @@
 import { useEffect } from 'react';
 import PriveFluidBackground from '@/components/PriveFluidBackground';
 import bgDark from '@/assets/prive-bg-dark.jpg';
-import blobChrome from '@/assets/prive-blob-chrome.png';
 import logoChrome from '@/assets/prive-logo-chrome.png';
 import dataChrome from '@/assets/prive-data-chrome.png';
 import arameThin from '@/assets/fonts/Arame-Thin.ttf';
 import arameBold from '@/assets/fonts/Arame-Bold.otf';
+
+// Destinos dos botões — atualizar quando os links oficiais chegarem
+const LINKS = {
+  ingressos: '#',
+  comunidade: '#',
+  sac: '#',
+};
 
 // Landing page do Privê — identidade extraída do PSD oficial:
 // preto absoluto, cromo líquido, tipografia Arame com tracking largo
@@ -44,6 +50,41 @@ export default function PrivePage() {
         }
         .prive-marquee-col {
           animation: prive-marquee 40s linear infinite;
+        }
+        .prive-btn {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 100%;
+          padding: 14px 24px;
+          text-align: center;
+          font-weight: 300;
+          font-size: 13px;
+          letter-spacing: 0.3em;
+          text-indent: 0.3em;
+          text-transform: uppercase;
+          color: rgba(255,255,255,0.85);
+          background: rgba(255,255,255,0.03);
+          border: 1px solid rgba(255,255,255,0.22);
+          border-radius: 2px;
+          backdrop-filter: blur(6px);
+          transition: all 0.25s ease;
+        }
+        .prive-btn:hover {
+          border-color: rgba(255,255,255,0.6);
+          background: rgba(255,255,255,0.08);
+          box-shadow: 0 0 25px rgba(160,190,220,0.18);
+        }
+        .prive-btn-primary {
+          color: #0a0c10;
+          font-weight: 700;
+          background: linear-gradient(180deg, #f4f7fa 0%, #b8c4d2 40%, #8fa0b4 55%, #dfe7ef 100%);
+          border: 1px solid rgba(255,255,255,0.7);
+          box-shadow: 0 0 30px rgba(170,200,230,0.25), inset 0 1px 0 rgba(255,255,255,0.9);
+        }
+        .prive-btn-primary:hover {
+          background: linear-gradient(180deg, #ffffff 0%, #c8d4e2 40%, #9fb0c4 55%, #eff7ff 100%);
+          box-shadow: 0 0 45px rgba(170,200,230,0.4), inset 0 1px 0 rgba(255,255,255,0.9);
         }
       `}</style>
 
@@ -102,17 +143,27 @@ export default function PrivePage() {
           style={{ filter: 'drop-shadow(0 0 30px rgba(160,190,220,0.25))' }}
         />
 
-        {/* Blob de cromo líquido flutuando */}
-        <img
-          src={blobChrome}
-          alt=""
-          aria-hidden
-          className="w-72 md:w-[430px] my-6"
-          style={{
-            animation: 'prive-float 7s ease-in-out infinite',
-            filter: 'drop-shadow(0 20px 60px rgba(120,160,200,0.2))',
-          }}
-        />
+        {/* Botões centrais */}
+        <div className="flex flex-col items-center gap-4 md:gap-5 w-full max-w-xs my-10">
+          <a
+            href={LINKS.ingressos}
+            className="prive-btn prive-btn-primary"
+          >
+            Ingressos disponíveis!
+          </a>
+          <a
+            href={LINKS.comunidade}
+            className="prive-btn"
+          >
+            Comunidade
+          </a>
+          <a
+            href={LINKS.sac}
+            className="prive-btn"
+          >
+            SAC
+          </a>
+        </div>
 
         {/* Save the date */}
         <div className="flex flex-col items-center gap-3 mb-2">
