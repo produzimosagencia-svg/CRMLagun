@@ -158,12 +158,12 @@ export default function PrivePage() {
         {/* Bloco central */}
         <div className="flex-1 flex flex-col items-center justify-center w-full max-w-xs gap-4 md:gap-5 py-10">
           <p
-            className="mb-2 text-xs md:text-sm uppercase"
+            className="mb-2 text-sm md:text-base"
             style={{
               color: '#F2F2F2',
-              letterSpacing: '0.4em',
-              textIndent: '0.4em',
-              fontWeight: 300,
+              fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
+              fontWeight: 400,
+              letterSpacing: '0.02em',
               textShadow: '0 1px 6px rgba(0,0,0,0.95), 0 0 18px rgba(0,0,0,0.7)',
             }}
           >
