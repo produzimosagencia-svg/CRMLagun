@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { callWhatsappApi } from '@/lib/whatsappApi';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -162,11 +163,7 @@ export default function InternoWhatsAppChat() {
   const loadApiPhones = async () => {
     setLoadingApiPhones(true);
     try {
-      const base = `https://${PROJECT_ID}.supabase.co/functions/v1/whatsapp-api`;
-      const resp = await fetch(`${base}?action=phone_numbers`, {
-        headers: { Authorization: `Bearer ${ANON_KEY}`, apikey: ANON_KEY },
-      });
-      const result = await resp.json();
+      const result = await callWhatsappApi('phone_numbers');
       if (result.data && Array.isArray(result.data)) {
         setApiPhones(result.data.map((p: any) => ({
           id: p.id,
@@ -691,18 +688,12 @@ export default function InternoWhatsAppChat() {
     // ── WhatsApp via Meta API oficial ──────────────────────────────────
     setSending(true);
     try {
-      const base = `https://${PROJECT_ID}.supabase.co/functions/v1/whatsapp-api`;
       const sentAt = new Date().toISOString();
       const contactName = conversations.find(c => c.phone === selectedPhone)?.contact_name || null;
-      const resp = await fetch(`${base}?action=send_text`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${ANON_KEY}`, apikey: ANON_KEY, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          to: selectedPhone, text: replyText,
-          phone_number_id: selectedApiPhone || undefined, contact_name: contactName,
-        }),
+      const result = await callWhatsappApi('send_text', {
+        to: selectedPhone, text: replyText,
+        phone_number_id: selectedApiPhone || undefined, contact_name: contactName,
       });
-      const result = await resp.json();
       if (result.error) {
         console.error('Send error:', result.error);
         toast.error(typeof result.error === 'string' ? result.error : 'Não foi possível enviar a mensagem');

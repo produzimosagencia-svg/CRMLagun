@@ -232,12 +232,12 @@ export default function InternoCalendario() {
               <ChevronRight size={17} />
             </button>
           </div>
-          {loading && <div className="h-4 w-4 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />}
+          {loading && <div className="h-4 w-4 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />}
         </div>
         <Button
           size="sm"
           onClick={() => openNew(todayStr)}
-          className="bg-indigo-600 hover:bg-indigo-700 text-white gap-1.5 h-8 text-xs"
+          className="bg-purple-600 hover:bg-purple-700 text-white gap-1.5 h-8 text-xs"
         >
           <Plus size={14} /> Novo evento
         </Button>
@@ -273,15 +273,15 @@ export default function InternoCalendario() {
                 current && isWeekend ? 'bg-gray-50/40 dark:bg-gray-800/20' : '',
                 current && !isWeekend ? 'bg-white dark:bg-gray-900'        : '',
                 dragOver === ds
-                  ? 'bg-indigo-100/70 dark:bg-indigo-900/30 ring-2 ring-inset ring-indigo-400'
-                  : 'hover:bg-indigo-50/40 dark:hover:bg-indigo-950/20',
+                  ? 'bg-purple-200/70 dark:bg-purple-700/30 ring-2 ring-inset ring-purple-400'
+                  : 'hover:bg-purple-100/40 dark:hover:bg-purple-800/20',
               ].join(' ')}
             >
               {/* Day number */}
               <div className="flex items-center justify-between mb-1">
                 <span className={[
                   'text-[12px] font-semibold w-6 h-6 flex items-center justify-center rounded-full leading-none',
-                  isToday   ? 'bg-indigo-600 text-white'                             : '',
+                  isToday   ? 'bg-purple-600 text-white'                             : '',
                   !isToday && current  ? 'text-gray-700 dark:text-gray-200'          : '',
                   !current  ? 'text-gray-300 dark:text-gray-600'                     : '',
                 ].join(' ')}>
@@ -289,7 +289,7 @@ export default function InternoCalendario() {
                 </span>
                 <button
                   onClick={e => { e.stopPropagation(); openNew(ds); }}
-                  className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-indigo-100 dark:hover:bg-indigo-900/40 text-indigo-400 transition-opacity"
+                  className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-purple-200 dark:hover:bg-purple-700/40 text-purple-400 transition-opacity"
                 >
                   <Plus size={11} />
                 </button>
@@ -445,7 +445,7 @@ export default function InternoCalendario() {
                   size="sm"
                   onClick={handleSave}
                   disabled={saving}
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                  className="bg-purple-600 hover:bg-purple-700 text-white"
                 >
                   {saving ? 'Salvando...' : editing ? 'Salvar' : 'Criar'}
                 </Button>

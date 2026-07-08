@@ -133,7 +133,7 @@ export default function InternoAdmin() {
         </div>
         <Button
           onClick={() => setShowCreate(!showCreate)}
-          className="bg-gradient-to-r from-blue-600 to-purple-600 text-white"
+          className="bg-gradient-to-r from-purple-600 to-purple-800 text-white"
         >
           <UserPlus size={16} className="mr-2" /> Novo Usuário
         </Button>
@@ -198,7 +198,7 @@ export default function InternoAdmin() {
               <div key={u.user_id} className="px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-3">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-purple-500 text-white text-xs font-bold shrink-0">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-purple-500 to-purple-700 text-white text-xs font-bold shrink-0">
                       {(u.full_name || u.username || 'U').charAt(0).toUpperCase()}
                     </div>
                     <div>

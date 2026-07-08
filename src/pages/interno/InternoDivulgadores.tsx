@@ -38,16 +38,16 @@ interface Influencer {
 }
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
-  pending:   { label: 'Aguardando',  color: 'bg-yellow-100 text-yellow-700' },
-  connected: { label: 'Conectado',   color: 'bg-green-100 text-green-700' },
-  inactive:  { label: 'Inativo',     color: 'bg-gray-100 text-gray-500' },
+  pending:   { label: 'Aguardando',  color: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-500/15 dark:text-yellow-400' },
+  connected: { label: 'Conectado',   color: 'bg-green-100 text-green-700 dark:bg-green-500/15 dark:text-green-400' },
+  inactive:  { label: 'Inativo',     color: 'bg-gray-100 text-gray-500 dark:bg-neutral-800 dark:text-neutral-400' },
 };
 
 const LEVEL_CONFIG: Record<string, { label: string; color: string; bg: string; icon: any; min: number; max: number }> = {
-  bronze:   { label: 'Bronze',   color: 'text-amber-700',  bg: 'bg-amber-50 border-amber-200',   icon: Medal,  min: 0,   max: 299 },
-  prata:    { label: 'Prata',    color: 'text-slate-500',  bg: 'bg-slate-50 border-slate-200',   icon: Star,   min: 300, max: 599 },
-  ouro:     { label: 'Ouro',     color: 'text-yellow-500', bg: 'bg-yellow-50 border-yellow-200', icon: Trophy, min: 600, max: 899 },
-  diamante: { label: 'Diamante', color: 'text-blue-500',   bg: 'bg-blue-50 border-blue-200',     icon: Crown,  min: 900, max: Infinity },
+  bronze:   { label: 'Bronze',   color: 'text-amber-700 dark:text-amber-400',  bg: 'bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/30',   icon: Medal,  min: 0,   max: 299 },
+  prata:    { label: 'Prata',    color: 'text-slate-500 dark:text-slate-300',  bg: 'bg-slate-50 dark:bg-slate-500/10 border-slate-200 dark:border-slate-500/30',   icon: Star,   min: 300, max: 599 },
+  ouro:     { label: 'Ouro',     color: 'text-yellow-500 dark:text-yellow-400', bg: 'bg-yellow-50 dark:bg-yellow-500/10 border-yellow-200 dark:border-yellow-500/30', icon: Trophy, min: 600, max: 899 },
+  diamante: { label: 'Diamante', color: 'text-purple-500 dark:text-purple-400',   bg: 'bg-purple-50 dark:bg-purple-500/10 border-purple-200 dark:border-purple-500/30',     icon: Crown,  min: 900, max: Infinity },
 };
 
 function LevelBadge({ level, score }: { level: string; score: number }) {
@@ -66,10 +66,10 @@ function ScoreBar({ score }: { score: number }) {
   const next = cfg.max === Infinity ? null : cfg.max + 1;
   const pct = next ? Math.min(100, ((score - cfg.min) / (next - cfg.min)) * 100) : 100;
   const barColors: Record<string, string> = {
-    bronze: 'bg-amber-400', prata: 'bg-slate-400', ouro: 'bg-yellow-400', diamante: 'bg-blue-400',
+    bronze: 'bg-amber-400', prata: 'bg-slate-400', ouro: 'bg-yellow-400', diamante: 'bg-purple-400',
   };
   return (
-    <div className="w-full h-1 bg-gray-100 rounded-full overflow-hidden">
+    <div className="w-full h-1 bg-muted rounded-full overflow-hidden">
       <div className={`h-full rounded-full ${barColors[level]}`} style={{ width: `${pct}%` }} />
     </div>
   );
@@ -225,7 +225,7 @@ export default function InternoDivulgadores() {
             <RefreshCw size={13} className={syncing ? 'animate-spin' : ''} />
             Sincronizar
           </Button>
-          <Button size="sm" onClick={() => setAddOpen(true)} className="gap-1.5 text-xs bg-pink-600 hover:bg-pink-700 text-white">
+          <Button size="sm" onClick={() => setAddOpen(true)} className="gap-1.5 text-xs bg-purple-600 hover:bg-purple-700 text-white">
             <Plus size={13} /> Adicionar
           </Button>
         </div>
@@ -233,16 +233,16 @@ export default function InternoDivulgadores() {
 
       {/* KPIs */}
       <div className="grid grid-cols-3 gap-3">
-        <div className="rounded-xl border bg-white p-4 flex items-center gap-3">
-          <div className="h-9 w-9 rounded-lg bg-pink-50 flex items-center justify-center shrink-0">
-            <Users size={16} className="text-pink-500" />
+        <div className="rounded-xl border bg-card p-4 flex items-center gap-3">
+          <div className="h-9 w-9 rounded-lg bg-purple-50 flex items-center justify-center shrink-0">
+            <Users size={16} className="text-purple-500" />
           </div>
           <div>
             <p className="text-xl font-bold">{influencers.length}</p>
             <p className="text-[11px] text-muted-foreground">Cadastrados</p>
           </div>
         </div>
-        <div className="rounded-xl border bg-white p-4 flex items-center gap-3">
+        <div className="rounded-xl border bg-card p-4 flex items-center gap-3">
           <div className="h-9 w-9 rounded-lg bg-green-50 flex items-center justify-center shrink-0">
             <Instagram size={16} className="text-green-500" />
           </div>
@@ -251,9 +251,9 @@ export default function InternoDivulgadores() {
             <p className="text-[11px] text-muted-foreground">IG conectado</p>
           </div>
         </div>
-        <div className="rounded-xl border bg-white p-4 flex items-center gap-3">
-          <div className="h-9 w-9 rounded-lg bg-purple-50 flex items-center justify-center shrink-0">
-            <BarChart3 size={16} className="text-purple-500" />
+        <div className="rounded-xl border bg-card p-4 flex items-center gap-3">
+          <div className="h-9 w-9 rounded-lg bg-amber-50 flex items-center justify-center shrink-0">
+            <BarChart3 size={16} className="text-amber-500" />
           </div>
           <div>
             <p className="text-xl font-bold">{totalDetections}</p>
@@ -270,7 +270,7 @@ export default function InternoDivulgadores() {
             onClick={() => setTab(t)}
             className={`px-4 py-2 text-xs font-medium capitalize transition-colors ${
               tab === t
-                ? 'border-b-2 border-pink-600 text-pink-600'
+                ? 'border-b-2 border-purple-600 text-purple-600'
                 : 'text-muted-foreground hover:text-foreground'
             }`}
           >
@@ -298,9 +298,9 @@ export default function InternoDivulgadores() {
       ) : tab === 'lista' ? (
         // ── Lista ──
         filtered.length === 0 ? (
-          <div className="text-center py-12 border rounded-xl bg-white">
-            <Crown size={32} className="mx-auto text-pink-200 mb-3" />
-            <p className="text-sm font-medium text-gray-600">Nenhum influenciador ainda</p>
+          <div className="text-center py-12 border rounded-xl bg-card">
+            <Crown size={32} className="mx-auto text-purple-200 mb-3" />
+            <p className="text-sm font-medium text-foreground">Nenhum influenciador ainda</p>
             <p className="text-xs text-muted-foreground mt-1">Clique em "Adicionar" para começar</p>
           </div>
         ) : (
@@ -309,12 +309,12 @@ export default function InternoDivulgadores() {
               const st = STATUS_LABELS[inf.status] ?? STATUS_LABELS.pending;
               const ig = inf.ig_account;
               return (
-                <div key={inf.id} className="rounded-xl border bg-white p-4 flex items-center gap-4 hover:border-gray-200 transition-all">
+                <div key={inf.id} className="rounded-xl border bg-card p-4 flex items-center gap-4 hover:border-gray-300 dark:hover:border-neutral-700 transition-all">
                   {ig?.profile_picture_url ? (
                     <img src={ig.profile_picture_url} alt="" className="w-11 h-11 rounded-full object-cover shrink-0 border" />
                   ) : (
-                    <div className="w-11 h-11 rounded-full bg-pink-50 flex items-center justify-center shrink-0 border border-pink-100">
-                      <span className="text-sm font-bold text-pink-400">{inf.full_name.slice(0,2).toUpperCase()}</span>
+                    <div className="w-11 h-11 rounded-full bg-purple-50 flex items-center justify-center shrink-0 border border-purple-100">
+                      <span className="text-sm font-bold text-purple-400">{inf.full_name.slice(0,2).toUpperCase()}</span>
                     </div>
                   )}
 
@@ -325,7 +325,7 @@ export default function InternoDivulgadores() {
                     </div>
                     <div className="flex items-center gap-3 mt-0.5 flex-wrap">
                       {ig ? (
-                        <span className="text-xs text-pink-600 flex items-center gap-1">
+                        <span className="text-xs text-purple-600 flex items-center gap-1">
                           <Instagram size={11} /> @{ig.username}
                           <span className="text-muted-foreground">· {ig.followers_count.toLocaleString('pt-BR')} seg.</span>
                         </span>
@@ -336,7 +336,7 @@ export default function InternoDivulgadores() {
                         </span>
                       ) : null}
                       {inf.detections_count! > 0 && (
-                        <span className="text-xs text-purple-600">{inf.detections_count} post{inf.detections_count !== 1 ? 's' : ''}</span>
+                        <span className="text-xs text-amber-600">{inf.detections_count} post{inf.detections_count !== 1 ? 's' : ''}</span>
                       )}
                     </div>
                     {inf.score > 0 && (
@@ -375,9 +375,9 @@ export default function InternoDivulgadores() {
       ) : (
         // ── Ranking ──
         rankingList.length === 0 ? (
-          <div className="text-center py-12 border rounded-xl bg-white">
+          <div className="text-center py-12 border rounded-xl bg-card">
             <Trophy size={32} className="mx-auto text-yellow-200 mb-3" />
-            <p className="text-sm font-medium text-gray-600">Nenhuma pontuação ainda</p>
+            <p className="text-sm font-medium text-foreground">Nenhuma pontuação ainda</p>
             <p className="text-xs text-muted-foreground mt-1">Sincronize os conteúdos para gerar o ranking</p>
           </div>
         ) : (
@@ -408,7 +408,7 @@ export default function InternoDivulgadores() {
 
               return (
                 <div key={inf.id}>
-                <div className={`rounded-xl border bg-white p-4 flex items-center gap-4 ${idx === 0 ? 'ring-1 ring-yellow-300' : ''}`}>
+                <div className={`rounded-xl border bg-card p-4 flex items-center gap-4 ${idx === 0 ? 'ring-1 ring-yellow-300' : ''}`}>
                   {/* Position */}
                   <div className="w-8 text-center shrink-0">
                     <span className="text-lg">{medal}</span>
@@ -418,8 +418,8 @@ export default function InternoDivulgadores() {
                   {ig?.profile_picture_url ? (
                     <img src={ig.profile_picture_url} alt="" className="w-10 h-10 rounded-full object-cover shrink-0 border" />
                   ) : (
-                    <div className="w-10 h-10 rounded-full bg-pink-50 flex items-center justify-center shrink-0 border border-pink-100">
-                      <span className="text-sm font-bold text-pink-400">{inf.full_name.slice(0,2).toUpperCase()}</span>
+                    <div className="w-10 h-10 rounded-full bg-purple-50 flex items-center justify-center shrink-0 border border-purple-100">
+                      <span className="text-sm font-bold text-purple-400">{inf.full_name.slice(0,2).toUpperCase()}</span>
                     </div>
                   )}
 
@@ -449,7 +449,7 @@ export default function InternoDivulgadores() {
                     {inf.detections_count! > 0 && (
                       <button
                         onClick={() => toggleExpand(inf.id)}
-                        className="text-[10px] text-purple-500 hover:text-purple-700 flex items-center gap-0.5 mt-0.5"
+                        className="text-[10px] text-amber-600 hover:text-amber-700 flex items-center gap-0.5 mt-0.5"
                       >
                         {inf.detections_count} posts
                         {expandedId === inf.id ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
@@ -470,17 +470,17 @@ export default function InternoDivulgadores() {
                         const Icon = MEDIA_ICONS[d.media_type] ?? Image;
                         const score = Math.round(calcPostScore(d));
                         return (
-                          <div key={d.id} className="flex items-center gap-3 p-2 rounded-lg bg-gray-50 border text-xs">
+                          <div key={d.id} className="flex items-center gap-3 p-2 rounded-lg bg-muted/50 border text-xs">
                             {d.thumbnail_url ? (
                               <img src={d.thumbnail_url} alt="" className="w-10 h-10 rounded object-cover shrink-0" />
                             ) : (
-                              <div className="w-10 h-10 rounded bg-gray-100 flex items-center justify-center shrink-0">
-                                <Icon size={14} className="text-gray-400" />
+                              <div className="w-10 h-10 rounded bg-muted flex items-center justify-center shrink-0">
+                                <Icon size={14} className="text-muted-foreground" />
                               </div>
                             )}
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-1.5 mb-0.5">
-                                <span className="text-[10px] bg-white border rounded px-1.5 py-0.5 text-muted-foreground flex items-center gap-1">
+                                <span className="text-[10px] bg-card border rounded px-1.5 py-0.5 text-muted-foreground flex items-center gap-1">
                                   <Icon size={9} /> {MEDIA_LABELS[d.media_type] ?? 'Post'}
                                 </span>
                                 {d.posted_at && (
@@ -525,7 +525,7 @@ export default function InternoDivulgadores() {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-base">
-              <Crown size={18} className="text-pink-500" /> Novo Influenciador
+              <Crown size={18} className="text-purple-500" /> Novo Influenciador
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
@@ -554,7 +554,7 @@ export default function InternoDivulgadores() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setAddOpen(false)}>Cancelar</Button>
-            <Button onClick={handleAdd} disabled={saving} className="bg-pink-600 hover:bg-pink-700 text-white gap-1.5">
+            <Button onClick={handleAdd} disabled={saving} className="bg-purple-600 hover:bg-purple-700 text-white gap-1.5">
               {saving && <RefreshCw size={13} className="animate-spin" />}
               Adicionar
             </Button>

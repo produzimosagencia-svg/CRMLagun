@@ -1,10 +1,35 @@
-import { useState, useEffect } from 'react';
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { User, Session } from '@supabase/supabase-js';
 
 export type AppRole = 'admin' | 'partner' | 'design' | 'trafego';
 
-export function useAuth() {
+interface AuthContextValue {
+  user: User | null;
+  session: Session | null;
+  loading: boolean;
+  isPartner: boolean;
+  isAdmin: boolean;
+  roles: AppRole[];
+  signIn: (email: string, password: string) => Promise<{ error: any }>;
+  signInByUsername: (username: string, password: string) => Promise<{ error: any }>;
+  signUp: (email: string, password: string, fullName: string) => Promise<{ error: any }>;
+  signOut: () => Promise<void>;
+}
+
+const AuthContext = createContext<AuthContextValue | null>(null);
+
+/**
+ * Provider único de autenticação.
+ *
+ * Antes, `useAuth` era um hook que cada componente instanciava — cada instância
+ * abria sua própria assinatura `onAuthStateChange` e refazia a query de roles.
+ * Agora a lógica vive aqui uma única vez; todos os consumidores leem o mesmo
+ * contexto (uma assinatura, uma carga de roles). Deve envolver a árvore inteira
+ * no main.tsx, pois há consumidores fora do layout /interno (telas de login e a
+ * rota /interno/trafego-gpt).
+ */
+export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
@@ -101,5 +126,19 @@ export function useAuth() {
     await supabase.auth.signOut();
   };
 
-  return { user, session, loading, isPartner, isAdmin, roles, signIn, signInByUsername, signUp, signOut };
+  const value: AuthContextValue = {
+    user, session, loading, isPartner, isAdmin, roles,
+    signIn, signInByUsername, signUp, signOut,
+  };
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
+
+/** Consome o contexto de autenticação. Mesma API pública de antes. */
+export function useAuth(): AuthContextValue {
+  const ctx = useContext(AuthContext);
+  if (!ctx) {
+    throw new Error('useAuth precisa estar dentro de <AuthProvider>');
+  }
+  return ctx;
 }

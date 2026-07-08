@@ -1,4 +1,5 @@
 import { corsHeaders } from "../_shared/cors.ts";
+import { requireUser } from "../_shared/auth.ts";
 
 const SHOPIFY_STORE_DOMAIN = "pixel-love-styles-fy2nu.myshopify.com";
 const SHOPIFY_API_VERSION = "2025-01";
@@ -7,6 +8,9 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
+
+  const auth = await requireUser(req);
+  if (!auth.ok) return auth.response;
 
   try {
     const accessToken = Deno.env.get("SHOPIFY_ACCESS_TOKEN");

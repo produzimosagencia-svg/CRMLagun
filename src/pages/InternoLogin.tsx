@@ -41,7 +41,13 @@ export default function InternoLogin() {
     if (!username.trim() || !password.trim()) return;
     setSubmitting(true);
     const { error } = await signInByUsername(username.trim(), password);
-    if (error) toast.error(error.message || 'Usuário ou senha incorretos');
+    if (error) {
+      toast.error(error.message || 'Usuário ou senha incorretos');
+    } else {
+      // Sinaliza login recém-sucedido: o InternoLayout consome este flag uma
+      // única vez para exibir a SplashScreen (nunca em refresh/rotas internas).
+      sessionStorage.setItem('interno-splash', '1');
+    }
     setSubmitting(false);
   };
 

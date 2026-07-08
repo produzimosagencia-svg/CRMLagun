@@ -520,7 +520,7 @@ export default function InternoRelatorios() {
       label: 'Impressões',
       value: formatNumber(summary.impressions),
       subtitle: `Alcance: ${formatNumber(summary.reach)}`,
-      color: 'text-blue-500 bg-blue-50 dark:bg-blue-900/20',
+      color: 'text-purple-500 bg-purple-50 dark:bg-purple-900/20',
     },
     {
       icon: MousePointerClick,
@@ -664,14 +664,14 @@ export default function InternoRelatorios() {
                       </p>
                     </div>
 
-                    <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg px-3 py-2">
+                    <div className="bg-purple-50 dark:bg-purple-900/20 rounded-lg px-3 py-2">
                       <p className="text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-wide">Impressões</p>
                       <p className="text-sm font-bold text-gray-900 dark:text-gray-100">
                         {formatNumber(eventGroup.totalImpressions)}
                       </p>
                     </div>
 
-                    <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg px-3 py-2">
+                    <div className="bg-purple-50 dark:bg-purple-900/20 rounded-lg px-3 py-2">
                       <p className="text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-wide">Alcance</p>
                       <p className="text-sm font-bold text-gray-900 dark:text-gray-100">
                         {formatNumber(eventGroup.totalReach)}

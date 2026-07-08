@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { callWhatsappApi } from '@/lib/whatsappApi';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -143,11 +144,7 @@ export default function InternoEventos() {
 
   async function loadTemplatesAndPhones() {
     try {
-      const resp = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/whatsapp-api?action=templates`,
-        { headers: { 'Content-Type': 'application/json' } }
-      );
-      const result = await resp.json();
+      const result = await callWhatsappApi('templates');
       if (result?.data) {
         const approved = result.data.filter((t: any) => t.status === 'APPROVED');
         setTemplates(approved);
@@ -156,11 +153,7 @@ export default function InternoEventos() {
           setTemplateLang(approved[0].language || 'pt_BR');
         }
       }
-      const phonesResp = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/whatsapp-api?action=phone_numbers`,
-        { headers: { 'Content-Type': 'application/json' } }
-      );
-      const phonesData = await phonesResp.json();
+      const phonesData = await callWhatsappApi('phone_numbers');
       if (phonesData?.data) {
         const cloudPhones = phonesData.data.filter((p: any) => p.platform_type === 'CLOUD_API');
         setApiPhones(cloudPhones.length > 0 ? cloudPhones : phonesData.data);
@@ -381,21 +374,13 @@ export default function InternoEventos() {
     try {
       const tmpl = templates.find((t: any) => t.name === selectedTemplate);
       const formattedPhone = formatPhone(contactTarget.phone);
-      const resp = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/whatsapp-api?action=send_bulk`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            phone_number_id: selectedPhoneId,
-            template_name: selectedTemplate,
-            template_language: templateLang,
-            template_components: tmpl?.components || [],
-            contacts: [{ phone: formattedPhone, name: contactTarget.full_name || 'cliente' }],
-          }),
-        }
-      );
-      const result = await resp.json();
+      const result = await callWhatsappApi('send_bulk', {
+        phone_number_id: selectedPhoneId,
+        template_name: selectedTemplate,
+        template_language: templateLang,
+        template_components: tmpl?.components || [],
+        contacts: [{ phone: formattedPhone, name: contactTarget.full_name || 'cliente' }],
+      });
       if (result.sent > 0) {
         const bodyComponent = (tmpl?.components || []).find((c: any) => c.type === 'BODY');
         const messageText = bodyComponent?.text || `[Template: ${selectedTemplate}]`;

@@ -3,10 +3,13 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { lazy, Suspense } from "react";
 import App from "./App.tsx";
 import { Toaster } from "sonner";
+import { ErrorBoundary } from "./components/ErrorBoundary.tsx";
+import { AuthProvider } from "./hooks/useAuth.tsx";
 import "./index.css";
 
 const InternoLogin = lazy(() => import("./pages/InternoLogin.tsx"));
 const InternoLayout = lazy(() => import("./pages/interno/InternoLayout.tsx"));
+const InternoDashboardGeral = lazy(() => import("./pages/interno/InternoDashboardGeral.tsx"));
 const InternoCrmVisaoGeral = lazy(() => import("./pages/interno/InternoCrmVisaoGeral.tsx"));
 const InternoTrafegoGPT = lazy(() => import("./pages/interno/InternoTrafegoGPT.tsx"));
 const CrmCustomers = lazy(() => import("./pages/crm/CrmCustomers.tsx"));
@@ -60,7 +63,9 @@ const Fallback = () => (
 );
 
 createRoot(document.getElementById("root")!).render(
-  <BrowserRouter>
+  <ErrorBoundary>
+    <AuthProvider>
+    <BrowserRouter>
     <Toaster />
     <Suspense fallback={<Fallback />}>
       <Routes>
@@ -75,7 +80,8 @@ createRoot(document.getElementById("root")!).render(
         <Route path="/interno/login" element={<InternoLogin />} />
         <Route path="/interno/trafego-gpt" element={<InternoTrafegoGPT />} />
         <Route path="/interno" element={<InternoLayout />}>
-          <Route index element={<Navigate to="/interno/landing" replace />} />
+          <Route index element={<Navigate to="/interno/dashboard" replace />} />
+          <Route path="dashboard" element={<InternoDashboardGeral />} />
           <Route path="crm-visao-geral" element={<InternoCrmVisaoGeral />} />
           <Route path="zig-tickets" element={<InternoZigTicketsGeral />} />
           <Route path="zig-tickets/geral" element={<InternoZigTicketsGeral />} />
@@ -126,5 +132,7 @@ createRoot(document.getElementById("root")!).render(
         </Route>
       </Routes>
     </Suspense>
-  </BrowserRouter>
+    </BrowserRouter>
+    </AuthProvider>
+  </ErrorBoundary>
 );

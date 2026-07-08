@@ -6,6 +6,7 @@ import {
   RefreshCw, Upload, CheckCircle2, XCircle, AlertTriangle, Users
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { callWhatsappApi } from '@/lib/whatsappApi';
 
 interface PhoneNumber {
   id: string;
@@ -42,25 +43,8 @@ interface SendResult {
 const PROJECT_ID = import.meta.env.VITE_SUPABASE_PROJECT_ID;
 const ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
-const callApi = async (action: string, body?: unknown) => {
-  const base = `https://${PROJECT_ID}.supabase.co/functions/v1/whatsapp-api`;
-  if (body) {
-    const resp = await fetch(`${base}?action=${action}`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${ANON_KEY}`,
-        apikey: ANON_KEY,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
-    });
-    return resp.json();
-  }
-  const resp = await fetch(`${base}?action=${action}`, {
-    headers: { Authorization: `Bearer ${ANON_KEY}`, apikey: ANON_KEY },
-  });
-  return resp.json();
-};
+// Autenticado via helper compartilhado (envia o access_token do usuário logado).
+const callApi = (action: string, body?: unknown) => callWhatsappApi(action, body);
 
 const countTemplateVariables = (template?: Template) => {
   if (!template?.components?.length) return 0;

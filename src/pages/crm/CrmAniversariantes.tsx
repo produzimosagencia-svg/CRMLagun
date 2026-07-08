@@ -136,7 +136,7 @@ export default function CrmAniversariantes() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
-            <Cake size={16} className="text-pink-600" /> Aniversariantes
+            <Cake size={16} className="text-purple-600" /> Aniversariantes
           </h2>
           <p className="text-xs text-muted-foreground">
             {rows.length.toLocaleString('pt-BR')} cadastro(s) no total · {ordered.length} em {MESES[mes - 1]}
@@ -160,7 +160,7 @@ export default function CrmAniversariantes() {
                   onClick={() => setMes(m)}
                   className={`px-2 py-2 rounded text-xs font-medium transition-colors flex flex-col items-center ${
                     ativo
-                      ? 'bg-pink-600 text-white'
+                      ? 'bg-purple-600 text-white'
                       : 'bg-muted/50 text-muted-foreground hover:bg-muted'
                   }`}
                 >
@@ -209,7 +209,7 @@ export default function CrmAniversariantes() {
                 <tbody>
                   {ordered.map((r) => (
                     <tr key={r.id} className="border-b border-border/60 hover:bg-muted/30">
-                      <td className="py-2 px-2 font-semibold text-pink-600">{fmtData(r.birth_date)}</td>
+                      <td className="py-2 px-2 font-semibold text-purple-600">{fmtData(r.birth_date)}</td>
                       <td className="py-2 px-2">{r.full_name}</td>
                       <td className="py-2 px-2">{formatPhone(r.whatsapp || '')}</td>
                       <td className="py-2 px-2 text-muted-foreground">{r.email || '—'}</td>

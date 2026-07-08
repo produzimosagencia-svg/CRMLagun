@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { callWhatsappApi } from '@/lib/whatsappApi';
 import { EventDashboard } from './InternoBluetick';
 import { Loader2, Zap, ChevronDown, Check } from 'lucide-react';
 import { toast } from 'sonner';
@@ -65,12 +66,10 @@ export default function InternoAura() {
       else setConfig({ event_id: foundId, event_name: 'Aura', phone_number_id: '', template_name: '', template_language: 'pt_BR', enabled: false });
 
       try {
-        const [tRes, pRes] = await Promise.all([
-          fetch(`${SUPABASE_URL}/functions/v1/whatsapp-api?action=templates`),
-          fetch(`${SUPABASE_URL}/functions/v1/whatsapp-api?action=phone_numbers`),
+        const [tData, pData] = await Promise.all([
+          callWhatsappApi('templates'),
+          callWhatsappApi('phone_numbers'),
         ]);
-        const tData = await tRes.json();
-        const pData = await pRes.json();
         if (tData?.data) setTemplates(tData.data.filter((t: any) => t.status === 'APPROVED'));
         if (pData?.data) {
           setPhones(pData.data);
@@ -127,7 +126,7 @@ export default function InternoAura() {
               : 'border-dashed border-gray-300 dark:border-gray-600 bg-transparent text-gray-400 hover:border-gray-400'
           }`}
         >
-          <Zap size={11} className={config.enabled ? 'text-emerald-500' : 'text-gray-400'} />
+          <Zap size={11} className={config.enabled ? 'text-purple-500' : 'text-gray-400'} />
           <span className="max-w-[140px] truncate">
             {config.template_name || 'Selecionar template'}
           </span>
@@ -155,7 +154,7 @@ export default function InternoAura() {
                 >
                   <div className={`flex h-3.5 w-3.5 items-center justify-center rounded-full border shrink-0 ${
                     config.template_name === t.name
-                      ? 'border-emerald-500 bg-emerald-500'
+                      ? 'border-purple-500 bg-purple-500'
                       : 'border-gray-300 dark:border-gray-600'
                   }`}>
                     {config.template_name === t.name && <Check size={8} className="text-white" />}
@@ -176,7 +175,7 @@ export default function InternoAura() {
           onClick={toggleEnabled}
           title={config.enabled ? 'Desativar' : 'Ativar auto-disparo'}
           className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full transition-colors ${
-            config.enabled ? 'bg-emerald-500' : 'bg-gray-200 dark:bg-gray-700'
+            config.enabled ? 'bg-purple-500' : 'bg-gray-200 dark:bg-gray-700'
           }`}
         >
           <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${
