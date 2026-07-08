@@ -2,7 +2,6 @@ import { useEffect } from 'react';
 import PriveFluidBackground from '@/components/PriveFluidBackground';
 import bgDark from '@/assets/prive-bg-dark.jpg';
 import logoChrome from '@/assets/prive-logo-chrome.png';
-import dataChrome from '@/assets/prive-data-chrome.png';
 import arameThin from '@/assets/fonts/Arame-Thin.ttf';
 import arameBold from '@/assets/fonts/Arame-Bold.otf';
 
@@ -134,7 +133,7 @@ export default function PrivePage() {
       </div>
 
       {/* Conteúdo */}
-      <div className="relative z-20 flex flex-col items-center justify-between min-h-screen px-10 py-12 md:py-16">
+      <div className="relative z-20 flex flex-col items-center min-h-screen px-10 py-12 md:py-16">
         {/* Logo cromada */}
         <img
           src={logoChrome}
@@ -142,9 +141,21 @@ export default function PrivePage() {
           className="w-56 md:w-80 mt-4 md:mt-6"
           style={{ filter: 'drop-shadow(0 0 30px rgba(160,190,220,0.25))' }}
         />
+        <p
+          className="mt-3 text-[11px] md:text-xs uppercase"
+          style={{ color: 'rgba(255,255,255,0.6)', letterSpacing: '0.5em', textIndent: '0.5em', fontWeight: 300 }}
+        >
+          Vitória&nbsp;-&nbsp;ES
+        </p>
 
-        {/* Botões centrais */}
-        <div className="flex flex-col items-center gap-4 md:gap-5 w-full max-w-xs my-10">
+        {/* Bloco central */}
+        <div className="flex-1 flex flex-col items-center justify-center w-full max-w-xs gap-4 md:gap-5 py-10">
+          <p
+            className="mb-2 text-xs md:text-sm uppercase"
+            style={{ color: '#F2F2F2', letterSpacing: '0.4em', textIndent: '0.4em', fontWeight: 300 }}
+          >
+            Escolha uma das opções:
+          </p>
           <a
             href={LINKS.ingressos}
             className="prive-btn prive-btn-primary"
@@ -163,27 +174,9 @@ export default function PrivePage() {
           >
             SAC
           </a>
-        </div>
-
-        {/* Save the date */}
-        <div className="flex flex-col items-center gap-3 mb-2">
           <p
-            className="text-xs md:text-sm uppercase"
-            style={{ color: '#F2F2F2', letterSpacing: '0.6em', fontWeight: 300 }}
-          >
-            Save the date
-          </p>
-          {/* A arte cromada já traz "14.AGOSTO" e "VITÓRIA - ES" */}
-          <img
-            src={dataChrome}
-            alt="14 de Agosto — Vitória/ES"
-            className="w-52 md:w-64"
-          />
-
-          {/* Hashtag */}
-          <p
-            className="mt-6 text-[11px] md:text-xs uppercase"
-            style={{ color: 'rgba(255,255,255,0.5)', letterSpacing: '0.4em', fontWeight: 300 }}
+            className="mt-4 text-[11px] md:text-xs uppercase"
+            style={{ color: 'rgba(255,255,255,0.5)', letterSpacing: '0.4em', textIndent: '0.4em', fontWeight: 300 }}
           >
             #VemPraPrivê
           </p>
