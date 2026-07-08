@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import PriveFluidBackground from '@/components/PriveFluidBackground';
 import bgDark from '@/assets/prive-bg-dark.jpg';
 import blobChrome from '@/assets/prive-blob-chrome.png';
 import logoChrome from '@/assets/prive-logo-chrome.png';
@@ -46,11 +47,13 @@ export default function PrivePage() {
         }
       `}</style>
 
-      {/* Fundo fluido escuro do PSD */}
+      {/* Fundo estático do PSD — fallback para WebGL indisponível/reduced-motion */}
       <div
         className="absolute inset-0 bg-cover bg-center opacity-90"
         style={{ backgroundImage: `url(${bgDark})` }}
       />
+      {/* Fundo fluido animado (GPU) por cima do estático */}
+      <PriveFluidBackground />
       {/* Vinheta para escurecer as bordas */}
       <div
         className="absolute inset-0"
