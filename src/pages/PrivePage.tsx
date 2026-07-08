@@ -49,6 +49,7 @@ export default function PrivePage() {
         }
         .prive-marquee-col {
           animation: prive-marquee 40s linear infinite;
+          text-shadow: 0 1px 6px rgba(0,0,0,0.95), 0 0 18px rgba(0,0,0,0.7);
         }
         .prive-btn {
           display: flex;
@@ -138,21 +139,33 @@ export default function PrivePage() {
         <img
           src={logoChrome}
           alt="Privê"
-          className="w-56 md:w-80 mt-4 md:mt-6"
-          style={{ filter: 'drop-shadow(0 0 30px rgba(160,190,220,0.25))' }}
+          className="w-56 md:w-80 mt-14 md:mt-6"
+          style={{ filter: 'drop-shadow(0 0 30px rgba(160,190,220,0.25)) drop-shadow(0 2px 10px rgba(0,0,0,0.8))' }}
         />
         <p
-          className="mt-3 text-[11px] md:text-xs uppercase"
-          style={{ color: 'rgba(255,255,255,0.6)', letterSpacing: '0.5em', textIndent: '0.5em', fontWeight: 300 }}
+          className="mt-3 text-[11px] md:text-xs uppercase whitespace-nowrap"
+          style={{
+            color: 'rgba(255,255,255,0.7)',
+            letterSpacing: '0.35em',
+            textIndent: '0.35em',
+            fontWeight: 300,
+            textShadow: '0 1px 6px rgba(0,0,0,0.95), 0 0 18px rgba(0,0,0,0.7)',
+          }}
         >
-          Vitória&nbsp;-&nbsp;ES
+          14&nbsp;de&nbsp;Agosto&nbsp;&nbsp;|&nbsp;&nbsp;Vitória&nbsp;-&nbsp;ES
         </p>
 
         {/* Bloco central */}
         <div className="flex-1 flex flex-col items-center justify-center w-full max-w-xs gap-4 md:gap-5 py-10">
           <p
             className="mb-2 text-xs md:text-sm uppercase"
-            style={{ color: '#F2F2F2', letterSpacing: '0.4em', textIndent: '0.4em', fontWeight: 300 }}
+            style={{
+              color: '#F2F2F2',
+              letterSpacing: '0.4em',
+              textIndent: '0.4em',
+              fontWeight: 300,
+              textShadow: '0 1px 6px rgba(0,0,0,0.95), 0 0 18px rgba(0,0,0,0.7)',
+            }}
           >
             Escolha uma das opções:
           </p>
@@ -176,7 +189,13 @@ export default function PrivePage() {
           </a>
           <p
             className="mt-4 text-[11px] md:text-xs uppercase"
-            style={{ color: 'rgba(255,255,255,0.5)', letterSpacing: '0.4em', textIndent: '0.4em', fontWeight: 300 }}
+            style={{
+              color: 'rgba(255,255,255,0.5)',
+              letterSpacing: '0.4em',
+              textIndent: '0.4em',
+              fontWeight: 300,
+              textShadow: '0 1px 6px rgba(0,0,0,0.95), 0 0 18px rgba(0,0,0,0.7)',
+            }}
           >
             #VemPraPrivê
           </p>
