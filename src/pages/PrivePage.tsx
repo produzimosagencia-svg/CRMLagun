@@ -143,7 +143,7 @@ export default function PrivePage() {
           style={{ filter: 'drop-shadow(0 0 30px rgba(160,190,220,0.25)) drop-shadow(0 2px 10px rgba(0,0,0,0.8))' }}
         />
         <p
-          className="mt-3 text-[11px] md:text-xs uppercase whitespace-nowrap"
+          className="mt-3 text-[9px] md:text-[11px] uppercase whitespace-nowrap"
           style={{
             color: 'rgba(255,255,255,0.7)',
             letterSpacing: '0.35em',
@@ -158,12 +158,12 @@ export default function PrivePage() {
         {/* Bloco central */}
         <div className="flex-1 flex flex-col items-center justify-center w-full max-w-xs gap-4 md:gap-5 py-10">
           <p
-            className="mb-2 text-sm md:text-base"
+            className="mb-2 text-xs md:text-sm uppercase"
             style={{
-              color: '#F2F2F2',
-              fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
-              fontWeight: 400,
-              letterSpacing: '0.02em',
+              color: 'rgba(255,255,255,0.55)',
+              letterSpacing: '0.4em',
+              textIndent: '0.4em',
+              fontWeight: 300,
               textShadow: '0 1px 6px rgba(0,0,0,0.95), 0 0 18px rgba(0,0,0,0.7)',
             }}
           >
