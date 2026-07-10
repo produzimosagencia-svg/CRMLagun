@@ -13,6 +13,11 @@ DO $$ BEGIN
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
+-- Se o tipo já existia (ex: criado pela migration original só com
+-- admin/partner), garante que os valores usados pelo app estão presentes.
+ALTER TYPE public.app_role ADD VALUE IF NOT EXISTS 'design';
+ALTER TYPE public.app_role ADD VALUE IF NOT EXISTS 'trafego';
+
 CREATE OR REPLACE FUNCTION public.has_role(_user_id uuid, _role public.app_role)
 RETURNS boolean
 LANGUAGE sql
