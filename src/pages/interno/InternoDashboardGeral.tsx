@@ -11,7 +11,7 @@ import {
 import LoadingState from '@/components/interno/LoadingState';
 
 // ── paleta da marca (sem azul/roxo) ──────────────────────────────────────────
-const GOLD = '#F5D470';
+const GOLD = '#E8C766';
 const PINK = '#ec4899';
 const CHART_PALETTE = [GOLD, PINK, '#10b981', '#f59e0b', '#f43f5e', '#fb923c', '#64748b', '#14b8a6'];
 const CLASS_META: Record<string, { label: string; color: string }> = {
@@ -313,7 +313,7 @@ export default function InternoDashboardGeral() {
               onClick={() => setPeriod(p.key)}
               className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${
                 period === p.key
-                  ? 'bg-[#F5D470] text-[#1A0800]'
+                  ? 'bg-[#E8C766] text-[#1A0800]'
                   : 'text-muted-foreground hover:text-foreground hover:bg-muted'
               }`}
             >
@@ -423,7 +423,7 @@ export default function InternoDashboardGeral() {
           <div className="space-y-0.5">
             {m.topCustomers.map((c, i) => (
               <div key={c.id} className="flex items-center gap-3 py-1.5 px-1 rounded-lg hover:bg-muted/50">
-                <span className={`w-6 text-center text-xs font-bold shrink-0 ${i < 3 ? 'text-[#F5D470]' : 'text-muted-foreground'}`}>
+                <span className={`w-6 text-center text-xs font-bold shrink-0 ${i < 3 ? 'text-[#E8C766]' : 'text-muted-foreground'}`}>
                   {i + 1}
                 </span>
                 <span className="flex-1 min-w-0 text-sm text-foreground truncate">{c.full_name || 'Sem nome'}</span>

@@ -1,10 +1,30 @@
 import { useEffect, useState } from 'react';
 import { useAuth, AppRole } from '@/hooks/useAuth';
+import { useSidebarSettings, SidebarKey } from '@/hooks/useSidebarSettings';
 import { supabase } from '@/integrations/supabase/client';
-import { Shield, Trash2, Plus, UserPlus } from 'lucide-react';
+import { Trash2, Plus, UserPlus, Settings2, Pencil, ChevronDown, ChevronUp } from 'lucide-react';
+import { confirmDialog } from '@/components/ConfirmDialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
+
+const SIDEBAR_ITEMS: { key: SidebarKey; label: string }[] = [
+  { key: 'dashboard', label: 'Dashboard' },
+  { key: 'landing', label: 'Landing Page' },
+  { key: 'crm', label: 'CRM' },
+  { key: 'blueticket', label: 'Blueticket' },
+  { key: 'prive', label: 'Privê' },
+  { key: 'zig_tickets', label: 'Zig Tickets' },
+  { key: 'base', label: 'Base' },
+  { key: 'tarefas', label: 'Tarefas' },
+  { key: 'calendario', label: 'Calendário' },
+  { key: 'chat', label: 'Chat' },
+  { key: 'whatsapp', label: 'WhatsApp' },
+  { key: 'ads', label: 'Ads' },
+  { key: 'mailchimp', label: 'Mailchimp' },
+  { key: 'design', label: 'Design' },
+];
 
 interface UserWithRoles {
   user_id: string;
@@ -14,17 +34,20 @@ interface UserWithRoles {
   roles: AppRole[];
 }
 
-const ROLE_LABELS: Record<string, { label: string; color: string }> = {
-  admin: { label: 'Admin', color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' },
-  partner: { label: 'Parceiro', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' },
-  design: { label: 'Design', color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' },
-  trafego: { label: 'Gestor de Tráfego', color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' },
+// Cargos identificados por ponto de cor discreto — sem pílulas coloridas
+const ROLE_LABELS: Record<string, { label: string; dot: string }> = {
+  admin: { label: 'Admin', dot: 'bg-[#B4432F]' },
+  partner: { label: 'Parceiro', dot: 'bg-[#8A857B]' },
+  design: { label: 'Design', dot: 'bg-[#6B7FA3]' },
+  trafego: { label: 'Tráfego', dot: 'bg-[#4C7A5C]' },
 };
 
 const ASSIGNABLE_ROLES: AppRole[] = ['admin', 'design', 'trafego'];
 
 export default function InternoAdmin() {
-  const { isAdmin } = useAuth();
+  const { isAdmin, user: currentUser } = useAuth();
+  const { isGlobalEnabled, refetch: refetchSidebarSettings } = useSidebarSettings();
+  const [activeTab, setActiveTab] = useState<'usuarios' | 'configuracoes'>('usuarios');
   const [users, setUsers] = useState<UserWithRoles[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
@@ -33,16 +56,23 @@ export default function InternoAdmin() {
   const [newFullName, setNewFullName] = useState('');
   const [newRole, setNewRole] = useState<AppRole>('design');
   const [creating, setCreating] = useState(false);
+  const [savingKey, setSavingKey] = useState<string | null>(null);
+  const [expandedUser, setExpandedUser] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({ full_name: '', username: '', password: '' });
+  const [userOverrides, setUserOverrides] = useState<Record<string, boolean>>({});
+  const [savingUser, setSavingUser] = useState(false);
+  const [deletingUser, setDeletingUser] = useState(false);
+  const [togglingAccessKey, setTogglingAccessKey] = useState<string | null>(null);
 
   const fetchUsers = async () => {
     setLoading(true);
-    const { data: profiles } = await supabase.from('profiles').select('user_id, email, full_name, username');
+    // No banco live, profiles usa `id` como referência ao usuário (não user_id) e não tem coluna email
+    const { data: profiles, error: profilesError } = await supabase.from('profiles').select('id, full_name, username');
     const { data: rolesData } = await supabase.from('user_roles').select('user_id, role');
 
+    if (profilesError) toast.error('Erro ao carregar usuários: ' + profilesError.message);
     if (!profiles) { setLoading(false); return; }
 
-    // Build role map - need admin access to see all profiles
-    // Since RLS only allows viewing own profile, we use a workaround
     const roleMap = new Map<string, AppRole[]>();
     rolesData?.forEach((r) => {
       const existing = roleMap.get(r.user_id) || [];
@@ -51,11 +81,11 @@ export default function InternoAdmin() {
     });
 
     const mapped: UserWithRoles[] = profiles.map((p) => ({
-      user_id: p.user_id,
-      email: p.email || '',
+      user_id: p.id,
+      email: '',
       full_name: p.full_name || '',
       username: p.username,
-      roles: roleMap.get(p.user_id) || [],
+      roles: roleMap.get(p.id) || [],
     }));
 
     setUsers(mapped.filter((u) => u.roles.length > 0));
@@ -116,10 +146,107 @@ export default function InternoAdmin() {
     fetchUsers();
   };
 
+  const openUser = async (u: UserWithRoles) => {
+    if (expandedUser === u.user_id) {
+      setExpandedUser(null);
+      return;
+    }
+    setExpandedUser(u.user_id);
+    setEditForm({ full_name: u.full_name, username: u.username || '', password: '' });
+    setUserOverrides({});
+    const { data } = await supabase
+      .from('user_menu_overrides')
+      .select('key, enabled')
+      .eq('user_id', u.user_id);
+    const map: Record<string, boolean> = {};
+    (data || []).forEach((r) => { map[r.key] = r.enabled; });
+    setUserOverrides(map);
+  };
+
+  const handleSaveUser = async (userId: string) => {
+    if (!editForm.full_name.trim() || !editForm.username.trim()) {
+      toast.error('Nome e username são obrigatórios');
+      return;
+    }
+    setSavingUser(true);
+    try {
+      const res = await supabase.functions.invoke('manage-user', {
+        body: {
+          action: 'update',
+          user_id: userId,
+          full_name: editForm.full_name.trim(),
+          username: editForm.username.trim(),
+          password: editForm.password || undefined,
+        },
+      });
+      if (res.error) throw res.error;
+      if (res.data?.error) throw new Error(res.data.error);
+      toast.success('Usuário atualizado!');
+      setEditForm((f) => ({ ...f, password: '' }));
+      fetchUsers();
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao atualizar usuário');
+    }
+    setSavingUser(false);
+  };
+
+  const handleDeleteUser = async (u: UserWithRoles) => {
+    const name = u.full_name || u.username || 'este usuário';
+    const ok = await confirmDialog({
+      title: 'Excluir usuário',
+      description: `Excluir ${name}? O login será removido permanentemente. Essa ação não pode ser desfeita.`,
+      confirmText: 'Excluir',
+      destructive: true,
+    });
+    if (!ok) return;
+    setDeletingUser(true);
+    try {
+      const res = await supabase.functions.invoke('manage-user', {
+        body: { action: 'delete', user_id: u.user_id },
+      });
+      if (res.error) throw res.error;
+      if (res.data?.error) throw new Error(res.data.error);
+      toast.success('Usuário excluído');
+      setExpandedUser(null);
+      fetchUsers();
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao excluir usuário');
+    }
+    setDeletingUser(false);
+  };
+
+  const handleToggleUserAccess = async (userId: string, key: SidebarKey, enabled: boolean) => {
+    setTogglingAccessKey(key);
+    const { error } = await supabase
+      .from('user_menu_overrides')
+      .upsert({ user_id: userId, key, enabled, updated_at: new Date().toISOString() });
+    if (error) {
+      toast.error('Erro ao salvar acesso');
+    } else {
+      setUserOverrides((m) => ({ ...m, [key]: enabled }));
+      toast.success(enabled ? 'Acesso habilitado' : 'Acesso removido');
+      // Se o admin mexeu nos próprios acessos, atualiza o sidebar na hora
+      if (userId === currentUser?.id) await refetchSidebarSettings();
+    }
+    setTogglingAccessKey(null);
+  };
+
+  const handleToggleSidebarItem = async (key: SidebarKey, enabled: boolean) => {
+    setSavingKey(key);
+    const { error } = await supabase.from('sidebar_menu_settings').update({ enabled }).eq('key', key);
+    if (error) {
+      toast.error('Erro ao salvar configuração');
+    } else {
+      toast.success(enabled ? 'Item habilitado' : 'Item desabilitado');
+      await refetchSidebarSettings();
+    }
+    setSavingKey(null);
+  };
+
   if (!isAdmin) {
     return (
       <div className="flex items-center justify-center h-64">
-        <p className="text-gray-500 dark:text-gray-400">Acesso restrito a administradores.</p>
+        <p className="text-muted-foreground">Acesso restrito a administradores.</p>
       </div>
     );
   }
@@ -127,48 +254,101 @@ export default function InternoAdmin() {
   return (
     <div className="max-w-4xl mx-auto px-2 sm:px-4 py-4 sm:py-8">
       <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <Shield size={24} className="text-red-500" />
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Administração</h1>
+        <div>
+          <h1 className="font-display text-2xl font-medium tracking-tight text-foreground">Administração</h1>
+          <p className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground mt-1">Usuários e acessos do sistema</p>
         </div>
-        <Button
-          onClick={() => setShowCreate(!showCreate)}
-          className="bg-gradient-to-r from-purple-600 to-purple-800 text-white"
-        >
-          <UserPlus size={16} className="mr-2" /> Novo Usuário
-        </Button>
+        {activeTab === 'usuarios' && (
+          <Button
+            onClick={() => setShowCreate(!showCreate)}
+            
+          >
+            <UserPlus size={16} className="mr-2" /> Novo Usuário
+          </Button>
+        )}
       </div>
 
+      {/* Tabs */}
+      <div className="flex gap-1 mb-6 border-b border-border">
+        <button
+          onClick={() => setActiveTab('usuarios')}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === 'usuarios'
+              ? 'border-brand text-foreground'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          Usuários
+        </button>
+        <button
+          onClick={() => setActiveTab('configuracoes')}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === 'configuracoes'
+              ? 'border-brand text-foreground'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          Configurações
+        </button>
+      </div>
+
+      {activeTab === 'configuracoes' && (
+        <div className="rounded-md border border-border bg-card overflow-hidden">
+          <div className="px-5 py-4 border-b border-border flex items-center gap-2">
+            <Settings2 size={16} className="text-muted-foreground" />
+            <div>
+              <h2 className="text-sm font-semibold text-foreground">Menu Lateral</h2>
+              <p className="text-xs text-muted-foreground">Escolha quais itens aparecem no menu lateral para todos os usuários.</p>
+            </div>
+          </div>
+          <div className="divide-y divide-border">
+            {SIDEBAR_ITEMS.map((item) => (
+              <div key={item.key} className="px-5 py-3 flex items-center justify-between">
+                <span className="text-sm text-foreground">{item.label}</span>
+                <Switch
+                  checked={isGlobalEnabled(item.key)}
+                  disabled={savingKey === item.key}
+                  onCheckedChange={(checked) => handleToggleSidebarItem(item.key, checked)}
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'usuarios' && (
+      <>
       {/* Create user form */}
       {showCreate && (
-        <div className="mb-6 p-5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
-          <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">Criar Novo Usuário</h2>
+        <div className="mb-6 p-5 rounded-md border border-border bg-card">
+          <h2 className="text-sm font-semibold mb-4 text-foreground">Criar Novo Usuário</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
             <div>
-              <label className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1 block">Nome Completo</label>
+              <label className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground mb-1 block">Nome Completo</label>
               <Input value={newFullName} onChange={(e) => setNewFullName(e.target.value)} placeholder="Ex: João Silva" />
             </div>
             <div>
-              <label className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1 block">Username (login)</label>
+              <label className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground mb-1 block">Username (login)</label>
               <Input value={newUsername} onChange={(e) => setNewUsername(e.target.value)} placeholder="Ex: joao" />
             </div>
             <div>
-              <label className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1 block">Senha</label>
+              <label className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground mb-1 block">Senha</label>
               <Input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="Mínimo 6 caracteres" />
             </div>
             <div>
-              <label className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1 block">Cargo</label>
+              <label className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground mb-1 block">Cargo</label>
               <div className="flex gap-2">
                 {ASSIGNABLE_ROLES.map((r) => (
                   <button
                     key={r}
                     onClick={() => setNewRole(r)}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                    className={`inline-flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium border transition-colors ${
                       newRole === r
-                        ? ROLE_LABELS[r].color + ' ring-2 ring-offset-1 ring-current'
-                        : 'bg-gray-100 dark:bg-gray-800 text-gray-500'
+                        ? 'bg-primary text-primary-foreground border-primary'
+                        : 'bg-transparent border-border text-muted-foreground hover:text-foreground'
                     }`}
                   >
+                    <span className={`h-1.5 w-1.5 rounded-full ${ROLE_LABELS[r].dot}`} />
                     {ROLE_LABELS[r].label}
                   </button>
                 ))}
@@ -176,7 +356,7 @@ export default function InternoAdmin() {
             </div>
           </div>
           <div className="flex gap-2">
-            <Button onClick={handleCreate} disabled={creating} className="bg-green-600 hover:bg-green-700 text-white">
+            <Button onClick={handleCreate} disabled={creating}>
               {creating ? 'Criando...' : 'Criar Usuário'}
             </Button>
             <Button variant="outline" onClick={() => setShowCreate(false)}>Cancelar</Button>
@@ -185,73 +365,158 @@ export default function InternoAdmin() {
       )}
 
       {/* Users table */}
-      <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden">
-        <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-800">
-          <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Usuários do Sistema</h2>
+      <div className="rounded-md border border-border bg-card overflow-hidden">
+        <div className="px-5 py-4 border-b border-border">
+          <h2 className="text-sm font-semibold text-foreground">Usuários do Sistema</h2>
         </div>
 
         {loading ? (
-          <div className="p-8 text-center text-gray-400">Carregando...</div>
+          <div className="p-8 text-center text-muted-foreground">Carregando...</div>
         ) : (
-          <div className="divide-y divide-gray-100 dark:divide-gray-800">
-            {users.map((u) => (
-              <div key={u.user_id} className="px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-3">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-purple-500 to-purple-700 text-white text-xs font-bold shrink-0">
-                      {(u.full_name || u.username || 'U').charAt(0).toUpperCase()}
+          <div className="divide-y divide-border">
+            {users.map((u) => {
+              const isSelf = u.user_id === currentUser?.id;
+              const expanded = expandedUser === u.user_id;
+              return (
+              <div key={u.user_id} className="px-5 py-4">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold shrink-0">
+                        {(u.full_name || u.username || 'U').charAt(0).toUpperCase()}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-foreground truncate">{u.full_name || 'Sem nome'}</p>
+                        <p className="text-xs text-muted-foreground truncate">{u.username ? `@${u.username}` : u.email || '—'}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{u.full_name || 'Sem nome'}</p>
-                      <p className="text-xs text-gray-400">{u.username ? `@${u.username}` : u.email}</p>
-                    </div>
+                  </div>
+
+                  {/* Cargos */}
+                  <div className="flex items-center gap-1.5 flex-wrap sm:justify-end">
+                    {u.roles.map((r) => (
+                      <span
+                        key={r}
+                        className="inline-flex items-center gap-1.5 rounded border border-border bg-card px-2 py-0.5 font-mono text-[11px] uppercase tracking-wider text-muted-foreground"
+                      >
+                        <span className={`h-1.5 w-1.5 rounded-full ${ROLE_LABELS[r]?.dot || 'bg-muted-foreground'}`} />
+                        {ROLE_LABELS[r]?.label || r}
+                        {r !== 'partner' && (
+                          <button
+                            onClick={() => handleRemoveRole(u.user_id, r)}
+                            className="opacity-50 hover:opacity-100 transition-opacity"
+                            title="Remover cargo"
+                          >
+                            <Trash2 size={11} />
+                          </button>
+                        )}
+                      </span>
+                    ))}
+
+                    {/* Add role dropdown */}
+                    {ASSIGNABLE_ROLES.filter((r) => !u.roles.includes(r)).length > 0 && (
+                      <div className="relative group">
+                        <button className="h-6 w-6 rounded-full bg-secondary flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors" title="Adicionar cargo">
+                          <Plus size={14} />
+                        </button>
+                        <div className="absolute right-0 top-8 bg-popover border border-border rounded-md shadow-md p-1 hidden group-hover:block z-10 min-w-[150px]">
+                          {ASSIGNABLE_ROLES.filter((r) => !u.roles.includes(r)).map((r) => (
+                            <button
+                              key={r}
+                              onClick={() => handleAddRole(u.user_id, r)}
+                              className="w-full text-left px-3 py-1.5 text-xs rounded hover:bg-accent text-foreground"
+                            >
+                              {ROLE_LABELS[r].label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Ações do usuário — separadas dos cargos */}
+                  <div className="flex items-center gap-1 shrink-0 sm:pl-3 sm:border-l border-border">
+                    <button
+                      onClick={() => openUser(u)}
+                      className={`flex h-7 items-center gap-1 rounded-lg px-2 text-xs font-medium transition-colors ${
+                        expanded
+                          ? 'bg-secondary text-foreground'
+                          : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                      }`}
+                      title="Gerenciar usuário"
+                    >
+                      <Pencil size={13} />
+                      Gerenciar
+                      {expanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                    </button>
+                    {!isSelf && (
+                      <button
+                        onClick={() => handleDeleteUser(u)}
+                        disabled={deletingUser}
+                        className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/40 dark:hover:text-red-400 transition-colors"
+                        title="Excluir usuário"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    )}
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 flex-wrap">
-                  {u.roles.map((r) => (
-                    <span
-                      key={r}
-                      className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium ${ROLE_LABELS[r]?.color || 'bg-gray-100 text-gray-600'}`}
-                    >
-                      {ROLE_LABELS[r]?.label || r}
-                      {r !== 'partner' && (
-                        <button
-                          onClick={() => handleRemoveRole(u.user_id, r)}
-                          className="ml-1 hover:opacity-70"
-                          title="Remover cargo"
-                        >
-                          <Trash2 size={12} />
-                        </button>
-                      )}
-                    </span>
-                  ))}
+                {/* Painel de gerenciamento do usuário */}
+                {expanded && (
+                  <div className="mt-4 pt-4 border-t border-border space-y-5">
+                    <div>
+                      <p className="font-mono text-[11px] font-medium uppercase tracking-wider text-muted-foreground mb-2">Dados do usuário</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div>
+                          <label className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground mb-1 block">Nome Completo</label>
+                          <Input value={editForm.full_name} onChange={(e) => setEditForm((f) => ({ ...f, full_name: e.target.value }))} />
+                        </div>
+                        <div>
+                          <label className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground mb-1 block">Username (login)</label>
+                          <Input value={editForm.username} onChange={(e) => setEditForm((f) => ({ ...f, username: e.target.value }))} />
+                        </div>
+                        <div>
+                          <label className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground mb-1 block">Nova senha</label>
+                          <Input type="password" value={editForm.password} onChange={(e) => setEditForm((f) => ({ ...f, password: e.target.value }))} placeholder="Deixe em branco para manter" />
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={() => handleSaveUser(u.user_id)}
+                        disabled={savingUser}
+                        className="mt-3"
+                      >
+                        {savingUser ? 'Salvando...' : 'Salvar alterações'}
+                      </Button>
+                    </div>
 
-                  {/* Add role dropdown */}
-                  {ASSIGNABLE_ROLES.filter((r) => !u.roles.includes(r)).length > 0 && (
-                    <div className="relative group">
-                      <button className="h-6 w-6 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
-                        <Plus size={14} />
-                      </button>
-                      <div className="absolute right-0 top-8 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-1 hidden group-hover:block z-10 min-w-[150px]">
-                        {ASSIGNABLE_ROLES.filter((r) => !u.roles.includes(r)).map((r) => (
-                          <button
-                            key={r}
-                            onClick={() => handleAddRole(u.user_id, r)}
-                            className="w-full text-left px-3 py-1.5 text-xs rounded hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300"
-                          >
-                            {ROLE_LABELS[r].label}
-                          </button>
+                    <div>
+                      <p className="font-mono text-[11px] font-medium uppercase tracking-wider text-muted-foreground mb-1">Acessos do menu</p>
+                      <p className="text-xs text-muted-foreground mb-3">Desligue os itens que este usuário não deve ver no menu lateral.</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-1.5">
+                        {SIDEBAR_ITEMS.map((item) => (
+                          <div key={item.key} className="flex items-center justify-between py-1">
+                            <span className="text-sm text-foreground">{item.label}</span>
+                            <Switch
+                              checked={userOverrides[item.key] !== false}
+                              disabled={togglingAccessKey === item.key}
+                              onCheckedChange={(checked) => handleToggleUserAccess(u.user_id, item.key as SidebarKey, checked)}
+                            />
+                          </div>
                         ))}
                       </div>
                     </div>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
+      </>
+      )}
     </div>
   );
 }

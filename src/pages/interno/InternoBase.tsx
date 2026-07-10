@@ -84,6 +84,7 @@ export default function InternoBase() {
   const [sidebarTab, setSidebarTab] = useState<'categorias' | 'eventos'>('categorias');
   const [exportingEvent, setExportingEvent] = useState<string | null>(null);
   const [exportingCategory, setExportingCategory] = useState<string | null>(null);
+  const [exportingAll, setExportingAll] = useState(false);
 
   async function downloadCSV(rows: Contact[], filename: string) {
     const headers = ['Nome', 'Email', 'Telefone', 'CPF', 'Nascimento', 'Qtd Eventos', 'Check-ins Realizados', 'Check-ins Não Realizados'];
@@ -92,9 +93,11 @@ export default function InternoBase() {
       c.data_nascimento ?? '', c.total_eventos ?? 0,
       c.checkins_realizados, c.checkins_nao_realizados,
     ]);
+    // Ponto-e-vírgula: separador de lista esperado pelo Excel em português
+    // (a vírgula ali é o separador decimal, então o Excel abriria tudo numa coluna só)
     const csv = [headers, ...data]
-      .map(row => row.map(v => `"${String(v).replace(/"/g, '""')}"`).join(','))
-      .join('\n');
+      .map(row => row.map(v => `"${String(v).replace(/"/g, '""')}"`).join(';'))
+      .join('\r\n');
     const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -124,6 +127,28 @@ export default function InternoBase() {
       await downloadCSV(allRows, eventName);
     } finally {
       setExportingEvent(null);
+    }
+  }
+
+  async function exportAllCSV() {
+    setExportingAll(true);
+    try {
+      const allRows: Contact[] = [];
+      let from = 0;
+      const size = 1000;
+      while (true) {
+        const { data, error } = await supabase
+          .from('base_crm').select('*')
+          .order('nome', { ascending: true })
+          .range(from, from + size - 1);
+        if (error || !data || data.length === 0) break;
+        allRows.push(...(data as Contact[]));
+        if (data.length < size) break;
+        from += size;
+      }
+      await downloadCSV(allRows, 'Base_Completa_Lagun');
+    } finally {
+      setExportingAll(false);
     }
   }
 
@@ -295,6 +320,38 @@ export default function InternoBase() {
   return (
     <div className="p-4 md:p-6 space-y-4">
 
+      {/* ── Busca de contato (ação principal — 14 mil contatos na base) ── */}
+      <div className="flex flex-col sm:flex-row gap-2">
+        <div className="relative flex-1">
+          <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Buscar contato por nome, e-mail, telefone ou CPF…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="w-full pl-11 pr-4 py-3.5 text-base rounded-xl border border-gray-200 dark:border-[#34322B] bg-white dark:bg-[#1A1916] text-gray-900 dark:text-gray-100 placeholder-gray-400 shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500/30 focus:border-purple-400 transition"
+          />
+          {search && (
+            <button
+              onClick={() => setSearch('')}
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              title="Limpar busca"
+            >
+              <X size={16} />
+            </button>
+          )}
+        </div>
+        <button
+          onClick={exportAllCSV}
+          disabled={exportingAll}
+          title="Baixar todos os contatos da base em CSV, com colunas nomeadas (pronto para abrir em planilha)"
+          className="flex items-center justify-center gap-2 px-4 py-3.5 text-sm font-semibold rounded-xl border border-gray-200 dark:border-[#34322B] bg-white dark:bg-[#1A1916] text-gray-700 dark:text-gray-200 hover:border-purple-400 hover:text-purple-600 dark:hover:text-purple-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+        >
+          {exportingAll ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
+          {exportingAll ? 'Exportando…' : 'Baixar tudo (CSV)'}
+        </button>
+      </div>
+
       {/* ── Stats row ── */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <StatCard icon={<Users size={16} />} label="Contatos" value={totalContacts.toLocaleString('pt-BR')} color="blue" />
@@ -307,10 +364,10 @@ export default function InternoBase() {
       <div className="flex gap-4 items-start">
 
         {/* ── Sidebar ── */}
-        <div className="hidden lg:flex flex-col w-60 shrink-0 rounded-xl border border-gray-200 dark:border-[#3d2e60] bg-white dark:bg-[#1a1128] overflow-hidden">
+        <div className="hidden lg:flex flex-col w-60 shrink-0 rounded-xl border border-gray-200 dark:border-[#34322B] bg-white dark:bg-[#1A1916] overflow-hidden">
 
           {/* Tabs */}
-          <div className="flex border-b border-gray-100 dark:border-[#32264a]">
+          <div className="flex border-b border-gray-100 dark:border-[#2A2822]">
             {(['categorias', 'eventos'] as const).map(tab => (
               <button
                 key={tab}
@@ -330,7 +387,7 @@ export default function InternoBase() {
             <div className="overflow-y-auto">
               <button
                 onClick={clearFilters}
-                className={`flex items-center justify-between w-full px-3 py-2.5 text-xs transition-colors hover:bg-gray-50 dark:hover:bg-[#261a3d]/60 ${
+                className={`flex items-center justify-between w-full px-3 py-2.5 text-xs transition-colors hover:bg-gray-50 dark:hover:bg-[#242320]/60 ${
                   !selectedCategory && !selectedEvent ? 'bg-purple-100 dark:bg-purple-700/20 text-purple-700 dark:text-purple-300 font-semibold' : 'text-gray-700 dark:text-gray-300'
                 }`}
               >
@@ -338,7 +395,7 @@ export default function InternoBase() {
                 <span className="text-gray-400">{totalContacts.toLocaleString('pt-BR')}</span>
               </button>
               {categoryStats.map(c => (
-                <div key={c.categoria} className="flex items-center border-t border-gray-50 dark:border-[#32264a]/50 hover:bg-gray-50 dark:hover:bg-[#261a3d]/60 transition-colors">
+                <div key={c.categoria} className="flex items-center border-t border-gray-50 dark:border-[#2A2822]/50 hover:bg-gray-50 dark:hover:bg-[#242320]/60 transition-colors">
                   <button
                     onClick={() => { setSelectedCategory(selectedCategory === c.categoria ? null : c.categoria); setSelectedEvent(null); }}
                     className={`flex-1 flex items-center justify-between px-3 py-2.5 text-xs ${
@@ -356,7 +413,7 @@ export default function InternoBase() {
                     onClick={e => { e.stopPropagation(); exportCategoryCSV(c.categoria); }}
                     disabled={exportingCategory === c.categoria}
                     title={`Exportar CSV — ${c.categoria}`}
-                    className="shrink-0 mr-2 p-1.5 rounded-md bg-gray-100 dark:bg-[#322452] hover:bg-purple-200 dark:hover:bg-purple-700/40 text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 transition-colors disabled:opacity-50"
+                    className="shrink-0 mr-2 p-1.5 rounded-md bg-gray-100 dark:bg-[#242320] hover:bg-purple-200 dark:hover:bg-purple-700/40 text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 transition-colors disabled:opacity-50"
                   >
                     {exportingCategory === c.categoria
                       ? <Loader2 size={12} className="animate-spin" />
@@ -375,13 +432,13 @@ export default function InternoBase() {
                     placeholder="Buscar evento…"
                     value={eventSearch}
                     onChange={e => setEventSearch(e.target.value)}
-                    className="w-full pl-7 pr-3 py-1.5 text-xs rounded-lg border border-gray-200 dark:border-[#3d2e60] bg-gray-50 dark:bg-[#261a3d] text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-purple-400"
+                    className="w-full pl-7 pr-3 py-1.5 text-xs rounded-lg border border-gray-200 dark:border-[#34322B] bg-gray-50 dark:bg-[#242320] text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-purple-400"
                   />
                 </div>
               </div>
               <button
                 onClick={clearFilters}
-                className={`flex items-center justify-between w-full px-3 py-2 text-xs transition-colors hover:bg-gray-50 dark:hover:bg-[#261a3d]/60 ${
+                className={`flex items-center justify-between w-full px-3 py-2 text-xs transition-colors hover:bg-gray-50 dark:hover:bg-[#242320]/60 ${
                   !selectedEvent && !selectedCategory ? 'bg-purple-100 dark:bg-purple-700/20 text-purple-700 dark:text-purple-300 font-semibold' : 'text-gray-700 dark:text-gray-300'
                 }`}
               >
@@ -391,7 +448,7 @@ export default function InternoBase() {
               {filteredEvents.map(ev => (
                 <div
                   key={ev.name}
-                  className={`group flex items-center border-t border-gray-50 dark:border-[#32264a]/50 transition-colors hover:bg-gray-50 dark:hover:bg-[#261a3d]/60 ${
+                  className={`group flex items-center border-t border-gray-50 dark:border-[#2A2822]/50 transition-colors hover:bg-gray-50 dark:hover:bg-[#242320]/60 ${
                     selectedEvent === ev.name ? 'bg-purple-100 dark:bg-purple-700/20' : ''
                   }`}
                 >
@@ -408,7 +465,7 @@ export default function InternoBase() {
                     onClick={e => { e.stopPropagation(); exportCSV(ev.name); }}
                     disabled={exportingEvent === ev.name}
                     title="Exportar CSV"
-                    className="shrink-0 mr-2 p-1.5 rounded-md bg-gray-100 dark:bg-[#322452] hover:bg-purple-200 dark:hover:bg-purple-700/40 text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 transition-colors disabled:opacity-50"
+                    className="shrink-0 mr-2 p-1.5 rounded-md bg-gray-100 dark:bg-[#242320] hover:bg-purple-200 dark:hover:bg-purple-700/40 text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 transition-colors disabled:opacity-50"
                   >
                     {exportingEvent === ev.name
                       ? <Loader2 size={12} className="animate-spin" />
@@ -428,7 +485,7 @@ export default function InternoBase() {
             <select
               value={selectedCategory ?? ''}
               onChange={e => { setSelectedCategory(e.target.value || null); setSelectedEvent(null); }}
-              className="flex-1 px-3 py-2 text-sm rounded-xl border border-gray-200 dark:border-[#3d2e60] bg-white dark:bg-[#261a3d] text-gray-800 dark:text-gray-200 focus:outline-none"
+              className="flex-1 px-3 py-2 text-sm rounded-xl border border-gray-200 dark:border-[#34322B] bg-white dark:bg-[#242320] text-gray-800 dark:text-gray-200 focus:outline-none"
             >
               <option value="">Todas as categorias</option>
               {categoryStats.map(c => <option key={c.categoria} value={c.categoria}>{c.categoria}</option>)}
@@ -444,7 +501,7 @@ export default function InternoBase() {
                 className={`px-3 py-1 rounded-full text-xs font-semibold border transition-all ${
                   selectedCategory === cat
                     ? CATEGORY_COLORS[cat]
-                    : 'bg-gray-50 dark:bg-[#261a3d] border-gray-200 dark:border-[#3d2e60] text-gray-500 dark:text-gray-400 hover:border-gray-300'
+                    : 'bg-gray-50 dark:bg-[#242320] border-gray-200 dark:border-[#34322B] text-gray-500 dark:text-gray-400 hover:border-gray-300'
                 }`}
               >
                 {cat}
@@ -453,20 +510,20 @@ export default function InternoBase() {
           </div>
 
           {/* Top 10 */}
-          <div className="rounded-xl border border-gray-200 dark:border-[#3d2e60] bg-white dark:bg-[#1a1128] overflow-hidden">
-            <div className="px-4 py-3 border-b border-gray-100 dark:border-[#32264a] flex items-center gap-2">
+          <div className="rounded-xl border border-gray-200 dark:border-[#34322B] bg-white dark:bg-[#1A1916] overflow-hidden">
+            <div className="px-4 py-3 border-b border-gray-100 dark:border-[#2A2822] flex items-center gap-2">
               <Trophy size={14} className="text-yellow-500" />
               <h2 className="text-sm font-semibold text-gray-800 dark:text-gray-200">Top 10 — mais eventos</h2>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2">
               {top10.length === 0
                 ? Array.from({ length: 10 }).map((_, i) => (
-                    <div key={i} className="flex items-center gap-3 px-4 py-2.5 border-b border-gray-50 dark:border-[#32264a]/70">
-                      <div className="h-4 bg-gray-100 dark:bg-[#261a3d] rounded animate-pulse flex-1" />
+                    <div key={i} className="flex items-center gap-3 px-4 py-2.5 border-b border-gray-50 dark:border-[#2A2822]/70">
+                      <div className="h-4 bg-gray-100 dark:bg-[#242320] rounded animate-pulse flex-1" />
                     </div>
                   ))
                 : top10.map((c, i) => (
-                    <div key={c.id} className="flex items-center gap-3 px-4 py-2.5 border-b border-gray-50 dark:border-[#32264a]/70 last:border-0">
+                    <div key={c.id} className="flex items-center gap-3 px-4 py-2.5 border-b border-gray-50 dark:border-[#2A2822]/70 last:border-0">
                       <span className="w-6 text-sm text-center shrink-0">
                         {MEDAL[i] !== undefined ? MEDAL[i] : <span className="text-xs font-bold text-gray-400">{i + 1}</span>}
                       </span>
@@ -477,7 +534,7 @@ export default function InternoBase() {
                       <span className={`inline-flex items-center justify-center h-6 w-6 rounded-full text-xs font-bold shrink-0 ${
                         (c.total_eventos ?? 0) >= 5 ? 'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300' :
                         (c.total_eventos ?? 0) >= 3 ? 'bg-purple-200 dark:bg-purple-700/40 text-purple-700 dark:text-purple-300' :
-                        'bg-gray-100 dark:bg-[#261a3d] text-gray-600 dark:text-gray-400'
+                        'bg-gray-100 dark:bg-[#242320] text-gray-600 dark:text-gray-400'
                       }`}>
                         {c.total_eventos ?? 0}
                       </span>
@@ -505,24 +562,12 @@ export default function InternoBase() {
             </div>
           )}
 
-          {/* Search */}
-          <div className="relative">
-            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Buscar por nome, e-mail, telefone ou CPF…"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              className="w-full pl-9 pr-4 py-2.5 text-sm rounded-xl border border-gray-200 dark:border-[#3d2e60] bg-white dark:bg-[#261a3d] text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500/30 focus:border-purple-400 transition"
-            />
-          </div>
-
           {/* Table */}
-          <div className="rounded-xl border border-gray-200 dark:border-[#3d2e60] bg-white dark:bg-[#1a1128] overflow-hidden">
+          <div className="rounded-xl border border-gray-200 dark:border-[#34322B] bg-white dark:bg-[#1A1916] overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-gray-100 dark:border-[#32264a] bg-gray-50 dark:bg-[#261a3d]/60">
+                  <tr className="border-b border-gray-100 dark:border-[#2A2822] bg-gray-50 dark:bg-[#242320]/60">
                     <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Nome</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide hidden md:table-cell">Contato</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide hidden lg:table-cell">Nascimento</th>
@@ -534,11 +579,11 @@ export default function InternoBase() {
                   {loading ? (
                     Array.from({ length: 8 }).map((_, i) => (
                       <tr key={i}>
-                        <td className="px-4 py-3"><div className="h-4 bg-gray-100 dark:bg-[#261a3d] rounded animate-pulse w-40" /></td>
-                        <td className="px-4 py-3 hidden md:table-cell"><div className="h-4 bg-gray-100 dark:bg-[#261a3d] rounded animate-pulse w-32" /></td>
-                        <td className="px-4 py-3 hidden lg:table-cell"><div className="h-4 bg-gray-100 dark:bg-[#261a3d] rounded animate-pulse w-24" /></td>
-                        <td className="px-4 py-3"><div className="h-4 bg-gray-100 dark:bg-[#261a3d] rounded animate-pulse w-8 mx-auto" /></td>
-                        <td className="px-4 py-3 hidden sm:table-cell"><div className="h-4 bg-gray-100 dark:bg-[#261a3d] rounded animate-pulse w-10 mx-auto" /></td>
+                        <td className="px-4 py-3"><div className="h-4 bg-gray-100 dark:bg-[#242320] rounded animate-pulse w-40" /></td>
+                        <td className="px-4 py-3 hidden md:table-cell"><div className="h-4 bg-gray-100 dark:bg-[#242320] rounded animate-pulse w-32" /></td>
+                        <td className="px-4 py-3 hidden lg:table-cell"><div className="h-4 bg-gray-100 dark:bg-[#242320] rounded animate-pulse w-24" /></td>
+                        <td className="px-4 py-3"><div className="h-4 bg-gray-100 dark:bg-[#242320] rounded animate-pulse w-8 mx-auto" /></td>
+                        <td className="px-4 py-3 hidden sm:table-cell"><div className="h-4 bg-gray-100 dark:bg-[#242320] rounded animate-pulse w-10 mx-auto" /></td>
                       </tr>
                     ))
                   ) : contacts.length === 0 ? (
@@ -551,7 +596,7 @@ export default function InternoBase() {
                         <tr
                           key={c.id}
                           onClick={() => setExpanded(expanded === c.id ? null : c.id)}
-                          className="hover:bg-gray-50 dark:hover:bg-[#261a3d]/50 cursor-pointer transition-colors"
+                          className="hover:bg-gray-50 dark:hover:bg-[#242320]/50 cursor-pointer transition-colors"
                         >
                           <td className="px-4 py-3">
                             <div className="font-medium text-gray-900 dark:text-gray-100">{c.nome}</div>
@@ -567,8 +612,8 @@ export default function InternoBase() {
                             <span className={`inline-flex items-center justify-center h-6 w-6 rounded-full text-xs font-bold ${
                               (c.total_eventos ?? 0) >= 5 ? 'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300' :
                               (c.total_eventos ?? 0) >= 3 ? 'bg-purple-200 dark:bg-purple-700/40 text-purple-700 dark:text-purple-300' :
-                              (c.total_eventos ?? 0) >= 1 ? 'bg-gray-100 dark:bg-[#261a3d] text-gray-600 dark:text-gray-400' :
-                              'bg-gray-50 dark:bg-[#1a1128] text-gray-400'
+                              (c.total_eventos ?? 0) >= 1 ? 'bg-gray-100 dark:bg-[#242320] text-gray-600 dark:text-gray-400' :
+                              'bg-gray-50 dark:bg-[#1A1916] text-gray-400'
                             }`}>
                               {c.total_eventos ?? 0}
                             </span>
@@ -587,7 +632,7 @@ export default function InternoBase() {
                           </td>
                         </tr>
                         {expanded === c.id && (
-                          <tr key={`${c.id}-exp`} className="bg-gray-50 dark:bg-[#261a3d]/30">
+                          <tr key={`${c.id}-exp`} className="bg-gray-50 dark:bg-[#242320]/30">
                             <td colSpan={5} className="px-4 pb-4 pt-2">
                               <div className="space-y-2">
                                 {c.documento && (
@@ -606,7 +651,7 @@ export default function InternoBase() {
                                           className={`px-2 py-0.5 text-xs rounded-full border transition-colors hover:border-purple-400 hover:text-purple-600 dark:hover:text-purple-300 ${
                                             selectedEvent === ev
                                               ? 'bg-purple-200 dark:bg-purple-700/30 border-purple-300 dark:border-purple-600 text-purple-700 dark:text-purple-300'
-                                              : 'bg-white dark:bg-[#322452] border-gray-200 dark:border-[#4b3a75] text-gray-600 dark:text-gray-300'
+                                              : 'bg-white dark:bg-[#242320] border-gray-200 dark:border-[#3A372F] text-gray-600 dark:text-gray-300'
                                           }`}
                                         >
                                           {ev}
@@ -627,18 +672,18 @@ export default function InternoBase() {
             </div>
 
             {/* Pagination */}
-            <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100 dark:border-[#32264a] bg-gray-50 dark:bg-[#261a3d]/40">
+            <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100 dark:border-[#2A2822] bg-gray-50 dark:bg-[#242320]/40">
               <p className="text-xs text-gray-500 dark:text-gray-400">
                 {total > 0
                   ? <>Mostrando {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, total)} de {total.toLocaleString('pt-BR')} contatos</>
                   : 'Nenhum resultado'}
               </p>
               <div className="flex items-center gap-1">
-                <button onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-[#322452] disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                <button onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-[#242320] disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
                   <ChevronLeft size={15} />
                 </button>
                 <span className="text-xs text-gray-500 px-1">{page + 1} / {totalPages || 1}</span>
-                <button onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))} disabled={page >= totalPages - 1} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-[#322452] disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                <button onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))} disabled={page >= totalPages - 1} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-[#242320] disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
                   <ChevronRight size={15} />
                 </button>
               </div>
@@ -658,7 +703,7 @@ function StatCard({ icon, label, value, color }: { icon: React.ReactNode; label:
     orange: 'text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20',
   };
   return (
-    <div className="rounded-xl border border-gray-200 dark:border-[#3d2e60] bg-white dark:bg-[#1a1128] p-4 flex items-start gap-3">
+    <div className="rounded-xl border border-gray-200 dark:border-[#34322B] bg-white dark:bg-[#1A1916] p-4 flex items-start gap-3">
       <div className={`p-2 rounded-lg ${colors[color]}`}>{icon}</div>
       <div>
         <p className="text-xs text-gray-500 dark:text-gray-400">{label}</p>

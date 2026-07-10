@@ -171,7 +171,7 @@ export default function InternoLanding() {
         value={String(form[key] ?? '')}
         onChange={(e) => setForm((f) => ({ ...f, [key]: type === 'number' ? Number(e.target.value) : e.target.value }))}
         placeholder={placeholder}
-        className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#a855f7] focus:border-transparent"
+        className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#D9B14E] focus:border-transparent"
       />
     </div>
   );
@@ -189,13 +189,13 @@ export default function InternoLanding() {
             href="/"
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-[#a855f7] border border-gray-200 rounded-lg px-3 py-2 transition-colors"
+            className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-[#D9B14E] border border-gray-200 rounded-lg px-3 py-2 transition-colors"
           >
             <Globe size={14} /> Ver site
           </a>
           <button
             onClick={openNew}
-            className="flex items-center gap-2 bg-[#a855f7] hover:bg-[#9333ea] text-white shadow-[0_2px_12px_rgba(168,85,247,0.35)] dark:bg-gradient-to-br dark:from-[#F5D470] dark:via-[#e8b830] dark:to-[#F5D470] dark:hover:brightness-105 dark:text-[#1A0800] text-sm font-semibold px-4 py-2 rounded-lg transition-all dark:shadow-[0_2px_12px_rgba(232,184,48,0.35)]"
+            className="flex items-center gap-2 bg-[#D9B14E] hover:bg-[#B98F35] text-white shadow-[0_2px_12px_rgba(168,85,247,0.35)] dark:bg-gradient-to-br dark:from-[#E8C766] dark:via-[#e8b830] dark:to-[#E8C766] dark:hover:brightness-105 dark:text-[#1A0800] text-sm font-semibold px-4 py-2 rounded-lg transition-all dark:shadow-[0_2px_12px_rgba(232,184,48,0.35)]"
           >
             <Plus size={16} /> Novo evento
           </button>
@@ -205,13 +205,13 @@ export default function InternoLanding() {
       {/* Events list */}
       {loading ? (
         <div className="flex justify-center py-16">
-          <div className="h-6 w-6 border-2 border-[#a855f7] border-t-transparent rounded-full animate-spin" />
+          <div className="h-6 w-6 border-2 border-[#D9B14E] border-t-transparent rounded-full animate-spin" />
         </div>
       ) : events.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <Globe size={40} className="text-gray-300 mb-3" />
           <p className="text-gray-400 text-sm">Nenhum evento cadastrado ainda</p>
-          <button onClick={openNew} className="mt-4 text-[#a855f7] text-sm font-medium hover:underline">
+          <button onClick={openNew} className="mt-4 text-[#D9B14E] text-sm font-medium hover:underline">
             Adicionar primeiro evento
           </button>
         </div>
@@ -220,15 +220,15 @@ export default function InternoLanding() {
           {events.map((ev) => (
             <div
               key={ev.id}
-              className={`flex items-center gap-4 rounded-xl border bg-white dark:bg-[#1a1128] p-4 transition-all ${
+              className={`flex items-center gap-4 rounded-xl border bg-white dark:bg-[#1A1916] p-4 transition-all ${
                 ev.show_on_landing
-                  ? 'border-gray-200 dark:border-[#3d2e60]'
-                  : 'border-dashed border-gray-200 dark:border-[#3d2e60] opacity-60'
+                  ? 'border-gray-200 dark:border-[#34322B]'
+                  : 'border-dashed border-gray-200 dark:border-[#34322B] opacity-60'
               }`}
             >
               {/* Flyer thumb */}
               <div
-                className="shrink-0 rounded-lg overflow-hidden bg-gray-100 dark:bg-[#261a3d]"
+                className="shrink-0 rounded-lg overflow-hidden bg-gray-100 dark:bg-[#242320]"
                 style={{ width: 64, height: 64 }}
               >
                 {ev.flyer_mobile_url ? (
@@ -267,7 +267,7 @@ export default function InternoLanding() {
                     href={ev.link}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-[11px] text-[#a855f7] hover:underline flex items-center gap-1 mt-0.5"
+                    className="text-[11px] text-[#D9B14E] hover:underline flex items-center gap-1 mt-0.5"
                   >
                     <ExternalLink size={10} /> {ev.link.length > 50 ? ev.link.slice(0, 50) + '…' : ev.link}
                   </a>
@@ -276,7 +276,7 @@ export default function InternoLanding() {
 
               {/* Click counter */}
               <div className="flex flex-col items-center shrink-0 min-w-[52px]" title="Cliques no botão de ingresso">
-                <div className="flex items-center gap-1 text-[#a855f7]">
+                <div className="flex items-center gap-1 text-[#D9B14E]">
                   <MousePointerClick size={13} />
                   <span className="text-sm font-bold">{(clicks[ev.id] || 0).toLocaleString('pt-BR')}</span>
                 </div>
@@ -297,14 +297,14 @@ export default function InternoLanding() {
                   className={`p-2 rounded-lg transition-colors ${
                     ev.show_on_landing
                       ? 'text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20'
-                      : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-[#261a3d]'
+                      : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-[#242320]'
                   }`}
                 >
                   {ev.show_on_landing ? <Eye size={15} /> : <EyeOff size={15} />}
                 </button>
                 <button
                   onClick={() => openEdit(ev)}
-                  className="p-2 rounded-lg text-gray-400 hover:text-[#a855f7] hover:bg-[#a855f7]/10 dark:hover:bg-[#a855f7]/25 transition-colors"
+                  className="p-2 rounded-lg text-gray-400 hover:text-[#D9B14E] hover:bg-[#D9B14E]/10 dark:hover:bg-[#D9B14E]/25 transition-colors"
                 >
                   <Pencil size={15} />
                 </button>
@@ -346,7 +346,7 @@ export default function InternoLanding() {
                 <select
                   value={form.tag ?? 'ABERTO'}
                   onChange={(e) => setForm((f) => ({ ...f, tag: e.target.value }))}
-                  className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#a855f7]"
+                  className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#D9B14E]"
                 >
                   <option value="ABERTO">ABERTO</option>
                   <option value="ESGOTADO">ESGOTADO</option>
@@ -371,8 +371,8 @@ export default function InternoLanding() {
                       <button type="button" onClick={() => mobileInputRef.current?.click()} className="absolute bottom-1 right-1 bg-black/60 rounded text-white text-[10px] px-1.5 py-0.5 hover:bg-black/80">Trocar</button>
                     </div>
                   ) : (
-                    <div onClick={() => mobileInputRef.current?.click()} className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 cursor-pointer hover:border-[#a855f7] hover:bg-[#a855f7]/10 transition-colors" style={{ height: 80 }}>
-                      {uploadingMobile ? <div className="h-5 w-5 border-2 border-[#a855f7] border-t-transparent rounded-full animate-spin" /> : <><Upload size={18} className="text-gray-400 mb-1" /><span className="text-[11px] text-gray-400">Clique para enviar</span></>}
+                    <div onClick={() => mobileInputRef.current?.click()} className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 cursor-pointer hover:border-[#D9B14E] hover:bg-[#D9B14E]/10 transition-colors" style={{ height: 80 }}>
+                      {uploadingMobile ? <div className="h-5 w-5 border-2 border-[#D9B14E] border-t-transparent rounded-full animate-spin" /> : <><Upload size={18} className="text-gray-400 mb-1" /><span className="text-[11px] text-gray-400">Clique para enviar</span></>}
                     </div>
                   )}
                   <input ref={mobileInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadFlyer(f, 'mobile'); }} />
@@ -381,7 +381,7 @@ export default function InternoLanding() {
                 {/* Desktop flyer */}
                 <div>
                   <label className="block text-xs font-medium text-gray-500 mb-1">Flyer Desktop (banner largo)</label>
-                  <div onClick={() => !form.flyer_desktop_url && desktopInputRef.current?.click()} className={`relative rounded-lg overflow-hidden border-2 border-dashed border-gray-200 bg-gray-50 transition-colors ${!form.flyer_desktop_url ? 'cursor-pointer hover:border-[#a855f7] hover:bg-[#a855f7]/10' : ''}`} style={{ height: 70 }}>
+                  <div onClick={() => !form.flyer_desktop_url && desktopInputRef.current?.click()} className={`relative rounded-lg overflow-hidden border-2 border-dashed border-gray-200 bg-gray-50 transition-colors ${!form.flyer_desktop_url ? 'cursor-pointer hover:border-[#D9B14E] hover:bg-[#D9B14E]/10' : ''}`} style={{ height: 70 }}>
                     {form.flyer_desktop_url ? (
                       <>
                         <img src={form.flyer_desktop_url} alt="desktop" className="h-full w-full object-cover" />
@@ -389,7 +389,7 @@ export default function InternoLanding() {
                         <button type="button" onClick={() => desktopInputRef.current?.click()} className="absolute bottom-1 right-1 bg-black/60 rounded text-white text-[10px] px-1.5 py-0.5 hover:bg-black/80">Trocar</button>
                       </>
                     ) : uploadingDesktop ? (
-                      <div className="h-full flex items-center justify-center"><div className="h-5 w-5 border-2 border-[#a855f7] border-t-transparent rounded-full animate-spin" /></div>
+                      <div className="h-full flex items-center justify-center"><div className="h-5 w-5 border-2 border-[#D9B14E] border-t-transparent rounded-full animate-spin" /></div>
                     ) : (
                       <div className="h-full flex flex-col items-center justify-center"><Upload size={18} className="text-gray-400 mb-1" /><span className="text-[11px] text-gray-400">Clique para enviar (banner)</span></div>
                     )}
@@ -413,7 +413,7 @@ export default function InternoLanding() {
               {/* Actions */}
               <div className="flex gap-3 pt-1 pb-2">
                 <button onClick={() => setModalOpen(false)} className="flex-1 py-2.5 rounded-lg border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors">Cancelar</button>
-                <button onClick={handleSave} disabled={saving} className="flex-1 py-2.5 rounded-lg bg-[#a855f7] hover:bg-[#9333ea] text-white text-sm font-medium transition-colors disabled:opacity-60">
+                <button onClick={handleSave} disabled={saving} className="flex-1 py-2.5 rounded-lg bg-[#D9B14E] hover:bg-[#B98F35] text-white text-sm font-medium transition-colors disabled:opacity-60">
                   {saving ? 'Salvando…' : 'Salvar'}
                 </button>
               </div>
@@ -437,7 +437,7 @@ export default function InternoLanding() {
                   {/* Info */}
                   <div className="flex-1 min-w-0">
                     <p className="font-bold text-white text-xs leading-tight truncate">{form.nome || 'Nome do evento'}</p>
-                    {form.artista && <p className="text-[11px] font-semibold truncate mt-0.5" style={{ color: '#F5D470' }}>{form.artista}</p>}
+                    {form.artista && <p className="text-[11px] font-semibold truncate mt-0.5" style={{ color: '#E8C766' }}>{form.artista}</p>}
                     {form.guests && <p className="text-[10px] truncate" style={{ color: 'rgba(255,255,255,0.4)' }}>{form.guests}</p>}
                     <p className="text-[10px] mt-0.5" style={{ color: 'rgba(255,255,255,0.45)' }}>
                       {form.data
@@ -447,7 +447,7 @@ export default function InternoLanding() {
                     </p>
                   </div>
                   {/* Ticket btn */}
-                  <div className="shrink-0 flex items-center justify-center rounded-xl" style={{ width: 38, height: 38, backgroundColor: '#F5D470' }}>
+                  <div className="shrink-0 flex items-center justify-center rounded-xl" style={{ width: 38, height: 38, backgroundColor: '#E8C766' }}>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1A0800" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M2 9a1 1 0 0 1 0-2V5a1 1 0 0 1 1-1h18a1 1 0 0 1 1 1v2a1 1 0 0 1 0 2v2a1 1 0 0 1 0 2v2a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1v-2a1 1 0 0 1 0-2V9z"/>
                       <line x1="9" y1="4" x2="9" y2="20" strokeDasharray="2 2"/>
@@ -471,7 +471,7 @@ export default function InternoLanding() {
                   <div className="p-3 flex flex-col gap-2">
                     <div className="flex justify-between items-center">
                       <span className="text-[9px] tracking-widest px-2 py-0.5 rounded-full"
-                        style={{ border: `1px solid ${form.tag === 'ABERTO' ? '#F5D470' : 'rgba(255,255,255,0.15)'}`, color: form.tag === 'ABERTO' ? '#F5D470' : 'rgba(255,255,255,0.35)' }}>
+                        style={{ border: `1px solid ${form.tag === 'ABERTO' ? '#E8C766' : 'rgba(255,255,255,0.15)'}`, color: form.tag === 'ABERTO' ? '#E8C766' : 'rgba(255,255,255,0.35)' }}>
                         {form.tag || 'ABERTO'}
                       </span>
                       <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.4)' }}>
@@ -480,10 +480,10 @@ export default function InternoLanding() {
                     </div>
                     <div>
                       <p className="text-sm font-bold text-white leading-tight">{form.nome || 'Nome do evento'}</p>
-                      {form.artista && <p className="text-xs font-semibold mt-0.5" style={{ color: '#F5D470' }}>{form.artista}</p>}
+                      {form.artista && <p className="text-xs font-semibold mt-0.5" style={{ color: '#E8C766' }}>{form.artista}</p>}
                       {form.guests && <p className="text-[10px] mt-0.5" style={{ color: 'rgba(255,255,255,0.4)' }}>special guests: <span style={{ color: 'rgba(255,255,255,0.65)' }}>{form.guests}</span></p>}
                     </div>
-                    <div className="text-center text-[9px] tracking-widest py-2 rounded-xl font-bold" style={{ background: 'linear-gradient(135deg,#F5D470 0%,#e8b830 50%,#F5D470 100%)', color: '#1A0800' }}>
+                    <div className="text-center text-[9px] tracking-widest py-2 rounded-xl font-bold" style={{ background: 'linear-gradient(135deg,#E8C766 0%,#e8b830 50%,#E8C766 100%)', color: '#1A0800' }}>
                       COMPRAR INGRESSO
                     </div>
                   </div>

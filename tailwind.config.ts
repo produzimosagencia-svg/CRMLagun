@@ -18,45 +18,158 @@ export default {
   	},
   	extend: {
   		fontFamily: {
-  			bagel: [
-  				'Bagel Fat One',
-  				'cursive'
+  			display: [
+  				'Fraunces',
+  				'ui-serif',
+  				'Georgia',
+  				'serif'
   			],
   			sans: [
-  				'DM Sans',
+  				'Instrument Sans',
   				'ui-sans-serif',
   				'system-ui',
   				'-apple-system',
-  				'BlinkMacSystemFont',
   				'Segoe UI',
   				'Roboto',
-  				'Helvetica Neue',
   				'Arial',
-  				'Noto Sans',
   				'sans-serif'
   			],
   			serif: [
-  				'Crimson Pro',
+  				'Fraunces',
   				'ui-serif',
   				'Georgia',
-  				'Cambria',
-  				'Times New Roman',
-  				'Times',
   				'serif'
   			],
   			mono: [
-  				'SF Mono',
+  				'IBM Plex Mono',
   				'ui-monospace',
   				'SFMono-Regular',
   				'Menlo',
-  				'Monaco',
   				'Consolas',
-  				'Liberation Mono',
-  				'Courier New',
   				'monospace'
   			]
   		},
   		colors: {
+  			// Rampa neutra quente do sistema — substitui o gray frio/azulado do Tailwind
+  			gray: {
+  				50: '#FAFAF7',
+  				100: '#F2F0EA',
+  				200: '#E7E4DC',
+  				300: '#D9D5CA',
+  				400: '#A8A294',
+  				500: '#8A857B',
+  				600: '#6F6A5E',
+  				700: '#4E4A42',
+  				800: '#2A2822',
+  				900: '#1A1916',
+  				950: '#121110'
+  			},
+  			slate: {
+  				50: '#FAFAF7',
+  				100: '#F2F0EA',
+  				200: '#E7E4DC',
+  				300: '#D9D5CA',
+  				400: '#A8A294',
+  				500: '#8A857B',
+  				600: '#6F6A5E',
+  				700: '#4E4A42',
+  				800: '#2A2822',
+  				900: '#1A1916',
+  				950: '#121110'
+  			},
+  			// Rampa latão/ouro da marca — substitui os acentos roxo/azul genéricos
+  			purple: {
+  				50: '#FBF7EC',
+  				100: '#F5EDD5',
+  				200: '#EBDCAC',
+  				300: '#E8C766',
+  				400: '#D9B14E',
+  				500: '#B98F35',
+  				600: '#9A7B2D',
+  				700: '#7C6224',
+  				800: '#5C491C',
+  				900: '#3E3113',
+  				950: '#251D0B'
+  			},
+  			indigo: {
+  				50: '#FBF7EC',
+  				100: '#F5EDD5',
+  				200: '#EBDCAC',
+  				300: '#E8C766',
+  				400: '#D9B14E',
+  				500: '#B98F35',
+  				600: '#9A7B2D',
+  				700: '#7C6224',
+  				800: '#5C491C',
+  				900: '#3E3113',
+  				950: '#251D0B'
+  			},
+  			violet: {
+  				50: '#FBF7EC',
+  				100: '#F5EDD5',
+  				200: '#EBDCAC',
+  				300: '#E8C766',
+  				400: '#D9B14E',
+  				500: '#B98F35',
+  				600: '#9A7B2D',
+  				700: '#7C6224',
+  				800: '#5C491C',
+  				900: '#3E3113',
+  				950: '#251D0B'
+  			},
+  			blue: {
+  				50: '#FBF7EC',
+  				100: '#F5EDD5',
+  				200: '#EBDCAC',
+  				300: '#E8C766',
+  				400: '#D9B14E',
+  				500: '#B98F35',
+  				600: '#9A7B2D',
+  				700: '#7C6224',
+  				800: '#5C491C',
+  				900: '#3E3113',
+  				950: '#251D0B'
+  			},
+  			sky: {
+  				50: '#FBF7EC',
+  				100: '#F5EDD5',
+  				200: '#EBDCAC',
+  				300: '#E8C766',
+  				400: '#D9B14E',
+  				500: '#B98F35',
+  				600: '#9A7B2D',
+  				700: '#7C6224',
+  				800: '#5C491C',
+  				900: '#3E3113',
+  				950: '#251D0B'
+  			},
+  			cyan: {
+  				50: '#FBF7EC',
+  				100: '#F5EDD5',
+  				200: '#EBDCAC',
+  				300: '#E8C766',
+  				400: '#D9B14E',
+  				500: '#B98F35',
+  				600: '#9A7B2D',
+  				700: '#7C6224',
+  				800: '#5C491C',
+  				900: '#3E3113',
+  				950: '#251D0B'
+  			},
+  			fuchsia: {
+  				50: '#FBF7EC',
+  				100: '#F5EDD5',
+  				200: '#EBDCAC',
+  				300: '#E8C766',
+  				400: '#D9B14E',
+  				500: '#B98F35',
+  				600: '#9A7B2D',
+  				700: '#7C6224',
+  				800: '#5C491C',
+  				900: '#3E3113',
+  				950: '#251D0B'
+  			},
+  			brand: 'var(--brand)',
   			border: 'var(--border)',
   			input: 'var(--input)',
   			ring: 'var(--ring)',

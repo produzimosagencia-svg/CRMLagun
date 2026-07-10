@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { confirmDialog } from '@/components/ConfirmDialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -84,7 +85,13 @@ export default function CrmCustomerDetail() {
   }
 
   async function handleDeleteCustomer() {
-    if (!confirm('Tem certeza que deseja excluir este cliente e todas as suas compras?')) return;
+    const ok = await confirmDialog({
+      title: 'Excluir cliente',
+      description: 'Tem certeza que deseja excluir este cliente e todas as suas compras?',
+      confirmText: 'Excluir',
+      destructive: true,
+    });
+    if (!ok) return;
     const { error } = await supabase.from('crm_customers').delete().eq('id', id) as any;
     if (error) toast.error(error.message);
     else {

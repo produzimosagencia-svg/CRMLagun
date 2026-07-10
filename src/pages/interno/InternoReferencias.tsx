@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { confirmDialog } from '@/components/ConfirmDialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -105,7 +106,13 @@ export default function InternoReferencias() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm('Excluir esta referência?')) return;
+    const ok = await confirmDialog({
+      title: 'Excluir referência',
+      description: 'Excluir esta referência?',
+      confirmText: 'Excluir',
+      destructive: true,
+    });
+    if (!ok) return;
     const { error } = await supabase.from('creative_references').delete().eq('id', id);
     if (error) { toast.error(error.message); return; }
     toast.success('Excluída');

@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useRef, DragEvent } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,6 +9,7 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, GripVertical, Calendar, Flag, Paperclip, Circle, Loader2, CheckCircle2, Trash2, Upload, X, LayoutGrid, List, Home } from 'lucide-react';
 import { toast } from 'sonner';
+import { confirmDialog } from '@/components/ConfirmDialog';
 import { useAuth } from '@/hooks/useAuth';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
@@ -37,8 +39,9 @@ interface EventInfo {
   show_on_landing?: boolean;
 }
 
-// Evento fixo da casa
-const LAGUN_EVENT: EventInfo = { id: 'lagun-fixo', name: 'Lagun', show_on_landing: false };
+// Evento fixo da casa — precisa ser um uuid válido (coluna event_id é uuid),
+// mas não corresponde a nenhuma linha real; é resolvido só no client (getEvent()).
+const LAGUN_EVENT: EventInfo = { id: '00000000-0000-0000-0000-000000000000', name: 'Lagun', show_on_landing: false };
 
 const STATUS_COLUMNS = [
   { key: 'pendente', label: 'Pendente', color: 'bg-yellow-500', bg: 'bg-yellow-500/10', text: 'text-yellow-600', border: 'border-yellow-500/20', icon: Circle },
@@ -50,6 +53,18 @@ const PRIORITIES = [
   { key: 'razoavel', label: 'Razoável', color: 'text-blue-500', bg: 'bg-blue-500/10' },
   { key: 'urgente', label: 'Urgente', color: 'text-red-500', bg: 'bg-red-500/10' },
 ];
+
+const IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg'];
+function isImageUrl(url: string) {
+  const clean = url.split('?')[0].toLowerCase();
+  return IMAGE_EXTENSIONS.some(ext => clean.endsWith(ext));
+}
+function attachmentFileName(url: string) {
+  const clean = url.split('?')[0];
+  const name = decodeURIComponent(clean.split('/').pop() || 'arquivo');
+  // remove o uuid- prefixado no upload (tasks/<uuid>-nome.ext)
+  return name.replace(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-/i, '');
+}
 
 function getDateUrgencyClass(dateStr: string | null): string {
   if (!dateStr) return 'text-gray-400';
@@ -65,6 +80,7 @@ function getDateUrgencyClass(dateStr: string | null): string {
 
 export default function InternoTarefas() {
   const { user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [tasks, setTasks] = useState<TeamTask[]>([]);
   const [profiles, setProfiles] = useState<ProfileInfo[]>([]);
   const [events, setEvents] = useState<EventInfo[]>([]);
@@ -115,6 +131,17 @@ export default function InternoTarefas() {
 
   useEffect(() => { load(); }, [load]);
 
+  // Deep-link vindo de uma notificação (?task=id) — abre a tarefa assim que carregar
+  useEffect(() => {
+    const taskId = searchParams.get('task');
+    if (!taskId || tasks.length === 0) return;
+    const task = tasks.find((t) => t.id === taskId);
+    if (task) {
+      setSelectedTask(task);
+      setSearchParams((prev) => { prev.delete('task'); return prev; }, { replace: true });
+    }
+  }, [tasks, searchParams, setSearchParams]);
+
   const getProfileName = (userId: string | null) => {
     if (!userId) return null;
     const p = profiles.find(pr => pr.id === userId);
@@ -145,6 +172,9 @@ export default function InternoTarefas() {
       if (!error) {
         const { data } = supabase.storage.from('design-attachments').getPublicUrl(path);
         attachmentUrls.push(data.publicUrl);
+      } else {
+        console.error('Erro ao enviar anexo:', file.name, error);
+        toast.error(`Erro ao enviar "${file.name}": ${error.message}`);
       }
     }
 
@@ -159,7 +189,7 @@ export default function InternoTarefas() {
       attachments: attachmentUrls,
     });
 
-    if (error) { toast.error('Erro ao criar tarefa'); }
+    if (error) { console.error('Erro ao criar tarefa:', error); toast.error('Erro ao criar tarefa: ' + error.message); }
     else {
       toast.success('Tarefa criada!');
       setShowCreate(false);
@@ -252,6 +282,7 @@ export default function InternoTarefas() {
     const task = tasks.find(t => t.id === taskId);
     const current = task?.attachments || [];
     const newUrls: string[] = [];
+    let failCount = 0;
     for (let i = 0; i < fileList.length; i++) {
       const file = fileList[i];
       const path = `tasks/${crypto.randomUUID()}-${file.name}`;
@@ -259,19 +290,37 @@ export default function InternoTarefas() {
       if (!error) {
         const { data } = supabase.storage.from('design-attachments').getPublicUrl(path);
         newUrls.push(data.publicUrl);
+      } else {
+        console.error('Erro ao enviar anexo:', file.name, error);
+        failCount++;
       }
     }
-    const updated = [...current, ...newUrls];
-    const { error } = await supabase.from('team_tasks').update({ attachments: updated }).eq('id', taskId);
-    if (!error) {
-      setTasks(prev => prev.map(t => t.id === taskId ? { ...t, attachments: updated } : t));
-      if (selectedTask?.id === taskId) setSelectedTask(prev => prev ? { ...prev, attachments: updated } : null);
-      toast.success(`${newUrls.length} arquivo(s) enviado(s)`);
+    if (newUrls.length > 0) {
+      const updated = [...current, ...newUrls];
+      const { error } = await supabase.from('team_tasks').update({ attachments: updated }).eq('id', taskId);
+      if (error) {
+        console.error('Erro ao salvar anexos na tarefa:', error);
+        toast.error('Arquivo enviado, mas erro ao salvar na tarefa: ' + error.message);
+      } else {
+        setTasks(prev => prev.map(t => t.id === taskId ? { ...t, attachments: updated } : t));
+        if (selectedTask?.id === taskId) setSelectedTask(prev => prev ? { ...prev, attachments: updated } : null);
+        toast.success(`${newUrls.length} arquivo(s) enviado(s)`);
+      }
+    }
+    if (failCount > 0) {
+      toast.error(`${failCount} arquivo(s) falharam ao enviar`);
     }
     setUploadingFile(false);
   }
 
   async function handleDeleteTask(taskId: string) {
+    const ok = await confirmDialog({
+      title: 'Excluir tarefa',
+      description: 'Tem certeza que deseja excluir esta tarefa? Essa ação não pode ser desfeita.',
+      confirmText: 'Excluir',
+      destructive: true,
+    });
+    if (!ok) return;
     const { error } = await supabase.from('team_tasks').delete().eq('id', taskId);
     if (!error) {
       setTasks(prev => prev.filter(t => t.id !== taskId));
@@ -595,9 +644,6 @@ export default function InternoTarefas() {
                       {getProfileName(selectedTask.created_by) && ` por ${getProfileName(selectedTask.created_by)}`}
                     </p>
                   </div>
-                  <button onClick={() => handleDeleteTask(selectedTask.id)} className="text-gray-300 hover:text-red-500 transition-colors p-1">
-                    <Trash2 size={16} />
-                  </button>
                 </div>
               </div>
 
@@ -702,15 +748,32 @@ export default function InternoTarefas() {
                   <label className="text-xs font-medium text-gray-500 mb-2 block">Anexos</label>
                   <div className="flex flex-wrap gap-2">
                     {selectedTask.attachments?.map((url, i) => (
-                      <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="h-16 w-16 rounded-lg overflow-hidden border border-gray-100 dark:border-gray-800 hover:ring-2 ring-blue-500 transition-all">
-                        <img src={url} alt="" className="h-full w-full object-cover" />
-                      </a>
+                      isImageUrl(url) ? (
+                        <a key={i} href={url} target="_blank" rel="noopener noreferrer" title={attachmentFileName(url)} className="h-16 w-16 rounded-lg overflow-hidden border border-gray-100 dark:border-gray-800 hover:ring-2 ring-blue-500 transition-all">
+                          <img src={url} alt="" className="h-full w-full object-cover" />
+                        </a>
+                      ) : (
+                        <a key={i} href={url} target="_blank" rel="noopener noreferrer" title={attachmentFileName(url)} className="h-16 w-16 rounded-lg border border-gray-100 dark:border-gray-800 hover:ring-2 ring-blue-500 transition-all flex flex-col items-center justify-center gap-1 p-1.5 text-center">
+                          <Paperclip size={16} className="text-gray-400 shrink-0" />
+                          <span className="text-[9px] text-gray-500 dark:text-gray-400 leading-tight line-clamp-2 break-all">{attachmentFileName(url)}</span>
+                        </a>
+                      )
                     ))}
                     <label className="h-16 w-16 rounded-lg border-2 border-dashed border-gray-200 dark:border-gray-700 flex items-center justify-center cursor-pointer hover:border-blue-400 transition-colors">
                       {uploadingFile ? <Loader2 size={16} className="animate-spin text-gray-400" /> : <Upload size={16} className="text-gray-300" />}
                       <input type="file" multiple className="hidden" onChange={e => e.target.files && handleUploadAttachment(selectedTask.id, e.target.files)} />
                     </label>
                   </div>
+                </div>
+
+                {/* Excluir */}
+                <div className="pt-2 border-t border-gray-100 dark:border-gray-800">
+                  <button
+                    onClick={() => handleDeleteTask(selectedTask.id)}
+                    className="w-full flex items-center justify-center gap-2 py-2 rounded-xl text-sm font-medium text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors"
+                  >
+                    <Trash2 size={14} /> Excluir tarefa
+                  </button>
                 </div>
               </div>
             </>

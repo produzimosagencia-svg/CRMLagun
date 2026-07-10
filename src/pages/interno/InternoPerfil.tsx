@@ -23,7 +23,7 @@ export default function InternoPerfil() {
     supabase
       .from('profiles')
       .select('full_name, avatar_url, squad')
-      .eq('user_id', user.id)
+      .eq('id', user.id)
       .maybeSingle()
       .then(({ data }) => {
         if (data) {
@@ -63,7 +63,7 @@ export default function InternoPerfil() {
     await supabase
       .from('profiles')
       .update({ avatar_url: url })
-      .eq('user_id', user.id);
+      .eq('id', user.id);
 
     setUploading(false);
     toast.success('Foto atualizada!');
@@ -76,7 +76,7 @@ export default function InternoPerfil() {
     const { error } = await supabase
       .from('profiles')
       .update({ full_name: fullName })
-      .eq('user_id', user.id);
+      .eq('id', user.id);
 
     setSaving(false);
     if (error) {

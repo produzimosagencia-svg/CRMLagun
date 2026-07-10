@@ -67,12 +67,13 @@ Deno.serve(async (req) => {
 
     const userId = userData.user.id;
 
-    if (username) {
-      await supabaseAdmin
-        .from("profiles")
-        .update({ username, full_name })
-        .eq("user_id", userId);
-    }
+    // profiles usa `id` como referência ao usuário; upsert garante a linha
+    // mesmo sem trigger de auto-criação no banco
+    const { error: profileError } = await supabaseAdmin
+      .from("profiles")
+      .upsert({ id: userId, username: username || null, full_name });
+
+    if (profileError) throw profileError;
 
     const rolesToInsert = [{ user_id: userId, role: "partner" }];
     if (role && role !== "partner") {

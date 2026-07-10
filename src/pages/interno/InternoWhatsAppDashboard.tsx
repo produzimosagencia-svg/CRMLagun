@@ -171,7 +171,7 @@ export default function InternoWhatsAppDashboard() {
         {kpis.map((kpi) => (
           <div
             key={kpi.label}
-            className="rounded-xl border border-gray-200 dark:border-[#32264a] bg-white dark:bg-[#1a1128] p-3.5 hover:border-gray-300 dark:hover:border-[#4b3a75] transition-all flex flex-col gap-2"
+            className="rounded-xl border border-gray-200 dark:border-[#2A2822] bg-white dark:bg-[#1A1916] p-3.5 hover:border-gray-300 dark:hover:border-[#3A372F] transition-all flex flex-col gap-2"
           >
             <div className={`flex h-7 w-7 items-center justify-center rounded-lg ${kpi.color}`}>
               <kpi.icon size={13} />
@@ -185,7 +185,7 @@ export default function InternoWhatsAppDashboard() {
         ))}
       </div>
 
-      <div className="rounded-xl border border-gray-200 dark:border-[#32264a] bg-white dark:bg-[#1a1128] p-5">
+      <div className="rounded-xl border border-gray-200 dark:border-[#2A2822] bg-white dark:bg-[#1A1916] p-5">
         <h3 className="text-xs font-semibold text-gray-900 dark:text-gray-100 mb-1">Campanhas de Disparo</h3>
         <div className="text-center py-12 text-gray-400 dark:text-gray-500">
           <Send className="h-12 w-12 mx-auto mb-3 opacity-30" />

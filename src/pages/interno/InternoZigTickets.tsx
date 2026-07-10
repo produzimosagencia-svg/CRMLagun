@@ -355,8 +355,9 @@ export default function InternoEventos() {
       c.full_name, c.email || '', c.phone || '', c.city || '',
       c.ticket_type || '', c.total_value, CLASSIFICATION_LABELS[c.classification]
     ]);
-    const csv = [headers.join(','), ...rows.map(r => r.map(v => `"${v}"`).join(','))].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    // Ponto-e-vírgula: separador esperado pelo Excel em português (vírgula = decimal)
+    const csv = [headers.join(';'), ...rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(';'))].join('\r\n');
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;

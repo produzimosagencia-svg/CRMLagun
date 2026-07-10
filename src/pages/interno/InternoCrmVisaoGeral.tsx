@@ -110,9 +110,10 @@ export default function InternoCrmVisaoGeral() {
         c.full_name ?? '', c.email ?? '', c.phone ?? '',
         c.birth_date ?? '', (c as any).city ?? '', (c as any).neighborhood ?? '',
       ]);
+      // Ponto-e-vírgula: separador esperado pelo Excel em português (vírgula = decimal)
       const csv = [headers, ...rows]
-        .map(row => row.map(v => `"${String(v).replace(/"/g, '""')}"`).join(','))
-        .join('\n');
+        .map(row => row.map(v => `"${String(v).replace(/"/g, '""')}"`).join(';'))
+        .join('\r\n');
       const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -304,10 +305,10 @@ export default function InternoCrmVisaoGeral() {
       <div className="flex gap-4 items-start">
 
         {/* ── Sidebar ── */}
-        <div className="hidden lg:flex flex-col w-60 shrink-0 rounded-xl border border-gray-200 dark:border-[#3d2e60] bg-white dark:bg-[#1a1128] overflow-hidden">
+        <div className="hidden lg:flex flex-col w-60 shrink-0 rounded-xl border border-gray-200 dark:border-[#34322B] bg-white dark:bg-[#1A1916] overflow-hidden">
 
           {/* Tabs */}
-          <div className="flex border-b border-gray-100 dark:border-[#32264a]">
+          <div className="flex border-b border-gray-100 dark:border-[#2A2822]">
             {(['eventos', 'rankings'] as const).map(tab => (
               <button
                 key={tab}
@@ -334,14 +335,14 @@ export default function InternoCrmVisaoGeral() {
                     placeholder="Buscar evento…"
                     value={eventSearch}
                     onChange={e => setEventSearch(e.target.value)}
-                    className="w-full pl-7 pr-3 py-1.5 text-xs rounded-lg border border-gray-200 dark:border-[#3d2e60] bg-gray-50 dark:bg-[#261a3d] text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-purple-400"
+                    className="w-full pl-7 pr-3 py-1.5 text-xs rounded-lg border border-gray-200 dark:border-[#34322B] bg-gray-50 dark:bg-[#242320] text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-purple-400"
                   />
                 </div>
               </div>
               {/* All */}
               <button
                 onClick={() => setSelectedEvent(null)}
-                className={`flex items-center justify-between w-full px-3 py-2 text-xs transition-colors hover:bg-gray-50 dark:hover:bg-[#261a3d]/60 ${
+                className={`flex items-center justify-between w-full px-3 py-2 text-xs transition-colors hover:bg-gray-50 dark:hover:bg-[#242320]/60 ${
                   !selectedEvent ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 font-semibold' : 'text-gray-700 dark:text-gray-300'
                 }`}
               >
@@ -351,7 +352,7 @@ export default function InternoCrmVisaoGeral() {
               {filteredEvents.map(ev => (
                 <div
                   key={ev.name}
-                  className={`group flex items-center border-t border-gray-50 dark:border-[#32264a]/50 transition-colors hover:bg-gray-50 dark:hover:bg-[#261a3d]/60 ${
+                  className={`group flex items-center border-t border-gray-50 dark:border-[#2A2822]/50 transition-colors hover:bg-gray-50 dark:hover:bg-[#242320]/60 ${
                     selectedEvent === ev.name ? 'bg-purple-50 dark:bg-purple-900/20' : ''
                   }`}
                 >
@@ -368,7 +369,7 @@ export default function InternoCrmVisaoGeral() {
                     onClick={e => { e.stopPropagation(); exportCSV(ev.name); }}
                     disabled={exportingEvent === ev.name}
                     title="Exportar CSV"
-                    className="shrink-0 mr-2 p-1.5 rounded-md bg-gray-100 dark:bg-[#322452] hover:bg-purple-100 dark:hover:bg-purple-900/40 text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 transition-colors disabled:opacity-50"
+                    className="shrink-0 mr-2 p-1.5 rounded-md bg-gray-100 dark:bg-[#242320] hover:bg-purple-100 dark:hover:bg-purple-900/40 text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 transition-colors disabled:opacity-50"
                   >
                     {exportingEvent === ev.name
                       ? <Loader2 size={12} className="animate-spin" />
@@ -382,7 +383,7 @@ export default function InternoCrmVisaoGeral() {
             <div className="overflow-y-auto max-h-[520px] p-2 space-y-1">
               <p className="px-2 pt-1 pb-1 text-[10px] font-semibold uppercase tracking-wide text-gray-400">Por gasto total</p>
               {top10.map((e, i) => (
-                <div key={e.id} className="flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-[#261a3d]/60">
+                <div key={e.id} className="flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-[#242320]/60">
                   <span className="text-sm shrink-0 w-5 text-center">
                     {MEDAL[i] !== undefined ? MEDAL[i] : <span className="text-xs font-bold text-gray-400">{i + 1}</span>}
                   </span>
@@ -405,7 +406,7 @@ export default function InternoCrmVisaoGeral() {
             <select
               value={selectedEvent ?? ''}
               onChange={e => setSelectedEvent(e.target.value || null)}
-              className="w-full px-3 py-2 text-sm rounded-xl border border-gray-200 dark:border-[#3d2e60] bg-white dark:bg-[#261a3d] text-gray-800 dark:text-gray-200 focus:outline-none"
+              className="w-full px-3 py-2 text-sm rounded-xl border border-gray-200 dark:border-[#34322B] bg-white dark:bg-[#242320] text-gray-800 dark:text-gray-200 focus:outline-none"
             >
               <option value="">Todos os eventos</option>
               {eventStats.map(ev => <option key={ev.name} value={ev.name}>{ev.name}</option>)}
@@ -421,7 +422,7 @@ export default function InternoCrmVisaoGeral() {
                 className={`px-3 py-1 rounded-full text-xs font-semibold border transition-all ${
                   selectedEvent === ev.name
                     ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-purple-300 dark:border-purple-600'
-                    : 'bg-gray-50 dark:bg-[#261a3d] border-gray-200 dark:border-[#3d2e60] text-gray-500 dark:text-gray-400 hover:border-gray-300'
+                    : 'bg-gray-50 dark:bg-[#242320] border-gray-200 dark:border-[#34322B] text-gray-500 dark:text-gray-400 hover:border-gray-300'
                 }`}
               >
                 {ev.name}
@@ -433,8 +434,8 @@ export default function InternoCrmVisaoGeral() {
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
 
             {/* Top 10 por gasto */}
-            <div className="rounded-xl border border-gray-200 dark:border-[#3d2e60] bg-white dark:bg-[#1a1128] overflow-hidden">
-              <div className="px-4 py-3 border-b border-gray-100 dark:border-[#32264a] flex items-center justify-between">
+            <div className="rounded-xl border border-gray-200 dark:border-[#34322B] bg-white dark:bg-[#1A1916] overflow-hidden">
+              <div className="px-4 py-3 border-b border-gray-100 dark:border-[#2A2822] flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Trophy size={14} className="text-yellow-500" />
                   <h2 className="text-sm font-semibold text-gray-800 dark:text-gray-200">Top 10 — maiores gastadores</h2>
@@ -447,12 +448,12 @@ export default function InternoCrmVisaoGeral() {
               <div>
                 {top10.length === 0
                   ? Array.from({ length: 5 }).map((_, i) => (
-                      <div key={i} className="flex items-center gap-3 px-4 py-2.5 border-b border-gray-50 dark:border-[#32264a]/70">
-                        <div className="h-4 bg-gray-100 dark:bg-[#261a3d] rounded animate-pulse flex-1" />
+                      <div key={i} className="flex items-center gap-3 px-4 py-2.5 border-b border-gray-50 dark:border-[#2A2822]/70">
+                        <div className="h-4 bg-gray-100 dark:bg-[#242320] rounded animate-pulse flex-1" />
                       </div>
                     ))
                   : top10.map((c, i) => (
-                      <div key={c.id} className="flex items-center gap-3 px-4 py-2.5 border-b border-gray-50 dark:border-[#32264a]/70 last:border-0">
+                      <div key={c.id} className="flex items-center gap-3 px-4 py-2.5 border-b border-gray-50 dark:border-[#2A2822]/70 last:border-0">
                         <span className="w-6 text-sm text-center shrink-0">
                           {MEDAL[i] !== undefined ? MEDAL[i] : <span className="text-xs font-bold text-gray-400">{i + 1}</span>}
                         </span>
@@ -471,8 +472,8 @@ export default function InternoCrmVisaoGeral() {
             </div>
 
             {/* Top 10 por frequência */}
-            <div className="rounded-xl border border-gray-200 dark:border-[#3d2e60] bg-white dark:bg-[#1a1128] overflow-hidden">
-              <div className="px-4 py-3 border-b border-gray-100 dark:border-[#32264a] flex items-center justify-between">
+            <div className="rounded-xl border border-gray-200 dark:border-[#34322B] bg-white dark:bg-[#1A1916] overflow-hidden">
+              <div className="px-4 py-3 border-b border-gray-100 dark:border-[#2A2822] flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Repeat2 size={14} className="text-purple-500" />
                   <h2 className="text-sm font-semibold text-gray-800 dark:text-gray-200">Top 10 — mais eventos</h2>
@@ -485,12 +486,12 @@ export default function InternoCrmVisaoGeral() {
               <div>
                 {freqTop10.length === 0
                   ? Array.from({ length: 5 }).map((_, i) => (
-                      <div key={i} className="flex items-center gap-3 px-4 py-2.5 border-b border-gray-50 dark:border-[#32264a]/70">
-                        <div className="h-4 bg-gray-100 dark:bg-[#261a3d] rounded animate-pulse flex-1" />
+                      <div key={i} className="flex items-center gap-3 px-4 py-2.5 border-b border-gray-50 dark:border-[#2A2822]/70">
+                        <div className="h-4 bg-gray-100 dark:bg-[#242320] rounded animate-pulse flex-1" />
                       </div>
                     ))
                   : freqTop10.map((c, i) => (
-                      <div key={c.id} className="flex items-center gap-3 px-4 py-2.5 border-b border-gray-50 dark:border-[#32264a]/70 last:border-0">
+                      <div key={c.id} className="flex items-center gap-3 px-4 py-2.5 border-b border-gray-50 dark:border-[#2A2822]/70 last:border-0">
                         <span className="w-6 text-sm text-center shrink-0">
                           {MEDAL[i] !== undefined ? MEDAL[i] : <span className="text-xs font-bold text-gray-400">{i + 1}</span>}
                         </span>
@@ -528,16 +529,16 @@ export default function InternoCrmVisaoGeral() {
               placeholder="Buscar por nome, e-mail ou telefone…"
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="w-full pl-9 pr-4 py-2.5 text-sm rounded-xl border border-gray-200 dark:border-[#3d2e60] bg-white dark:bg-[#261a3d] text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500/30 focus:border-purple-400 transition"
+              className="w-full pl-9 pr-4 py-2.5 text-sm rounded-xl border border-gray-200 dark:border-[#34322B] bg-white dark:bg-[#242320] text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500/30 focus:border-purple-400 transition"
             />
           </div>
 
           {/* Table */}
-          <div className="rounded-xl border border-gray-200 dark:border-[#3d2e60] bg-white dark:bg-[#1a1128] overflow-hidden">
+          <div className="rounded-xl border border-gray-200 dark:border-[#34322B] bg-white dark:bg-[#1A1916] overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-gray-100 dark:border-[#32264a] bg-gray-50 dark:bg-[#261a3d]/60">
+                  <tr className="border-b border-gray-100 dark:border-[#2A2822] bg-gray-50 dark:bg-[#242320]/60">
                     <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Nome</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide hidden md:table-cell">Contato</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide hidden lg:table-cell">Nascimento</th>
@@ -549,11 +550,11 @@ export default function InternoCrmVisaoGeral() {
                   {loading ? (
                     Array.from({ length: 8 }).map((_, i) => (
                       <tr key={i}>
-                        <td className="px-4 py-3"><div className="h-4 bg-gray-100 dark:bg-[#261a3d] rounded animate-pulse w-40" /></td>
-                        <td className="px-4 py-3 hidden md:table-cell"><div className="h-4 bg-gray-100 dark:bg-[#261a3d] rounded animate-pulse w-32" /></td>
-                        <td className="px-4 py-3 hidden lg:table-cell"><div className="h-4 bg-gray-100 dark:bg-[#261a3d] rounded animate-pulse w-24" /></td>
-                        <td className="px-4 py-3"><div className="h-4 bg-gray-100 dark:bg-[#261a3d] rounded animate-pulse w-8 mx-auto" /></td>
-                        <td className="px-4 py-3 hidden sm:table-cell"><div className="h-4 bg-gray-100 dark:bg-[#261a3d] rounded animate-pulse w-20 ml-auto" /></td>
+                        <td className="px-4 py-3"><div className="h-4 bg-gray-100 dark:bg-[#242320] rounded animate-pulse w-40" /></td>
+                        <td className="px-4 py-3 hidden md:table-cell"><div className="h-4 bg-gray-100 dark:bg-[#242320] rounded animate-pulse w-32" /></td>
+                        <td className="px-4 py-3 hidden lg:table-cell"><div className="h-4 bg-gray-100 dark:bg-[#242320] rounded animate-pulse w-24" /></td>
+                        <td className="px-4 py-3"><div className="h-4 bg-gray-100 dark:bg-[#242320] rounded animate-pulse w-8 mx-auto" /></td>
+                        <td className="px-4 py-3 hidden sm:table-cell"><div className="h-4 bg-gray-100 dark:bg-[#242320] rounded animate-pulse w-20 ml-auto" /></td>
                       </tr>
                     ))
                   ) : contacts.length === 0 ? (
@@ -566,7 +567,7 @@ export default function InternoCrmVisaoGeral() {
                         <tr
                           key={c.id}
                           onClick={() => setExpanded(expanded === c.id ? null : c.id)}
-                          className="hover:bg-gray-50 dark:hover:bg-[#261a3d]/50 cursor-pointer transition-colors"
+                          className="hover:bg-gray-50 dark:hover:bg-[#242320]/50 cursor-pointer transition-colors"
                         >
                           <td className="px-4 py-3">
                             <div className="font-medium text-gray-900 dark:text-gray-100">{c.full_name ?? '—'}</div>
@@ -582,8 +583,8 @@ export default function InternoCrmVisaoGeral() {
                             <span className={`inline-flex items-center justify-center h-6 w-6 rounded-full text-xs font-bold ${
                               c.event_count >= 3 ? 'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300' :
                               c.event_count >= 2 ? 'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300' :
-                              c.event_count >= 1 ? 'bg-gray-100 dark:bg-[#261a3d] text-gray-600 dark:text-gray-400' :
-                              'bg-gray-50 dark:bg-[#1a1128] text-gray-400'
+                              c.event_count >= 1 ? 'bg-gray-100 dark:bg-[#242320] text-gray-600 dark:text-gray-400' :
+                              'bg-gray-50 dark:bg-[#1A1916] text-gray-400'
                             }`}>
                               {c.event_count}
                             </span>
@@ -596,7 +597,7 @@ export default function InternoCrmVisaoGeral() {
                           </td>
                         </tr>
                         {expanded === c.id && (
-                          <tr key={`${c.id}-exp`} className="bg-gray-50 dark:bg-[#261a3d]/30">
+                          <tr key={`${c.id}-exp`} className="bg-gray-50 dark:bg-[#242320]/30">
                             <td colSpan={5} className="px-4 pb-4 pt-2">
                               <div className="space-y-2">
                                 {c.city && (
@@ -615,7 +616,7 @@ export default function InternoCrmVisaoGeral() {
                                           className={`px-2 py-0.5 text-xs rounded-full border transition-colors hover:border-purple-400 hover:text-purple-600 dark:hover:text-purple-300 ${
                                             selectedEvent === ev
                                               ? 'bg-purple-100 dark:bg-purple-900/30 border-purple-300 dark:border-purple-600 text-purple-700 dark:text-purple-300'
-                                              : 'bg-white dark:bg-[#322452] border-gray-200 dark:border-[#4b3a75] text-gray-600 dark:text-gray-300'
+                                              : 'bg-white dark:bg-[#242320] border-gray-200 dark:border-[#3A372F] text-gray-600 dark:text-gray-300'
                                           }`}
                                         >
                                           {ev}
@@ -636,18 +637,18 @@ export default function InternoCrmVisaoGeral() {
             </div>
 
             {/* Pagination */}
-            <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100 dark:border-[#32264a] bg-gray-50 dark:bg-[#261a3d]/40">
+            <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100 dark:border-[#2A2822] bg-gray-50 dark:bg-[#242320]/40">
               <p className="text-xs text-gray-500 dark:text-gray-400">
                 {total > 0
                   ? <>Mostrando {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, total)} de {total.toLocaleString('pt-BR')} clientes</>
                   : 'Nenhum resultado'}
               </p>
               <div className="flex items-center gap-1">
-                <button onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-[#322452] disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                <button onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-[#242320] disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
                   <ChevronLeft size={15} />
                 </button>
                 <span className="text-xs text-gray-500 px-1">{page + 1} / {totalPages || 1}</span>
-                <button onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))} disabled={page >= totalPages - 1} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-[#322452] disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                <button onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))} disabled={page >= totalPages - 1} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-[#242320] disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
                   <ChevronRight size={15} />
                 </button>
               </div>
@@ -668,7 +669,7 @@ function StatCard({ icon, label, value, color }: { icon: React.ReactNode; label:
     orange: 'text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20',
   };
   return (
-    <div className="rounded-xl border border-gray-200 dark:border-[#3d2e60] bg-white dark:bg-[#1a1128] p-4 flex items-start gap-3">
+    <div className="rounded-xl border border-gray-200 dark:border-[#34322B] bg-white dark:bg-[#1A1916] p-4 flex items-start gap-3">
       <div className={`p-2 rounded-lg ${colors[color]}`}>{icon}</div>
       <div>
         <p className="text-xs text-gray-500 dark:text-gray-400">{label}</p>

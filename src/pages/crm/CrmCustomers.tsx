@@ -71,8 +71,9 @@ export default function CrmCustomers() {
       c.full_name, c.email || '', c.phone || '', c.neighborhood || '', c.city || '', c.state || '',
       c.previous_purchases_count, c.ltv, CLASSIFICATION_LABELS[c.classification], c.last_event || '', (c.tags || []).join('; ')
     ]);
-    const csv = [headers.join(','), ...rows.map(r => r.map(v => `"${v}"`).join(','))].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    // Ponto-e-vírgula: separador esperado pelo Excel em português (vírgula = decimal)
+    const csv = [headers.join(';'), ...rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(';'))].join('\r\n');
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;

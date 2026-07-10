@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useRef, DragEvent } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { confirmDialog } from '@/components/ConfirmDialog';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -856,7 +857,15 @@ export default function InternoDesign() {
                     variant="ghost"
                     size="sm"
                     className="text-red-400 hover:text-red-600 hover:bg-red-50 text-xs rounded-full"
-                    onClick={() => { if (confirm('Excluir esta demanda?')) handleDeleteDemand(selectedDemand.id); }}
+                    onClick={async () => {
+                      const ok = await confirmDialog({
+                        title: 'Excluir demanda',
+                        description: 'Excluir esta demanda?',
+                        confirmText: 'Excluir',
+                        destructive: true,
+                      });
+                      if (ok) handleDeleteDemand(selectedDemand.id);
+                    }}
                   >
                     Excluir
                   </Button>

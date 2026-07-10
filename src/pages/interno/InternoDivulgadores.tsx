@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { confirmDialog } from '@/components/ConfirmDialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -147,7 +148,13 @@ export default function InternoDivulgadores() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm('Remover este influenciador?')) return;
+    const ok = await confirmDialog({
+      title: 'Remover influenciador',
+      description: 'Remover este influenciador?',
+      confirmText: 'Remover',
+      destructive: true,
+    });
+    if (!ok) return;
     await supabase.from('influencers').delete().eq('id', id);
     toast.success('Removido');
     load();

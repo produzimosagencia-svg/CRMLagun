@@ -1042,38 +1042,62 @@ export type Database = {
         }
         Relationships: []
       }
+      notifications: {
+        Row: {
+          created_at: string
+          id: string
+          message: string | null
+          read: boolean
+          task_id: string | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          message?: string | null
+          read?: boolean
+          task_id?: string | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          message?: string | null
+          read?: boolean
+          task_id?: string | null
+          title?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
           created_at: string
-          email: string | null
           full_name: string | null
           id: string
           squad: string | null
-          updated_at: string
-          user_id: string
           username: string | null
         }
         Insert: {
           avatar_url?: string | null
           created_at?: string
-          email?: string | null
           full_name?: string | null
-          id?: string
+          id: string
           squad?: string | null
-          updated_at?: string
-          user_id: string
           username?: string | null
         }
         Update: {
           avatar_url?: string | null
           created_at?: string
-          email?: string | null
           full_name?: string | null
           id?: string
           squad?: string | null
-          updated_at?: string
-          user_id?: string
           username?: string | null
         }
         Relationships: []
@@ -1105,6 +1129,27 @@ export type Database = {
           instagram_user_id?: string | null
           updated_at?: string
           username?: string
+        }
+        Relationships: []
+      }
+      sidebar_menu_settings: {
+        Row: {
+          enabled: boolean
+          key: string
+          label: string
+          updated_at: string
+        }
+        Insert: {
+          enabled?: boolean
+          key: string
+          label: string
+          updated_at?: string
+        }
+        Update: {
+          enabled?: boolean
+          key?: string
+          label?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -1220,6 +1265,27 @@ export type Database = {
           id?: string
           messages?: Json
           title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_menu_overrides: {
+        Row: {
+          enabled: boolean
+          key: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          enabled?: boolean
+          key: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          enabled?: boolean
+          key?: string
           updated_at?: string
           user_id?: string
         }

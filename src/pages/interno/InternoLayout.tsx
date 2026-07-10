@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Navigate, Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { useSidebarSettings } from '@/hooks/useSidebarSettings';
+import { NotificationBell } from '@/components/NotificationBell';
 import {
   Home, LogOut, Menu, X, Mail,
   ChevronsRight, Ticket, Radio, MessageCircle, Send,
@@ -11,7 +13,8 @@ import {
 import { MetaIcon } from '@/components/icons/MetaIcon';
 import SplashScreen from '@/components/SplashScreen';
 import { supabase } from '@/integrations/supabase/client';
-import logoLagun from '@/assets/palavra-lagun-escuro.png';
+import logoLagun from '@/assets/palavra-lagun-branco.png';
+import flamingoLagun from '@/assets/flamingo-solo.png';
 import logoPrive from '@/assets/logo-prive-preto.png';
 import logoMailchimp from '@/assets/mailchimp-icon.png';
 
@@ -22,6 +25,7 @@ interface EventItem {
 
 export default function InternoLayout() {
   const { user, loading, isPartner, isAdmin, roles, signOut } = useAuth();
+  const { isEnabled } = useSidebarSettings();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [isDark, setIsDark] = useState(() => {
@@ -98,8 +102,8 @@ export default function InternoLayout() {
     return (
       <>
         {splashOverlay}
-        <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-black">
-          <div className="h-8 w-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+        <div className="min-h-screen flex items-center justify-center bg-background">
+          <div className="h-8 w-8 border-2 border-brand border-t-transparent rounded-full animate-spin" />
         </div>
       </>
     );
@@ -170,25 +174,25 @@ export default function InternoLayout() {
   };
 
   const navLinkClass = (active: boolean) =>
-    `relative flex h-9 w-full items-center rounded-lg transition-all duration-150 ${
+    `relative flex h-9 w-full items-center rounded-md transition-colors duration-150 ${
       collapsed ? 'justify-center px-0' : 'px-3'
     } ${
       active
-        ? 'bg-indigo-50 text-indigo-700 font-semibold border-l-2 border-indigo-500 dark:bg-[#F5D470]/10 dark:text-[#F5D470] dark:border-[#F5D470]'
-        : 'text-gray-500 hover:bg-gray-100 hover:text-gray-800 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-100'
+        ? 'text-[#E8C766] font-medium bg-[#E8C766]/[0.06] border-l-2 border-[#E8C766]'
+        : 'text-[#8F8A7C] hover:bg-white/[0.04] hover:text-[#EDEAE3]'
     }`;
 
   const subItemClass = (active: boolean) =>
-    `flex h-8 w-full items-center rounded-lg px-3 pl-9 text-xs font-medium transition-all duration-150 ${
+    `flex h-8 w-full items-center rounded-md px-3 pl-9 text-xs font-medium transition-colors duration-150 ${
       active
-        ? 'text-indigo-700 bg-indigo-50 dark:text-[#F5D470] dark:bg-[#F5D470]/10'
-        : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100 dark:text-neutral-500 dark:hover:text-neutral-200 dark:hover:bg-neutral-800'
+        ? 'text-[#E8C766] bg-[#E8C766]/[0.06]'
+        : 'text-[#6F6A5E] hover:text-[#EDEAE3] hover:bg-white/[0.04]'
     }`;
 
   const isHome = location.pathname === '/interno';
 
   return (
-    <div className="min-h-screen flex bg-gray-50 dark:bg-black">
+    <div className="min-h-screen flex bg-background">
       {splashOverlay}
       {sidebarOpen && !isHome && (
         <div
@@ -198,20 +202,27 @@ export default function InternoLayout() {
       )}
 
       <aside
-        className={`fixed lg:sticky lg:top-0 inset-y-0 left-0 z-50 flex flex-col h-screen bg-white dark:bg-neutral-950 border-r border-gray-200 dark:border-neutral-800 transition-all duration-300 lg:translate-x-0
+        className={`fixed lg:sticky lg:top-0 inset-y-0 left-0 z-50 flex flex-col h-screen bg-[#191813] border-r border-black/30 transition-all duration-300 lg:translate-x-0
           ${isHome ? '-translate-x-full lg:-translate-x-full lg:hidden' : sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
           ${collapsed ? 'w-[60px]' : 'w-[225px]'}
         `}
       >
-        <div className="mb-1 border-b border-gray-100 dark:border-neutral-800 p-3 flex justify-center">
-          <div className="flex items-center justify-center">
+        <div className="mb-1 border-b border-white/[0.06] p-3 flex justify-center">
+          <div className="flex items-center justify-center gap-2">
             <img
-              src={logoLagun}
-              alt="Lagun"
-              className={`transition-all dark:invert ${collapsed ? 'h-5 w-auto object-contain' : 'h-6 w-auto'}`}
+              src={flamingoLagun}
+              alt=""
+              className={`transition-all shrink-0 ${collapsed ? 'h-5 w-auto' : 'h-6 w-auto'}`}
             />
+            {!collapsed && (
+              <img
+                src={logoLagun}
+                alt="Lagun"
+                className="h-6 w-auto transition-all"
+              />
+            )}
           </div>
-          <button onClick={() => setSidebarOpen(false)} className="lg:hidden absolute top-3 right-3 text-gray-400 hover:text-gray-600 dark:text-neutral-500 dark:hover:text-neutral-300">
+          <button onClick={() => setSidebarOpen(false)} className="lg:hidden absolute top-3 right-3 text-[#6F6A5E] hover:text-[#EDEAE3]">
             <X size={18} />
           </button>
         </div>
@@ -220,7 +231,7 @@ export default function InternoLayout() {
           {/* Home removida — login vai direto para CRM */}
 
           {/* Dashboard Geral */}
-          {canSeeHome && (
+          {canSeeHome && isEnabled('dashboard') && (
             <NavLink
               to="/interno/dashboard"
               onClick={() => setSidebarOpen(false)}
@@ -235,7 +246,7 @@ export default function InternoLayout() {
           )}
 
           {/* Design-only: Design & Referências */}
-          {canSeeDesign && !canSeeHome && (
+          {canSeeDesign && !canSeeHome && isEnabled('design') && (
             <>
               <NavLink
                 to="/interno/marketing/design"
@@ -264,7 +275,7 @@ export default function InternoLayout() {
 
 
           {/* 1.5. Landing Page CMS */}
-          {canSeeHome && (
+          {canSeeHome && isEnabled('landing') && (
             <NavLink
               to="/interno/landing"
               onClick={() => setSidebarOpen(false)}
@@ -279,7 +290,7 @@ export default function InternoLayout() {
           )}
 
           {/* 2. CRM (com sub-itens) */}
-          {canSeeCRM && (
+          {canSeeCRM && isEnabled('crm') && (
             <div>
               <button
                 onClick={() => {
@@ -305,7 +316,7 @@ export default function InternoLayout() {
               </button>
 
               {!collapsed && crmOpen && (
-                <div className="ml-4 mt-1 space-y-0.5 border-l border-[#F5D470]/20 pl-2">
+                <div className="ml-4 mt-1 space-y-0.5 border-l border-white/10 pl-2">
                   <NavLink
                     to="/interno/crm-visao-geral"
                     end
@@ -336,7 +347,7 @@ export default function InternoLayout() {
           )}
 
           {/* Blueticket */}
-          {canSeeHome && (
+          {canSeeHome && isEnabled('blueticket') && (
             <div>
               <button
                 onClick={() => {
@@ -361,7 +372,7 @@ export default function InternoLayout() {
                 )}
               </button>
               {!collapsed && blueticketOpen && (
-                <div className="ml-4 mt-1 space-y-0.5 border-l border-[#F5D470]/20 pl-2">
+                <div className="ml-4 mt-1 space-y-0.5 border-l border-white/10 pl-2">
                   <NavLink
                     to="/interno/lebai"
                     onClick={() => setSidebarOpen(false)}
@@ -382,7 +393,7 @@ export default function InternoLayout() {
           )}
 
           {/* Privê — ecossistema com identidade escura */}
-          {canSeeHome && (
+          {canSeeHome && isEnabled('prive') && (
             <NavLink
               to="/interno/prive"
               onClick={() => setSidebarOpen(false)}
@@ -391,24 +402,24 @@ export default function InternoLayout() {
                   collapsed ? 'justify-center px-0' : 'px-3'
                 } ${
                   isActive
-                    ? 'bg-black border-l-2 border-white/60'
-                    : 'hover:bg-black'
+                    ? 'bg-white/[0.06] border-l-2 border-[#E8C766]'
+                    : 'hover:bg-white/[0.04]'
                 }`
               }
               title={collapsed ? 'Privê' : undefined}
             >
-              {({ isActive }) => (
+              {() => (
                 <img
                   src={logoPrive}
                   alt="Privê"
-                  className={`${collapsed ? 'h-4' : 'h-5'} w-auto transition-all dark:invert group-hover:invert ${isActive ? 'invert' : ''}`}
+                  className={`${collapsed ? 'h-4' : 'h-5'} w-auto invert opacity-60 group-hover:opacity-100 transition-opacity`}
                 />
               )}
             </NavLink>
           )}
 
           {/* Zig Tickets Dropdown */}
-          {canSeeZigTickets && (
+          {canSeeZigTickets && isEnabled('zig_tickets') && (
             <div>
               <button
                 onClick={() => {
@@ -433,7 +444,7 @@ export default function InternoLayout() {
                 )}
               </button>
               {!collapsed && zigTicketsDropdownOpen && (
-                <div className="ml-4 mt-1 space-y-0.5 border-l border-[#F5D470]/20 pl-2">
+                <div className="ml-4 mt-1 space-y-0.5 border-l border-white/10 pl-2">
                   <NavLink
                     to="/interno/zig-tickets/geral"
                     end
@@ -442,7 +453,7 @@ export default function InternoLayout() {
                   >
                     <span className="text-xs">Geral</span>
                   </NavLink>
-                  <button className="flex items-center gap-1 w-full px-3 py-1.5 rounded text-xs font-medium text-gray-400 hover:text-gray-700 hover:bg-gray-100 dark:text-neutral-500 dark:hover:text-neutral-200 dark:hover:bg-neutral-800">
+                  <button className="flex items-center gap-1 w-full px-3 py-1.5 rounded text-xs font-medium text-[#6F6A5E] hover:text-[#EDEAE3] hover:bg-white/[0.04]">
                     <Ticket size={12} />
                     <span>Eventos</span>
                     <ChevronRight size={10} className="ml-auto" />
@@ -454,8 +465,8 @@ export default function InternoLayout() {
                       onClick={() => setSidebarOpen(false)}
                       className={({ isActive }) => `flex h-7 w-full items-center rounded-lg px-3 pl-7 text-[11px] font-medium transition-all duration-150 ${
                         isActive
-                          ? 'text-indigo-700 bg-indigo-50 dark:text-[#F5D470] dark:bg-[#F5D470]/10'
-                          : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100 dark:text-neutral-500 dark:hover:text-neutral-200 dark:hover:bg-neutral-800'
+                          ? 'text-[#E8C766] bg-[#E8C766]/[0.06]'
+                          : 'text-[#6F6A5E] hover:text-[#EDEAE3] hover:bg-white/[0.04]'
                       }`}
                     >
                       {event.name}
@@ -467,7 +478,7 @@ export default function InternoLayout() {
           )}
 
           {/* Base */}
-          {canSeeHome && (
+          {canSeeHome && isEnabled('base') && (
             <NavLink
               to="/interno/base"
               onClick={() => setSidebarOpen(false)}
@@ -482,35 +493,39 @@ export default function InternoLayout() {
           )}
 
           {/* 2.5. Tarefas */}
-          <NavLink
-            to="/interno/tarefas"
-            onClick={() => setSidebarOpen(false)}
-            className={({ isActive }) => navLinkClass(isActive)}
-            title={collapsed ? 'Tarefas' : undefined}
-          >
-            <div className={`flex items-center justify-center ${collapsed ? '' : 'mr-2'}`}>
-              <ClipboardList size={18} />
-            </div>
-            {!collapsed && <span className="text-sm font-medium">Tarefas</span>}
-          </NavLink>
+          {isEnabled('tarefas') && (
+            <NavLink
+              to="/interno/tarefas"
+              onClick={() => setSidebarOpen(false)}
+              className={({ isActive }) => navLinkClass(isActive)}
+              title={collapsed ? 'Tarefas' : undefined}
+            >
+              <div className={`flex items-center justify-center ${collapsed ? '' : 'mr-2'}`}>
+                <ClipboardList size={18} />
+              </div>
+              {!collapsed && <span className="text-sm font-medium">Tarefas</span>}
+            </NavLink>
+          )}
 
           {/* 2.6. Calendário */}
-          <NavLink
-            to="/interno/calendario"
-            onClick={() => setSidebarOpen(false)}
-            className={({ isActive }) => navLinkClass(isActive)}
-            title={collapsed ? 'Calendário' : undefined}
-          >
-            <div className={`flex items-center justify-center ${collapsed ? '' : 'mr-2'}`}>
-              <CalendarRange size={18} />
-            </div>
-            {!collapsed && <span className="text-sm font-medium">Calendário</span>}
-          </NavLink>
+          {isEnabled('calendario') && (
+            <NavLink
+              to="/interno/calendario"
+              onClick={() => setSidebarOpen(false)}
+              className={({ isActive }) => navLinkClass(isActive)}
+              title={collapsed ? 'Calendário' : undefined}
+            >
+              <div className={`flex items-center justify-center ${collapsed ? '' : 'mr-2'}`}>
+                <CalendarRange size={18} />
+              </div>
+              {!collapsed && <span className="text-sm font-medium">Calendário</span>}
+            </NavLink>
+          )}
 
           {/* Dados removido do sidebar */}
 
           {/* 2.6. Chat (WhatsApp + Instagram) */}
-          {canSeeWhatsApp && (
+          {canSeeWhatsApp && isEnabled('chat') && (
             <NavLink
               to="/interno/whatsapp/chat"
               onClick={() => setSidebarOpen(false)}
@@ -525,7 +540,7 @@ export default function InternoLayout() {
           )}
 
           {/* 3. WhatsApp */}
-          {canSeeWhatsApp && (
+          {canSeeWhatsApp && isEnabled('whatsapp') && (
             <>
               <button
                 onClick={() => {
@@ -541,7 +556,7 @@ export default function InternoLayout() {
                 {!collapsed && (
                   <>
                     <span className="text-sm font-medium flex-1 text-left">WhatsApp</span>
-                    <ChevronRight size={14} className={`text-[#F5D470]/60 transition-transform duration-200 ${whatsappOpen ? 'rotate-90' : ''}`} />
+                    <ChevronRight size={14} className={`text-white/25 transition-transform duration-200 ${whatsappOpen ? 'rotate-90' : ''}`} />
                   </>
                 )}
               </button>
@@ -560,7 +575,7 @@ export default function InternoLayout() {
 
 
           {/* 6. Ads */}
-          {canSeeAds && (
+          {canSeeAds && isEnabled('ads') && (
             <>
               <button
                 onClick={() => {
@@ -576,7 +591,7 @@ export default function InternoLayout() {
                 {!collapsed && (
                   <>
                     <span className="text-sm font-medium flex-1 text-left">Ads</span>
-                    <ChevronRight size={14} className={`text-[#F5D470]/60 transition-transform duration-200 ${adsOpen ? 'rotate-90' : ''}`} />
+                    <ChevronRight size={14} className={`text-white/25 transition-transform duration-200 ${adsOpen ? 'rotate-90' : ''}`} />
                   </>
                 )}
               </button>
@@ -594,7 +609,7 @@ export default function InternoLayout() {
           )}
 
           {/* 7. Mailchimp */}
-          {canSeeEmail && (
+          {canSeeEmail && isEnabled('mailchimp') && (
             <NavLink
               to="/interno/email"
               onClick={() => setSidebarOpen(false)}
@@ -609,7 +624,7 @@ export default function InternoLayout() {
           )}
 
           {/* 7.5. Design */}
-          {canSeeDesign && (
+          {canSeeDesign && isEnabled('design') && (
             <>
               <button
                 onClick={() => {
@@ -625,7 +640,7 @@ export default function InternoLayout() {
                 {!collapsed && (
                   <>
                     <span className="text-sm font-medium flex-1 text-left">Design</span>
-                    <ChevronRight size={14} className={`text-gray-400 transition-transform duration-200 ${designOpen ? 'rotate-90' : ''}`} />
+                    <ChevronRight size={14} className={`text-white/25 transition-transform duration-200 ${designOpen ? 'rotate-90' : ''}`} />
                   </>
                 )}
               </button>
@@ -672,33 +687,33 @@ export default function InternoLayout() {
         </nav>
 
         {/* Bottom section */}
-        <div className="border-t border-gray-100 dark:border-neutral-800">
+        <div className="border-t border-white/[0.06]">
           {!collapsed && (
             <div className="px-3 py-3">
               <div className="flex items-center gap-2 mb-2">
-                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-indigo-100 text-indigo-700 dark:bg-[#F5D470]/20 dark:text-[#F5D470] text-xs font-bold">
+                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#E8C766]/15 text-[#E8C766] text-xs font-bold">
                   {userName.charAt(0).toUpperCase()}
                 </div>
                 <div>
-                  <span className="block text-xs font-semibold text-gray-800 dark:text-neutral-100">{userName}</span>
-                  <span className="block text-[10px] text-gray-400 dark:text-neutral-500">
+                  <span className="block text-xs font-semibold text-[#EDEAE3]">{userName}</span>
+                  <span className="block text-[10px] text-[#6F6A5E]">
                     {isAdmin ? 'Admin' : hasDesignRole ? 'Design' : hasTrafegoRole ? 'Gestor de Tráfego' : 'Parceiro'}
                   </span>
                 </div>
               </div>
               <button
                 onClick={signOut}
-                className="w-full flex items-center justify-center gap-1.5 rounded-lg border border-gray-200 dark:border-neutral-700 px-2 py-1.5 text-xs text-gray-500 dark:text-neutral-400 hover:bg-red-50 hover:text-red-600 hover:border-red-200 dark:hover:bg-red-950/40 dark:hover:text-red-400 dark:hover:border-red-900 transition-colors"
+                className="w-full flex items-center justify-center gap-1.5 rounded-lg border border-white/10 px-2 py-1.5 text-xs text-[#8F8A7C] hover:bg-red-50 hover:text-red-600 hover:border-red-200 dark:hover:bg-red-950/40 dark:hover:text-red-400 dark:hover:border-red-900 transition-colors"
               >
                 <LogOut size={12} /> Sair
               </button>
             </div>
           )}
 
-          <div className={`flex items-center border-t border-gray-100 dark:border-neutral-800 ${collapsed ? 'flex-col' : ''}`}>
+          <div className={`flex items-center border-t border-white/[0.06] ${collapsed ? 'flex-col' : ''}`}>
             <button
               onClick={() => setIsDark(!isDark)}
-              className={`flex items-center justify-center gap-1.5 text-gray-400 hover:text-gray-600 dark:text-neutral-500 dark:hover:text-neutral-300 transition-colors ${
+              className={`flex items-center justify-center gap-1.5 text-[#6F6A5E] hover:text-[#EDEAE3] transition-colors ${
                 collapsed ? 'w-full py-2.5' : 'flex-1 py-2.5'
               }`}
               title={isDark ? 'Modo claro' : 'Modo escuro'}
@@ -708,8 +723,8 @@ export default function InternoLayout() {
             </button>
             <button
               onClick={() => setCollapsed(!collapsed)}
-              className={`hidden lg:flex items-center justify-center text-gray-400 hover:text-gray-600 dark:text-neutral-500 dark:hover:text-neutral-300 transition-colors ${
-                collapsed ? 'w-full py-2.5' : 'flex-1 py-2.5 border-l border-gray-100 dark:border-neutral-800'
+              className={`hidden lg:flex items-center justify-center text-[#6F6A5E] hover:text-[#EDEAE3] transition-colors ${
+                collapsed ? 'w-full py-2.5' : 'flex-1 py-2.5 border-l border-white/[0.06]'
               }`}
               title={collapsed ? 'Expandir' : 'Recolher'}
             >
@@ -722,13 +737,14 @@ export default function InternoLayout() {
       {/* Main content */}
       <div className="flex-1 flex flex-col min-w-0">
         {!isHome && (
-          <header className="sticky top-0 z-30 bg-white/90 dark:bg-black/90 backdrop-blur-sm border-b border-gray-200 dark:border-neutral-800 px-4 h-12 flex items-center gap-3 lg:px-6">
-            <button onClick={() => setSidebarOpen(true)} className="lg:hidden text-gray-500 hover:text-gray-800 dark:text-neutral-400 dark:hover:text-neutral-100">
+          <header className="sticky top-0 z-30 bg-background/95 backdrop-blur-sm border-b border-border px-4 h-12 flex items-center gap-3 lg:px-6">
+            <button onClick={() => setSidebarOpen(true)} className="lg:hidden text-muted-foreground hover:text-foreground">
               <Menu size={20} />
             </button>
-            <h1 className="text-sm font-semibold text-gray-800 dark:text-neutral-100">
+            <h1 className="font-display text-[15px] font-medium tracking-tight text-foreground">
               {getPageTitle()}
             </h1>
+            <NotificationBell />
           </header>
         )}
 

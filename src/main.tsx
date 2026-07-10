@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { lazy, Suspense } from "react";
 import App from "./App.tsx";
 import { Toaster } from "sonner";
+import { ConfirmDialogHost } from "./components/ConfirmDialog.tsx";
 import { ErrorBoundary } from "./components/ErrorBoundary.tsx";
 import { AuthProvider } from "./hooks/useAuth.tsx";
 import "./index.css";
@@ -67,6 +68,7 @@ createRoot(document.getElementById("root")!).render(
     <AuthProvider>
     <BrowserRouter>
     <Toaster />
+    <ConfirmDialogHost />
     <Suspense fallback={<Fallback />}>
       <Routes>
         <Route path="/" element={<App />} />

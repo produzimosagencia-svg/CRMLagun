@@ -30,7 +30,7 @@ const colorPresets = [
   { label: 'Azul', value: '#3b82f6' },
   { label: 'Verde', value: '#22c55e' },
   { label: 'Vermelho', value: '#ef4444' },
-  { label: 'Roxo', value: '#a855f7' },
+  { label: 'Roxo', value: '#D9B14E' },
   { label: 'Laranja', value: '#f97316' },
   { label: 'Preto', value: '#111111' },
   { label: 'Dourado', value: '#d4a853' },

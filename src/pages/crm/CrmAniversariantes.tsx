@@ -108,8 +108,9 @@ export default function CrmAniversariantes() {
 
   function exportCSV() {
     const headers = ['Nome', 'WhatsApp', 'E-mail', 'Aniversário', 'Cadastro'];
+    // Ponto-e-vírgula: separador esperado pelo Excel em português (vírgula = decimal)
     const lines = [
-      headers.join(','),
+      headers.join(';'),
       ...ordered.map((r) =>
         [
           r.full_name,
@@ -117,10 +118,10 @@ export default function CrmAniversariantes() {
           r.email || '',
           fmtData(r.birth_date),
           r.created_at ? new Date(r.created_at).toLocaleDateString('pt-BR') : '',
-        ].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(',')
+        ].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(';')
       ),
     ];
-    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
