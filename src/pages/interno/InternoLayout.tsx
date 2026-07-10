@@ -701,6 +701,14 @@ export default function InternoLayout() {
                   </span>
                 </div>
               </div>
+              <a
+                href="https://wa.me/5527996528524"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full flex items-center justify-center gap-1.5 rounded-lg bg-[#7C3AED] hover:bg-[#6D28D9] px-2 py-1.5 text-xs font-medium text-white transition-colors mb-1.5"
+              >
+                <MessageCircle size={12} /> Suporte
+              </a>
               <button
                 onClick={signOut}
                 className="w-full flex items-center justify-center gap-1.5 rounded-lg border border-white/10 px-2 py-1.5 text-xs text-[#8F8A7C] hover:bg-red-50 hover:text-red-600 hover:border-red-200 dark:hover:bg-red-950/40 dark:hover:text-red-400 dark:hover:border-red-900 transition-colors"
