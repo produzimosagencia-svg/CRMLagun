@@ -138,10 +138,6 @@ h2 {
 }
 .chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
 
-/* Logo em fundo escuro: contrast() força o fundo do JPEG a branco puro,
-   invert() o torna preto e o screen funde o preto com o fundo,
-   restando só o traço claro. */
-.logo-invert { filter: contrast(1.8) invert(1); mix-blend-mode: screen; }
 
 /* Fumaça azulada de fundo (pôster) — aplicada por seção */
 .smoke {

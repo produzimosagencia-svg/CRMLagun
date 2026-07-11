@@ -55,11 +55,6 @@
   translate: -50% -50%;
   width: clamp(260px, 50vw, 640px); /* foco principal, totalmente nítida */
   height: auto;
-  /* JPEG preto-sobre-branco → traço branco puro sobre o fundo.
-     Sem drop-shadow: o JPEG não tem alpha e a sombra viraria
-     um retângulo em volta da logo. */
-  filter: contrast(1.8) invert(1);
-  mix-blend-mode: screen;
   animation: splash-logo-in 1.8s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 
