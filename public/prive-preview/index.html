@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>privê — 20ª edição · 14.agosto · Vitória-ES</title>
+  <meta name="description" content="SAVE THE DATE — 14 de agosto, Vitória-ES. A 20ª edição da privê, considerada por muitos a melhor festa de funk do Espírito Santo.">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/splash.css">
+  <link rel="stylesheet" href="css/header.css">
+  <link rel="stylesheet" href="css/hero.css">
+  <link rel="stylesheet" href="css/sections.css">
+  <link rel="stylesheet" href="css/footer.css">
+</head>
+<body>
+
+  <!-- ============ SPLASH (6s) ============ -->
+  <div class="splash" id="splash" aria-hidden="true">
+    <canvas id="splashMercury"></canvas>
+    <img src="assets/logo.jpeg" alt="privê" class="splash-logo">
+  </div>
+
+  <!-- ============ HEADER ============ -->
+  <header class="site-header" id="siteHeader">
+    <div class="header-meta header-meta--left">
+      <span class="mono">20ª EDIÇÃO</span>
+    </div>
+    <a class="header-logo" href="#top" aria-label="privê — voltar ao início">
+      <img src="assets/logo.jpeg" alt="privê">
+    </a>
+    <div class="header-meta header-meta--right">
+      <span class="mono" id="countdown">--D --:--:--</span>
+      <span class="mono">14.AGO</span>
+    </div>
+  </header>
+
+  <main id="top">
+
+    <!-- ============ HERO / SAVE THE DATE ============ -->
+    <section class="hero" id="hero">
+      <canvas id="orbCanvas" aria-hidden="true"></canvas>
+
+      <a class="hero-label hero-label--top reveal" href="#sobre">
+        <span class="dot"></span> 01 A PRIVÊ
+      </a>
+      <a class="hero-label hero-label--left reveal" href="#ingressos">
+        <span class="dot"></span> 03 LOUNGE
+      </a>
+      <a class="hero-label hero-label--right reveal" href="#ingressos">
+        <span class="dot"></span> 02 INGRESSOS
+      </a>
+      <a class="hero-label hero-label--bottom reveal" href="#localizacao">
+        <span class="dot"></span> 04 LOCALIZAÇÃO
+      </a>
+
+      <div class="hero-cta">
+        <p class="mono hero-cta-eyebrow">● SAVE THE DATE</p>
+        <h1 class="hero-date">14.AGOSTO</h1>
+        <p class="mono hero-place">VITÓRIA — ES</p>
+        <!-- TODO: trocar # pelo link do linktree dos ingressos -->
+        <a class="btn btn--dark" href="#" target="_blank" rel="noopener">GARANTIR INGRESSO →</a>
+      </div>
+
+      <span class="hero-corner hero-corner--bl mono">S 20°19′ — W 40°20′</span>
+      <span class="hero-corner hero-corner--br mono">#VEM PRA PRIVÊ</span>
+    </section>
+
+    <!-- ============ SOBRE / 20ª EDIÇÃO ============ -->
+    <section class="panel" id="sobre">
+      <div class="panel-grid">
+        <div class="panel-copy reveal">
+          <p class="eyebrow mono">SAVE THE DATE</p>
+          <h2>A 20ª edição vai<br>ficar para a história</h2>
+          <p class="lede">
+            Foram 19 noites que jamais esqueceremos. Quem nunca ouviu alguém
+            falar <em>“meu sonho é ir na privê”</em> ou <em>“a melhor festa de
+            funk que tem”</em>? Vamos mostrar porque somos considerados por
+            muitos a melhor festa de funk do Espírito Santo.
+          </p>
+          <p class="lede">
+            Uma experiência diferente em cada edição. E nessa, como sempre…
+          </p>
+          <p class="surprise">Vamos te surpreender mais uma vez.</p>
+        </div>
+        <div class="panel-visual reveal">
+          <canvas class="mercury-blob" aria-hidden="true"></canvas>
+        </div>
+        <aside class="panel-stats reveal">
+          <p class="mono stats-title">PRIVÊ — HISTÓRICO</p>
+          <div class="stat">
+            <strong><span class="count" data-count="20">0</span>ª</strong>
+            <span class="mono">EDIÇÃO</span>
+          </div>
+          <div class="stat">
+            <strong class="count" data-count="19">0</strong>
+            <span class="mono">NOITES INESQUECÍVEIS</span>
+          </div>
+          <div class="stat">
+            <strong>Nº 1</strong>
+            <span class="mono">FUNK DO ES</span>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <!-- ============ TICKER ============ -->
+    <div class="ticker-band" aria-hidden="true">
+      <div class="ticker-track mono">
+        <span>SAVE THE DATE — 14.AGOSTO</span><span>●</span>
+        <span>VITÓRIA — ES</span><span>●</span>
+        <span>20ª EDIÇÃO</span><span>●</span>
+        <span>#VEM PRA PRIVÊ</span><span>●</span>
+        <span>A MELHOR FESTA DE FUNK DO ES</span><span>●</span>
+        <span>SAVE THE DATE — 14.AGOSTO</span><span>●</span>
+        <span>VITÓRIA — ES</span><span>●</span>
+        <span>20ª EDIÇÃO</span><span>●</span>
+        <span>#VEM PRA PRIVÊ</span><span>●</span>
+        <span>A MELHOR FESTA DE FUNK DO ES</span><span>●</span>
+      </div>
+    </div>
+
+    <!-- ============ INGRESSOS & LOUNGE ============ -->
+    <section class="panel panel--tight" id="ingressos">
+      <div class="cards">
+        <article class="card reveal">
+          <p class="mono card-tag">● 02 — INGRESSOS</p>
+          <h2>Garanta o seu</h2>
+          <p class="lede">Lotes limitados. Os últimos voaram nessa edição não vai ser diferente.</p>
+          <!-- TODO: trocar # pelo link do linktree dos ingressos -->
+          <a class="btn btn--dark" href="#" target="_blank" rel="noopener">COMPRAR INGRESSOS →</a>
+        </article>
+        <article class="card reveal">
+          <p class="mono card-tag">● 03 — LOUNGE</p>
+          <h2>Reserve seu lounge</h2>
+          <p class="lede">Experiência VIP com a melhor vista da pista. Fale direto com a nossa equipe.</p>
+          <!-- TODO: trocar # pelo wa.me do contato de lounge -->
+          <a class="btn btn--outline" href="#" target="_blank" rel="noopener">CONTATO LOUNGE — WHATSAPP →</a>
+        </article>
+      </div>
+    </section>
+
+    <!-- ============ LOCALIZAÇÃO & REDES ============ -->
+    <section class="panel panel--tight location" id="localizacao">
+      <div class="loc-block reveal">
+        <p class="mono loc-title">LOCALIZAÇÃO</p>
+        <div class="loc-row">
+          <!-- TODO: apontar para o app/rota da 99 -->
+          <a class="loc-app" href="https://99app.com" target="_blank" rel="noopener" aria-label="Chamar 99">99</a>
+          <!-- TODO: apontar para a rota no Uber -->
+          <a class="loc-app" href="https://m.uber.com" target="_blank" rel="noopener" aria-label="Chamar Uber">Uber</a>
+          <!-- TODO: trocar pelo link do local no Google Maps -->
+          <a class="loc-icon" href="https://maps.google.com/?q=Vit%C3%B3ria+ES" target="_blank" rel="noopener" aria-label="Ver no mapa">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7z"/>
+              <circle cx="12" cy="9" r="2.6"/>
+            </svg>
+          </a>
+        </div>
+      </div>
+
+      <div class="loc-block reveal">
+        <p class="mono loc-title">REDES SOCIAIS</p>
+        <div class="loc-row">
+          <!-- TODO: trocar # pelo wa.me oficial -->
+          <a class="loc-icon" href="#" target="_blank" rel="noopener" aria-label="WhatsApp">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2.5a9.5 9.5 0 0 0-8.2 14.3L2.5 21.5l4.8-1.2A9.5 9.5 0 1 0 12 2.5z"/>
+              <path d="M8.8 7.8c-.3 0-.6.1-.8.4-.9 1.1-.5 2.9.8 4.6 1.3 1.7 3.1 2.9 4.6 2.9.4 0 .8-.1 1.1-.3.4-.3.7-.7.7-1.2 0-.2-.1-.4-.3-.5l-1.6-.9a.6.6 0 0 0-.7.1l-.5.5c-.6-.2-1.3-.7-1.9-1.3-.5-.6-.9-1.2-1-1.7l.6-.5a.6.6 0 0 0 .1-.7l-.8-1.6a.6.6 0 0 0-.5-.3z" fill="currentColor" stroke="none"/>
+            </svg>
+          </a>
+          <!-- TODO: trocar # pelo instagram oficial -->
+          <a class="loc-icon" href="#" target="_blank" rel="noopener" aria-label="Instagram">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="18" height="18" rx="5"/>
+              <circle cx="12" cy="12" r="4"/>
+              <circle cx="17.2" cy="6.8" r="1" fill="currentColor" stroke="none"/>
+            </svg>
+          </a>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ============ FOOTER ============ -->
+  <footer class="site-footer">
+    <img src="assets/logo.jpeg" alt="privê" class="footer-logo logo-invert">
+    <div class="footer-cols mono">
+      <span>© 2026 PRIVÊ — 20ª EDIÇÃO</span>
+      <nav class="footer-nav">
+        <a href="#sobre">A PRIVÊ</a>
+        <a href="#ingressos">INGRESSOS</a>
+        <a href="#localizacao">LOCALIZAÇÃO</a>
+      </nav>
+      <span>VITÓRIA, ES — <span id="footerClock">--:--</span></span>
+    </div>
+  </footer>
+
+  <script src="vendor/three.min.js"></script>
+  <script src="js/mercury3d.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>

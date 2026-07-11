@@ -1,0 +1,26 @@
+/* ============================================================
+   FOOTER
+   ============================================================ */
+
+.site-footer {
+  background: var(--darker);
+  color: var(--muted-dark);
+  padding: 48px var(--pad) 32px;
+  display: grid;
+  gap: 32px;
+  border-top: 1px solid var(--line-dark);
+}
+
+.footer-logo { height: 26px; width: auto; }
+
+.footer-cols {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.footer-nav { display: flex; gap: 20px; flex-wrap: wrap; }
+.footer-nav a { transition: color 0.25s; }
+.footer-nav a:hover { color: var(--light); }

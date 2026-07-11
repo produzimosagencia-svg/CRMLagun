@@ -1,0 +1,84 @@
+/* ============================================================
+   HERO — orbe 3D interativo, labels de navegação, dial de graus
+   ============================================================ */
+
+.hero {
+  position: relative;
+  height: 100svh;
+  min-height: 560px;
+  background:
+    radial-gradient(55% 40% at 20% 20%, rgba(75, 100, 130, 0.18) 0%, transparent 70%),
+    radial-gradient(50% 45% at 80% 75%, rgba(90, 115, 145, 0.13) 0%, transparent 70%),
+    radial-gradient(circle at 50% 42%, #0c1118 0%, var(--darker) 62%);
+  overflow: hidden;
+}
+
+#orbCanvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  cursor: grab;
+}
+#orbCanvas:active { cursor: grabbing; }
+
+/* Labels de seção orbitando o orbe */
+.hero-label {
+  position: absolute;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  color: var(--muted-dark);
+  transition: color 0.3s;
+  z-index: 2;
+}
+.hero-label:hover { color: var(--light); }
+.hero-label--top    { top: 22%;  left: 50%; transform: translateX(-50%); }
+.hero-label--left   { top: 58%;  left: clamp(16px, 14vw, 220px); }
+.hero-label--right  { top: 56%;  right: clamp(16px, 13vw, 200px); }
+.hero-label--bottom { top: 74%;  right: clamp(16px, 22vw, 340px); }
+
+/* Save the date sobre o mercúrio */
+.hero-cta {
+  position: absolute;
+  top: 74%; /* mais respiro entre o mercúrio e a data */
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
+  display: grid;
+  gap: 16px;
+  justify-items: center;
+  z-index: 3;
+  pointer-events: none; /* deixa o arrasto do mercúrio passar */
+}
+.hero-cta a { pointer-events: auto; }
+.hero-cta-eyebrow { color: var(--muted-dark); letter-spacing: 0.3em; }
+.hero-date {
+  font-family: var(--font-serif);
+  font-weight: 400;
+  font-size: clamp(44px, 8vw, 110px);
+  line-height: 1;
+  letter-spacing: 0.02em;
+  background: var(--chrome-grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 0 26px rgba(170, 195, 220, 0.2));
+}
+.hero-place { color: var(--light); letter-spacing: 0.4em; }
+.hero-cta .btn { margin-top: 12px; }
+
+.hero-corner {
+  position: absolute;
+  color: var(--muted-dark);
+  opacity: 0.6;
+}
+.hero-corner--bl { bottom: 24px; left: var(--pad); }
+.hero-corner--br { bottom: 24px; right: var(--pad); }
+
+@media (max-width: 700px) {
+  .hero-label--left   { top: auto; bottom: 30%; left: 20px; }
+  .hero-label--right  { top: auto; bottom: 30%; right: 20px; }
+  .hero-label--bottom { display: none; }
+  .hero-corner { display: none; }
+}

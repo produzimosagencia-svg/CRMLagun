@@ -1,0 +1,152 @@
+/* ============================================================
+   SECTIONS — sobre, ticker, ingressos/lounge, localização
+   Landing curta: preto profundo + cromo + fumaça azulada.
+   ============================================================ */
+
+/* ---------- Painel base ---------- */
+.panel {
+  position: relative;
+  padding: calc(var(--header-h) + 56px) var(--pad) 96px;
+  background: var(--panel);
+  background-image:
+    radial-gradient(60% 45% at 18% 22%, rgba(70, 95, 125, 0.14) 0%, transparent 70%),
+    radial-gradient(55% 40% at 82% 68%, rgba(90, 115, 145, 0.1) 0%, transparent 70%);
+}
+.panel--tight { padding-top: 96px; }
+
+/* ---------- Sobre / 20ª edição ---------- */
+.panel-grid {
+  display: grid;
+  grid-template-columns: minmax(240px, 1.2fr) minmax(260px, 1fr) minmax(170px, 0.55fr);
+  align-items: center;
+  gap: clamp(24px, 4vw, 64px);
+}
+
+.panel-copy h2 { margin-bottom: 20px; }
+.panel-copy .lede { margin-bottom: 18px; }
+.panel-copy .lede em { color: var(--silver); font-style: italic; }
+
+.surprise {
+  margin-top: 8px;
+  font-size: clamp(18px, 2.2vw, 26px);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  background: var(--chrome-grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.panel-visual { display: flex; justify-content: center; }
+
+/* Blobs de mercúrio líquido (canvas — ver js/mercury3d.js) */
+.mercury-blob {
+  width: clamp(260px, 34vw, 440px);
+  aspect-ratio: 1;
+  filter: drop-shadow(0 30px 60px rgba(0, 0, 0, 0.6));
+}
+
+.panel-stats { display: grid; gap: 20px; align-content: center; }
+.stats-title { color: var(--steel); padding-bottom: 10px; border-bottom: 1px solid var(--line); }
+.stat { display: grid; gap: 4px; }
+.stat strong {
+  font-size: clamp(24px, 2.6vw, 34px);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  color: var(--chrome-hi);
+}
+.stat .mono { color: var(--steel); }
+
+/* ---------- Ticker ---------- */
+.ticker-band {
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  padding: 14px 0;
+  overflow: hidden;
+  background: var(--bg-deep);
+}
+.ticker-track {
+  display: flex;
+  gap: 40px;
+  white-space: nowrap;
+  width: max-content;
+  color: var(--muted);
+  animation: ticker 26s linear infinite;
+}
+@keyframes ticker { to { transform: translateX(-50%); } }
+
+/* ---------- Ingressos & Lounge ---------- */
+.cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: clamp(20px, 3vw, 40px);
+  max-width: 1020px;
+  margin: 0 auto;
+}
+.card {
+  border: 1px solid var(--line);
+  padding: clamp(28px, 4vw, 48px);
+  display: grid;
+  gap: 16px;
+  justify-items: start;
+  background: rgba(10, 14, 21, 0.5);
+  transition: border-color 0.3s, transform 0.3s;
+}
+.card:hover { border-color: rgba(219, 226, 234, 0.32); transform: translateY(-3px); }
+.card-tag { color: var(--steel); }
+.card .btn { margin-top: 8px; }
+
+/* ---------- Localização & redes (layout da referência) ---------- */
+.location {
+  display: grid;
+  gap: 64px;
+  justify-items: center;
+  text-align: center;
+  background: var(--bg-deep);
+}
+.loc-block { display: grid; gap: 28px; justify-items: center; }
+.loc-title { color: var(--steel); letter-spacing: 0.3em; }
+
+.loc-row {
+  display: flex;
+  align-items: center;
+  gap: clamp(36px, 6vw, 72px);
+}
+
+/* Apps de corrida como wordmark (99 / Uber) */
+.loc-app {
+  font-size: clamp(30px, 4vw, 42px);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  background: var(--chrome-grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  transition: filter 0.3s, transform 0.3s;
+}
+
+/* Ícones (pin, whatsapp, instagram) */
+.loc-icon {
+  color: var(--silver);
+  transition: filter 0.3s, transform 0.3s, color 0.3s;
+}
+.loc-icon svg { width: clamp(36px, 4vw, 46px); height: auto; display: block; }
+
+.loc-app:hover, .loc-icon:hover {
+  transform: translateY(-3px);
+  filter: drop-shadow(0 0 14px rgba(190, 212, 234, 0.45));
+}
+.loc-icon:hover { color: var(--chrome-hi); }
+
+/* ---------- Responsivo ---------- */
+@media (max-width: 900px) {
+  .panel-grid { grid-template-columns: 1fr; }
+  .panel-visual { order: -1; }
+  .panel-stats {
+    grid-template-columns: repeat(3, auto);
+    gap: 24px;
+    justify-content: start;
+  }
+  .stats-title { display: none; }
+  .cards { grid-template-columns: 1fr; }
+}
