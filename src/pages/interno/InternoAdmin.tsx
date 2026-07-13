@@ -11,6 +11,7 @@ import { toast } from 'sonner';
 
 const SIDEBAR_ITEMS: { key: SidebarKey; label: string }[] = [
   { key: 'dashboard', label: 'Dashboard' },
+  { key: 'orcamento_site', label: 'Orçamento de Site' },
   { key: 'landing', label: 'Landing Page' },
   { key: 'crm', label: 'CRM' },
   { key: 'blueticket', label: 'Blueticket' },

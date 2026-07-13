@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 export type SidebarKey =
   | 'dashboard' | 'landing' | 'crm' | 'blueticket' | 'prive' | 'zig_tickets'
   | 'base' | 'tarefas' | 'calendario' | 'chat' | 'whatsapp' | 'ads'
-  | 'mailchimp' | 'design';
+  | 'mailchimp' | 'design' | 'orcamento_site';
 
 interface SidebarState {
   global: Record<string, boolean>;

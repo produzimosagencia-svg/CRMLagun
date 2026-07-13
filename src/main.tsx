@@ -43,6 +43,7 @@ const InternoZigTicketsGeral = lazy(() => import("./pages/interno/InternoZigTick
 const InternoEmail = lazy(() => import("./pages/interno/InternoEmail.tsx"));
 const InternoAdmin = lazy(() => import("./pages/interno/InternoAdmin.tsx"));
 const InternoTarefas = lazy(() => import("./pages/interno/InternoTarefas.tsx"));
+const InternoOrcamentoSite = lazy(() => import("./pages/interno/InternoOrcamentoSite.tsx"));
 const InternoPerfil = lazy(() => import("./pages/interno/InternoPerfil.tsx"));
 const InternoGrafos = lazy(() => import("./pages/interno/InternoGrafos.tsx"));
 const InternoGrafosLista = lazy(() => import("./pages/interno/InternoGrafosLista.tsx"));
@@ -114,6 +115,7 @@ createRoot(document.getElementById("root")!).render(
           <Route path="zig-tickets" element={<InternoZigTickets />} />
           <Route path="zig-tickets/:eventId" element={<InternoZigTickets />} />
           <Route path="tarefas" element={<InternoTarefas />} />
+          <Route path="orcamento-site" element={<InternoOrcamentoSite />} />
           <Route path="divulgadores" element={<InternoDivulgadores />} />
           <Route path="divulgadores/instagram" element={<InternoDivulgadoresInstagram />} />
           <Route path="admin" element={<InternoAdmin />} />

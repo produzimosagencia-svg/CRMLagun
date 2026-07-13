@@ -245,6 +245,28 @@ export default function InternoLayout() {
             </NavLink>
           )}
 
+          {/* Orçamento de Site — destaque para conversão */}
+          {isEnabled('orcamento_site') && (
+            <NavLink
+              to="/interno/orcamento-site"
+              onClick={() => setSidebarOpen(false)}
+              className={`flex h-9 w-full items-center rounded-lg font-bold transition-transform duration-150 hover:scale-[1.02] ${
+                collapsed ? 'justify-center px-0' : 'px-3'
+              }`}
+              style={{
+                background: 'linear-gradient(135deg, #F5D470 0%, #e8b830 50%, #F5D470 100%)',
+                color: '#1A0800',
+                boxShadow: '0 0 14px rgba(232,199,102,0.35)',
+              }}
+              title={collapsed ? 'Orçamento de Site' : undefined}
+            >
+              <div className={`flex items-center justify-center ${collapsed ? '' : 'mr-2'}`}>
+                <Globe size={18} />
+              </div>
+              {!collapsed && <span className="text-sm">Orçamento de Site</span>}
+            </NavLink>
+          )}
+
           {/* Design-only: Design & Referências */}
           {canSeeDesign && !canSeeHome && isEnabled('design') && (
             <>
