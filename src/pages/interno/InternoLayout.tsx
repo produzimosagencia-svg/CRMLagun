@@ -7,7 +7,7 @@ import {
   Home, LogOut, Menu, X, Mail,
   ChevronsRight, Ticket, Radio, MessageCircle, Send,
   ChevronDown, ChevronRight, Settings, User, Moon, Sun, Zap, Sparkles,
-  Megaphone, BarChart3, Trophy, Users, ClipboardList, Palette, Image, Cake,
+  Megaphone, BarChart3, Trophy, Users, ClipboardList, Cake,
   Database, Plus, Globe, CalendarRange, LayoutDashboard,
 } from 'lucide-react';
 import { MetaIcon } from '@/components/icons/MetaIcon';
@@ -16,7 +16,6 @@ import { supabase } from '@/integrations/supabase/client';
 import logoLagun from '@/assets/palavra-lagun-branco.png';
 import flamingoLagun from '@/assets/flamingo-solo.png';
 import logoPrive from '@/assets/logo-prive-preto.png';
-import logoMailchimp from '@/assets/mailchimp-icon.png';
 
 interface EventItem {
   id: string;
@@ -37,7 +36,6 @@ export default function InternoLayout() {
   const [crmOpen, setCrmOpen] = useState(false);
   const [zigTicketsOpen, setZigTicketsOpen] = useState(false);
   const [adsOpen, setAdsOpen] = useState(false);
-  const [designOpen, setDesignOpen] = useState(false);
   const [blueticketOpen, setBlueticketOpen] = useState(false);
   const [zigTicketsDropdownOpen, setZigTicketsDropdownOpen] = useState(false);
   const [zigEvents, setZigEvents] = useState<EventItem[]>([]);
@@ -82,7 +80,6 @@ export default function InternoLayout() {
     if (location.pathname.startsWith('/interno/whatsapp')) setWhatsappOpen(true);
     if (location.pathname.startsWith('/interno/zig-tickets')) setZigTicketsDropdownOpen(true);
     if (location.pathname.startsWith('/interno/ads') || location.pathname.startsWith('/interno/trafego-gpt')) setAdsOpen(true);
-    if (location.pathname.startsWith('/interno/marketing/design') || location.pathname.startsWith('/interno/marketing/referencias')) setDesignOpen(true);
     if (location.pathname === '/interno/lebai' || location.pathname === '/interno/aura') setBlueticketOpen(true);
     if (
       location.pathname === '/interno/crm-visao-geral' ||
@@ -126,7 +123,6 @@ export default function InternoLayout() {
   const canSeeWhatsApp = isFullAccess || hasTrafegoRole;
   const canSeeZigTickets = isFullAccess;
   const canSeeAds = isFullAccess || hasTrafegoRole;
-  const canSeeEmail = isFullAccess;
   const canSeeDesign = isFullAccess || hasDesignRole;
 
   // Redirect design-only users away from routes they can't access
@@ -245,32 +241,19 @@ export default function InternoLayout() {
             </NavLink>
           )}
 
-          {/* Design-only: Design & Referências */}
-          {canSeeDesign && !canSeeHome && isEnabled('design') && (
-            <>
-              <NavLink
-                to="/interno/marketing/design"
-                onClick={() => setSidebarOpen(false)}
-                className={({ isActive }) => navLinkClass(isActive)}
-                title={collapsed ? 'Design' : undefined}
-              >
-                <div className={`flex items-center justify-center ${collapsed ? '' : 'mr-2'}`}>
-                  <Megaphone size={18} />
-                </div>
-                {!collapsed && <span className="text-sm font-medium">Design</span>}
-              </NavLink>
-              <NavLink
-                to="/interno/marketing/referencias"
-                onClick={() => setSidebarOpen(false)}
-                className={({ isActive }) => navLinkClass(isActive)}
-                title={collapsed ? 'Referências' : undefined}
-              >
-                <div className={`flex items-center justify-center ${collapsed ? '' : 'mr-2'}`}>
-                  <Sparkles size={18} />
-                </div>
-                {!collapsed && <span className="text-sm font-medium">Referências</span>}
-              </NavLink>
-            </>
+          {/* Design-only: Referências */}
+          {canSeeDesign && !canSeeHome && (
+            <NavLink
+              to="/interno/marketing/referencias"
+              onClick={() => setSidebarOpen(false)}
+              className={({ isActive }) => navLinkClass(isActive)}
+              title={collapsed ? 'Referências' : undefined}
+            >
+              <div className={`flex items-center justify-center ${collapsed ? '' : 'mr-2'}`}>
+                <Sparkles size={18} />
+              </div>
+              {!collapsed && <span className="text-sm font-medium">Referências</span>}
+            </NavLink>
           )}
 
 
@@ -608,55 +591,6 @@ export default function InternoLayout() {
             </>
           )}
 
-          {/* 7. Mailchimp */}
-          {canSeeEmail && isEnabled('mailchimp') && (
-            <NavLink
-              to="/interno/email"
-              onClick={() => setSidebarOpen(false)}
-              className={({ isActive }) => navLinkClass(isActive)}
-              title={collapsed ? 'Mailchimp' : undefined}
-            >
-              <div className={`flex items-center justify-center ${collapsed ? '' : 'mr-2'}`}>
-                <img src={logoMailchimp} alt="Mailchimp" width={18} height={18} className="object-contain" />
-              </div>
-              {!collapsed && <span className="text-sm font-medium">Mailchimp</span>}
-            </NavLink>
-          )}
-
-          {/* 7.5. Design */}
-          {canSeeDesign && isEnabled('design') && (
-            <>
-              <button
-                onClick={() => {
-                  if (collapsed) { navigate('/interno/marketing/design'); }
-                  else { setDesignOpen(!designOpen); }
-                }}
-                className={navLinkClass(isActiveRoute('/interno/marketing/design') || isActiveRoute('/interno/marketing/referencias'))}
-                title={collapsed ? 'Design' : undefined}
-              >
-                <div className={`flex items-center justify-center ${collapsed ? '' : 'mr-2'}`}>
-                  <Palette size={18} />
-                </div>
-                {!collapsed && (
-                  <>
-                    <span className="text-sm font-medium flex-1 text-left">Design</span>
-                    <ChevronRight size={14} className={`text-white/25 transition-transform duration-200 ${designOpen ? 'rotate-90' : ''}`} />
-                  </>
-                )}
-              </button>
-              {designOpen && !collapsed && (
-                <div className="space-y-0.5">
-                  <NavLink to="/interno/marketing/design" onClick={() => setSidebarOpen(false)} className={({ isActive }) => subItemClass(isActive)}>
-                    <Palette size={14} className="mr-2" /> Demandas
-                  </NavLink>
-                  <NavLink to="/interno/marketing/referencias" onClick={() => setSidebarOpen(false)} className={({ isActive }) => subItemClass(isActive)}>
-                    <Image size={14} className="mr-2" /> Referências
-                  </NavLink>
-                </div>
-              )}
-            </>
-          )}
-
           {/* 8. Admin */}
           {isAdmin && (
             <NavLink
@@ -684,28 +618,6 @@ export default function InternoLayout() {
             </div>
             {!collapsed && <span className="text-sm font-medium">Perfil</span>}
           </NavLink>
-
-          {/* Orçamento de Site — destaque para conversão */}
-          {isEnabled('orcamento_site') && (
-            <NavLink
-              to="/interno/orcamento-site"
-              onClick={() => setSidebarOpen(false)}
-              className={`flex h-9 w-full items-center rounded-lg font-bold transition-transform duration-150 hover:scale-[1.02] ${
-                collapsed ? 'justify-center px-0' : 'px-3'
-              }`}
-              style={{
-                background: 'linear-gradient(135deg, #F5D470 0%, #e8b830 50%, #F5D470 100%)',
-                color: '#1A0800',
-                boxShadow: '0 0 14px rgba(232,199,102,0.35)',
-              }}
-              title={collapsed ? 'Orçamento de Site' : undefined}
-            >
-              <div className={`flex items-center justify-center ${collapsed ? '' : 'mr-2'}`}>
-                <Globe size={18} />
-              </div>
-              {!collapsed && <span className="text-sm">Orçamento de Site</span>}
-            </NavLink>
-          )}
         </nav>
 
         {/* Bottom section */}
