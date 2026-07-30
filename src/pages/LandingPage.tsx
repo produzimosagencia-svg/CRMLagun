@@ -341,7 +341,7 @@ export default function LandingPage() {
             </span>
           </a>
           <a
-            href="https://drive.google.com/drive/folders/15nXykOyaFb6El3ry_86SdaHF7kJwvSgV?usp=sharing"
+            href="https://drive.google.com/drive/folders/1mnrq2eNdB6QMH8btN9VpRFsMr0xDbLtQ?usp=sharing"
             target="_blank"
             rel="noopener noreferrer"
             className="w-full flex items-center justify-center gap-2 py-3 transition-all active:scale-95"
@@ -581,7 +581,7 @@ export default function LandingPage() {
               Você estava lá? <em style={{ color: '#F5D470' }}>Confira as fotos.</em>
             </h2>
             <a
-              href="https://drive.google.com/drive/folders/15nXykOyaFb6El3ry_86SdaHF7kJwvSgV?usp=sharing"
+              href="https://drive.google.com/drive/folders/1mnrq2eNdB6QMH8btN9VpRFsMr0xDbLtQ?usp=sharing"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-3 px-10 py-4 text-xs tracking-widest font-semibold transition-all hover:opacity-90 active:scale-95"
