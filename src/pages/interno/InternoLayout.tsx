@@ -39,11 +39,9 @@ export default function InternoLayout() {
   const { isEnabled: isEnabledSetting } = useSidebarSettings();
   const isEnabled = (key: SidebarKey) => !DISABLED_SIDEBAR_MODULES.has(key) && isEnabledSetting(key);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [isDark, setIsDark] = useState(() => {
-    const saved = localStorage.getItem('interno-theme');
-    if (saved) return saved === 'dark';
-    return document.documentElement.classList.contains('dark');
-  });
+  // Chave nova ('interno-tema'): o painel passou a ser noturno por padrão, então
+  // quem tinha 'light' salvo na chave antiga começa do zero no tema novo.
+  const [isDark, setIsDark] = useState(() => localStorage.getItem('interno-tema') !== 'claro');
   const [zigEvents, setZigEvents] = useState<EventItem[]>([]);
   // Splash pós-login: flag gravado pelo InternoLogin apenas em autenticação
   // bem-sucedida; consumido uma única vez aqui (não dispara em rotas internas).
@@ -56,7 +54,7 @@ export default function InternoLayout() {
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', isDark);
-    localStorage.setItem('interno-theme', isDark ? 'dark' : 'light');
+    localStorage.setItem('interno-tema', isDark ? 'noturno' : 'claro');
   }, [isDark]);
 
   useEffect(() => {
@@ -216,7 +214,7 @@ export default function InternoLayout() {
 
   const railButtonClass = (active: boolean) =>
     `relative flex h-10 w-10 items-center justify-center rounded-lg transition-colors duration-150 ${
-      active ? 'text-[#E8C766] bg-[#E8C766]/[0.10]' : 'text-[#8F8A7C] hover:bg-white/[0.06] hover:text-[#EDEAE3]'
+      active ? 'text-[#A78BFA] bg-[#A78BFA]/[0.10]' : 'text-[#8B8A9B] hover:bg-white/[0.06] hover:text-[#F2F1F7]'
     }`;
 
   // Item do trilho: ícone + balão com o nome ao passar o mouse.
@@ -224,11 +222,11 @@ export default function InternoLayout() {
     <Tooltip>
       <TooltipTrigger asChild>
         <button type="button" onClick={onClick} aria-label={label} aria-current={active ? 'page' : undefined} className={railButtonClass(active)}>
-          {active && <span className="absolute left-0 top-2 bottom-2 w-0.5 rounded-r bg-[#E8C766]" />}
+          {active && <span className="n-ativo absolute left-0 top-2 bottom-2 w-0.5 rounded-r bg-[#A78BFA]" />}
           {children}
         </button>
       </TooltipTrigger>
-      <TooltipContent side="right" sideOffset={10} className="bg-[#191813] text-[#EDEAE3] border-white/10 text-xs font-medium">
+      <TooltipContent side="right" sideOffset={10} className="bg-[#0A0A0F] text-[#F2F1F7] border-white/10 text-xs font-medium">
         {label}
       </TooltipContent>
     </Tooltip>
@@ -238,7 +236,7 @@ export default function InternoLayout() {
 
   return (
     <TooltipProvider delayDuration={80}>
-      <div className="min-h-screen flex bg-background">
+      <div className={`min-h-screen flex bg-background ${isDark ? 'interno-noturno' : ''}`}>
         {splashOverlay}
         {sidebarOpen && !isHome && (
           <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40 lg:hidden" onClick={() => setSidebarOpen(false)} />
@@ -250,7 +248,7 @@ export default function InternoLayout() {
             ${isHome ? '-translate-x-full lg:hidden' : sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
         >
           {/* ── Trilho de ícones ── */}
-          <nav className="flex w-[64px] flex-col items-center bg-[#191813] border-r border-black/30">
+          <nav className="flex w-[64px] flex-col items-center bg-[#0A0A0F] border-r border-white/[0.06]">
             <div className="flex h-14 w-full items-center justify-center border-b border-white/[0.06]">
               <img src={flamingoLagun} alt="Lagun" className="h-6 w-auto" />
             </div>
@@ -266,34 +264,34 @@ export default function InternoLayout() {
               })}
             </div>
             <div className="w-full flex flex-col items-center gap-1 py-2 border-t border-white/[0.06]">
-              <RailItem label={isDark ? 'Modo claro' : 'Modo escuro'} active={false} onClick={() => setIsDark(!isDark)}>
+              <RailItem label={isDark ? 'Modo claro' : 'Modo noturno'} active={false} onClick={() => setIsDark(!isDark)}>
                 {isDark ? <Sun size={17} /> : <Moon size={17} />}
               </RailItem>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <a href="https://wa.me/5527996528524" target="_blank" rel="noopener noreferrer" aria-label="Suporte"
-                    className="flex h-10 w-10 items-center justify-center rounded-lg text-[#A78BFA] hover:bg-[#7C3AED]/20 transition-colors">
+                    className="flex h-10 w-10 items-center justify-center rounded-lg text-[#C4B5FD] hover:bg-[#A78BFA]/15 transition-colors">
                     <MessageCircle size={17} />
                   </a>
                 </TooltipTrigger>
-                <TooltipContent side="right" sideOffset={10} className="bg-[#191813] text-[#EDEAE3] border-white/10 text-xs font-medium">Suporte</TooltipContent>
+                <TooltipContent side="right" sideOffset={10} className="bg-[#0A0A0F] text-[#F2F1F7] border-white/10 text-xs font-medium">Suporte</TooltipContent>
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <button type="button" onClick={signOut} aria-label="Sair" className="flex h-10 w-10 items-center justify-center rounded-lg text-[#8F8A7C] hover:bg-red-950/40 hover:text-red-400 transition-colors">
+                  <button type="button" onClick={signOut} aria-label="Sair" className="flex h-10 w-10 items-center justify-center rounded-lg text-[#8B8A9B] hover:bg-red-950/40 hover:text-red-400 transition-colors">
                     <LogOut size={17} />
                   </button>
                 </TooltipTrigger>
-                <TooltipContent side="right" sideOffset={10} className="bg-[#191813] text-[#EDEAE3] border-white/10 text-xs font-medium">Sair</TooltipContent>
+                <TooltipContent side="right" sideOffset={10} className="bg-[#0A0A0F] text-[#F2F1F7] border-white/10 text-xs font-medium">Sair</TooltipContent>
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button type="button" onClick={() => go('/interno/perfil')} aria-label={`${userName} · ${roleLabel}`}
-                    className="mt-1 flex h-8 w-8 items-center justify-center rounded-full bg-[#E8C766]/15 text-[#E8C766] text-xs font-bold hover:bg-[#E8C766]/25 transition-colors">
+                    className="mt-1 flex h-8 w-8 items-center justify-center rounded-full bg-[#A78BFA]/15 text-[#A78BFA] text-xs font-bold hover:bg-[#A78BFA]/25 transition-colors">
                     {userName.charAt(0).toUpperCase()}
                   </button>
                 </TooltipTrigger>
-                <TooltipContent side="right" sideOffset={10} className="bg-[#191813] text-[#EDEAE3] border-white/10 text-xs font-medium">
+                <TooltipContent side="right" sideOffset={10} className="bg-[#0A0A0F] text-[#F2F1F7] border-white/10 text-xs font-medium">
                   {userName} · {roleLabel}
                 </TooltipContent>
               </Tooltip>
@@ -302,15 +300,15 @@ export default function InternoLayout() {
 
           {/* ── Painel de sub-itens da seção ativa ── */}
           {panelItems.length > 0 && activeSection && (
-            <div className="flex w-[196px] flex-col bg-[#1E1D17] border-r border-black/30">
+            <div key={activeSection.key} className="n-painel flex w-[196px] flex-col bg-[#0D0D14] border-r border-white/[0.06]">
               <div className="flex h-14 items-center justify-between px-4 border-b border-white/[0.06]">
-                <span className="text-[13px] font-semibold text-[#EDEAE3] truncate">{activeSection.label}</span>
-                <button onClick={() => setSidebarOpen(false)} className="lg:hidden text-[#6F6A5E] hover:text-[#EDEAE3]" aria-label="Fechar menu">
+                <span className="text-[13px] font-semibold text-[#F2F1F7] truncate">{activeSection.label}</span>
+                <button onClick={() => setSidebarOpen(false)} className="lg:hidden text-[#6B6A7B] hover:text-[#F2F1F7]" aria-label="Fechar menu">
                   <X size={16} />
                 </button>
               </div>
               <div className="flex-1 overflow-y-auto px-2 py-2 space-y-0.5">
-                {panelItems.map((item) => {
+                {panelItems.map((item, i) => {
                   const Icon = item.icon;
                   return (
                     <NavLink
@@ -318,9 +316,10 @@ export default function InternoLayout() {
                       to={item.to}
                       end={item.end}
                       onClick={() => setSidebarOpen(false)}
+                      style={{ animationDelay: `${i * 28}ms` }}
                       className={({ isActive }) =>
-                        `flex h-9 items-center gap-2.5 rounded-md px-3 text-[13px] transition-colors duration-150 ${
-                          isActive ? 'text-[#E8C766] font-medium bg-[#E8C766]/[0.08]' : 'text-[#9A958A] hover:text-[#EDEAE3] hover:bg-white/[0.04]'
+                        `n-item flex h-9 items-center gap-2.5 rounded-md px-3 text-[13px] transition-colors duration-150 ${
+                          isActive ? 'text-[#A78BFA] font-medium bg-[#A78BFA]/[0.08]' : 'text-[#8B8A9B] hover:text-[#F2F1F7] hover:bg-white/[0.04]'
                         }`
                       }
                     >
@@ -346,7 +345,10 @@ export default function InternoLayout() {
             </header>
           )}
           <main className="flex-1 p-4 lg:p-6 overflow-auto">
-            <Outlet />
+            {/* key por rota: a animação de entrada roda a cada troca de página */}
+            <div key={path} className="n-entra">
+              <Outlet />
+            </div>
           </main>
         </div>
       </div>

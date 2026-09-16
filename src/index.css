@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Instrument+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Instrument+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -84,6 +84,96 @@
   --input-background: #1A1916;
   --switch-background: #3A372F;
   --ring: #E8C766;
+}
+
+
+/*
+ * Tema noturno do painel interno — escuro, com acentos brilhantes.
+ * Redefine os tokens do shadcn, então todas as telas herdam sem tocar em cada uma.
+ * Escopo em .interno-noturno: a landing e o login continuam com a identidade antiga.
+ */
+.interno-noturno {
+  --background: #06060A;
+  --foreground: #F2F1F7;
+  --card: #0F0F16;
+  --card-foreground: #F2F1F7;
+  --popover: #12121A;
+  --popover-foreground: #F2F1F7;
+  --primary: #A78BFA;
+  --primary-foreground: #0A0A0F;
+  --secondary: #16161F;
+  --secondary-foreground: #F2F1F7;
+  --muted: #14141C;
+  --muted-foreground: #8B8A9B;
+  --accent: #1A1A24;
+  --accent-foreground: #C4B5FD;
+  --brand: #A78BFA;
+  --destructive: #E11D48;
+  --destructive-foreground: #FFFFFF;
+  --border: #1E1E29;
+  --input: #16161F;
+  --input-background: #0F0F16;
+  --switch-background: #2A2A38;
+  --ring: #A78BFA;
+
+  /* Paleta de acentos — usada nos gráficos, tags e estados */
+  --n-barra: #0A0A0F;
+  --n-card-grad: linear-gradient(180deg, #111119, #0B0B10);
+  --n-linha-grad: linear-gradient(180deg, #12121A, #0D0D12);
+  --n-roxo: #A78BFA;
+  --n-lilas: #C4B5FD;
+  --n-verde: #34D399;
+  --n-ambar: #FBBF24;
+  --n-azul: #60A5FA;
+  --n-rosa: #FDA4AF;
+
+  font-family: 'IBM Plex Sans', system-ui, sans-serif;
+  color-scheme: dark;
+}
+
+.interno-noturno .font-display,
+.interno-noturno h1, .interno-noturno h2, .interno-noturno h3 {
+  font-family: 'Space Grotesk', sans-serif;
+  letter-spacing: -0.02em;
+}
+
+/* Cartões ganham o gradiente sutil do painel, em vez de cor chapada */
+.interno-noturno .bg-card { background: var(--n-card-grad); }
+
+.interno-noturno ::-webkit-scrollbar { width: 8px; height: 8px; }
+.interno-noturno ::-webkit-scrollbar-track { background: transparent; }
+.interno-noturno ::-webkit-scrollbar-thumb { background: rgba(255,255,255,.1); border-radius: 8px; }
+.interno-noturno ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.18); }
+
+/* ── Animações ──────────────────────────────────────────────────────────── */
+@keyframes n-entra {
+  from { opacity: 0; transform: translateY(10px); filter: blur(3px); }
+  to   { opacity: 1; transform: none; filter: none; }
+}
+@keyframes n-painel {
+  from { opacity: 0; transform: translateX(-14px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes n-item {
+  from { opacity: 0; transform: translateX(-8px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes n-pulso {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(167,139,250,.5); }
+  50%      { box-shadow: 0 0 0 5px rgba(167,139,250,0); }
+}
+
+/* Troca de página */
+.n-entra { animation: n-entra .34s cubic-bezier(.2,.7,.2,1) both; }
+/* Segundo sidebar aparecendo */
+.n-painel { animation: n-painel .28s cubic-bezier(.2,.7,.2,1) both; }
+/* Sub-itens entram em cascata */
+.n-item { animation: n-item .3s cubic-bezier(.2,.7,.2,1) both; }
+/* Brilho no ícone ativo do trilho */
+.n-ativo { animation: n-pulso 2.6s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .n-entra, .n-painel, .n-item, .n-ativo { animation: none; }
 }
 
 @layer base {

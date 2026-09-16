@@ -190,6 +190,54 @@ function inferMessageChannel(message: Message): 'whatsapp' | 'instagram' {
   return 'whatsapp';
 }
 
+
+/**
+ * Avatar de contato à prova de link quebrado.
+ *
+ * As fotos do Instagram vêm do CDN da Meta e expiram em poucos dias — quando
+ * isso acontece o <img> falha e aparecia um ícone de imagem quebrada. Aqui, em
+ * vez disso, cai para um círculo colorido: a cor é derivada do id, então cada
+ * pessoa fica com uma cor estável e as conversas continuam distinguíveis mesmo
+ * sem foto nem @ (o que acontece enquanto o Instagram Login não estiver
+ * conectado — a Meta não libera perfil de terceiros sem acesso avançado).
+ */
+function hueFromId(id: string) {
+  return [...id].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 7);
+}
+function ContactAvatar({ src, name, id, channel, size = 40 }: { src?: string | null; name?: string | null; id: string; channel: 'whatsapp' | 'instagram'; size?: number }) {
+  const [broken, setBroken] = useState(false);
+  useEffect(() => { setBroken(false); }, [src]);
+  const px = { width: size, height: size };
+  if (src && !broken) {
+    return <img src={src} alt="" onError={() => setBroken(true)} style={px} className="rounded-full object-cover shrink-0" />;
+  }
+  // Nome real → iniciais; só o id numérico → glifo do Instagram.
+  const isNumeric = !name || /^\d+$/.test(name);
+  const initials = isNumeric ? null : name!.trim().slice(0, 2).toUpperCase();
+  const hue = hueFromId(id || 'x');
+  return (
+    <span
+      style={{ ...px, background: channel === 'instagram'
+        ? `radial-gradient(circle at 30% 30%, oklch(.70 .15 ${hue}), oklch(.42 .17 ${hue}) 70%)`
+        : 'rgba(37,211,102,.2)' }}
+      className="grid place-items-center rounded-full shrink-0 font-bold text-white"
+    >
+      {initials
+        ? <span style={{ fontSize: Math.round(size * 0.34) }}>{initials}</span>
+        : channel === 'instagram'
+          ? <Instagram style={{ width: size * 0.45, height: size * 0.45 }} />
+          : <span style={{ fontSize: Math.round(size * 0.3) }} className="text-[#25D366]">WA</span>}
+    </span>
+  );
+}
+/** Rótulo de quem está falando: @ quando conhecido, senão os últimos dígitos do id. */
+function contactLabel(channel: 'whatsapp' | 'instagram', name?: string | null, username?: string | null, id?: string | null) {
+  if (channel === 'whatsapp') return name || formatPhone(id || '');
+  if (username) return `@${username}`;
+  if (name && !/^\d+$/.test(name)) return name;
+  return `Instagram · ····${(id || '').slice(-4)}`;
+}
+
 export default function InternoWhatsAppChat() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedPhone, setSelectedPhone] = useState<string | null>(null);
@@ -1042,11 +1090,7 @@ export default function InternoWhatsAppChat() {
           </div>
           {activeChannel === 'instagram' && selectedIgAccount && (
             <div className="px-3 py-2 border-b flex items-center gap-2">
-              {selectedIgAccount.profile_picture_url ? (
-                <img src={selectedIgAccount.profile_picture_url} alt="" className="w-6 h-6 rounded-full object-cover shrink-0" />
-              ) : (
-                <Instagram className="w-4 h-4 shrink-0 text-[#E4405F]" />
-              )}
+              <ContactAvatar src={selectedIgAccount.profile_picture_url} name={selectedIgAccount.username} id={selectedIgAccount.id} channel="instagram" size={24} />
               <span className="text-xs font-medium text-muted-foreground">@{selectedIgAccount.username}</span>
               <span className="ml-auto text-[10px] text-emerald-500 font-semibold flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
@@ -1131,19 +1175,11 @@ export default function InternoWhatsAppChat() {
               }`}
             >
               <div className="flex items-center gap-3">
-                {conv.contact_avatar ? (
-                  <img src={conv.contact_avatar} alt="" className="w-10 h-10 rounded-full object-cover shrink-0" />
-                ) : (
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 font-bold text-sm ${
-                    activeChannel === 'instagram' ? 'bg-[#E4405F]/20 text-[#E4405F]' : 'bg-[#25D366]/20 text-[#25D366]'
-                  }`}>
-                    {(conv.contact_name || conv.phone || '').slice(0, 2).toUpperCase() || (activeChannel === 'instagram' ? <Instagram className="w-5 h-5" /> : 'WA')}
-                  </div>
-                )}
+                <ContactAvatar src={conv.contact_avatar} name={conv.contact_name} id={conv.phone} channel={activeChannel} />
                 <div className="flex-1 min-w-0 overflow-hidden">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                      <p className={`${conv.unread_count > 0 ? 'font-extrabold text-foreground' : 'font-semibold'} text-sm truncate`}>{activeChannel === 'instagram' ? (conv.contact_name || conv.phone) : (conv.contact_name || formatPhone(conv.phone))}</p>
+                      <p className={`${conv.unread_count > 0 ? 'font-extrabold text-foreground' : 'font-semibold'} text-sm truncate`}>{contactLabel(activeChannel, conv.contact_name, conv.contact_username, conv.phone)}</p>
                       {conv.needs_support && (
                         <span className="w-2.5 h-2.5 rounded-full bg-red-500 shrink-0 animate-pulse" title="Precisa de suporte humano" />
                       )}
@@ -1287,18 +1323,10 @@ export default function InternoWhatsAppChat() {
               <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setSelectedPhone(null)}>
                 <ArrowLeft className="w-5 h-5" />
               </Button>
-              {selectedConv?.contact_avatar ? (
-                <img src={selectedConv.contact_avatar} alt="" className="w-10 h-10 rounded-full object-cover" />
-              ) : (
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm ${
-                  activeChannel === 'instagram' ? 'bg-[#E4405F]/20 text-[#E4405F]' : 'bg-[#25D366]/20 text-[#25D366]'
-                }`}>
-                  {(selectedConv?.contact_name || selectedPhone || '').slice(0, 2).toUpperCase() || (activeChannel === 'instagram' ? <Instagram className="w-5 h-5" /> : 'WA')}
-                </div>
-              )}
+              <ContactAvatar src={selectedConv?.contact_avatar} name={selectedConv?.contact_name} id={selectedPhone || ''} channel={activeChannel} />
               <div className="flex-1 min-w-0">
-                <p className="font-bold text-sm truncate">{activeChannel === 'instagram' ? (selectedConv?.contact_name || selectedPhone) : (selectedConv?.contact_name || formatPhone(selectedPhone))}</p>
-                <p className="text-xs text-muted-foreground truncate">{activeChannel === 'instagram' ? `@${selectedConv?.contact_username || selectedPhone}` : formatPhone(selectedPhone)}</p>
+                <p className="font-bold text-sm truncate">{contactLabel(activeChannel, selectedConv?.contact_name, selectedConv?.contact_username, selectedPhone)}</p>
+                <p className="text-xs text-muted-foreground truncate">{activeChannel === 'instagram' ? (selectedConv?.contact_username ? `@${selectedConv.contact_username}` : 'perfil indisponível — conecte o Instagram Login') : formatPhone(selectedPhone)}</p>
               </div>
               {activeChannel === 'whatsapp' && (
                 <Button
