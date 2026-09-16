@@ -191,7 +191,7 @@ export default function InternoLayout() {
   const panelItems = activeSection?.children ?? [];
 
   const getPageTitle = () => {
-    if (path === '/interno/dashboard') return 'Dashboard Geral';
+    if (path === '/interno/dashboard') return 'Redes Sociais';
     if (path.startsWith('/interno/trafego-gpt')) return 'TráfegoGPT';
     if (path === '/interno/ads/campanhas') return 'Campanhas';
     if (path === '/interno/ads/criativos') return 'Criativos Campeões';
