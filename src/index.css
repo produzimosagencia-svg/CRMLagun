@@ -161,22 +161,19 @@
   from { opacity: 0; transform: translateX(-8px); }
   to   { opacity: 1; transform: none; }
 }
-@keyframes n-pulso {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(255,225,77,.5); }
-  50%      { box-shadow: 0 0 0 5px rgba(255,225,77,0); }
-}
 
-/* Troca de página */
-.n-entra { animation: n-entra .34s cubic-bezier(.2,.7,.2,1) both; }
+/* Troca de página. Sem `both`: com fill-mode o wrapper guardaria uma camada
+   de GPU do tamanho de todo o conteúdo rolável mesmo depois de terminar — era
+   ela que deixava rastro preto ao rolar. A classe também é retirada no fim da
+   animação (ver TransicaoPagina no InternoLayout). */
+.n-entra { animation: n-entra .34s cubic-bezier(.2,.7,.2,1); }
 /* Segundo sidebar aparecendo */
 .n-painel { animation: n-painel .28s cubic-bezier(.2,.7,.2,1) both; }
 /* Sub-itens entram em cascata */
 .n-item { animation: n-item .3s cubic-bezier(.2,.7,.2,1) both; }
-/* Brilho no ícone ativo do trilho */
-.n-ativo { animation: n-pulso 2.6s ease-in-out infinite; }
 
 @media (prefers-reduced-motion: reduce) {
-  .n-entra, .n-painel, .n-item, .n-ativo { animation: none; }
+  .n-entra, .n-painel, .n-item { animation: none; }
 }
 
 @layer base {

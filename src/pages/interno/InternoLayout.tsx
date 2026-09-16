@@ -33,6 +33,22 @@ interface Section {
   children?: SubItem[];
 }
 
+/**
+ * Envolve o conteúdo da página só para a animação de entrada e se livra da
+ * classe assim que ela termina. Enquanto a classe existe o navegador mantém
+ * uma camada de composição do tamanho da página; retirá-la devolve o elemento
+ * ao fluxo normal e o scroll volta a repintar sem rastro.
+ */
+function TransicaoPagina({ chave, children }: { chave: string; children: ReactNode }) {
+  const [animando, setAnimando] = useState(true);
+  useEffect(() => { setAnimando(true); }, [chave]);
+  return (
+    <div className={animando ? 'n-entra' : undefined} onAnimationEnd={() => setAnimando(false)}>
+      {children}
+    </div>
+  );
+}
+
 export default function InternoLayout() {
   const { user, loading, isPartner, isAdmin, roles, signOut } = useAuth();
   const { isEnabled: isEnabledSetting } = useSidebarSettings();
@@ -239,7 +255,7 @@ export default function InternoLayout() {
     <Tooltip>
       <TooltipTrigger asChild>
         <button type="button" onClick={onClick} aria-label={label} aria-current={active ? 'page' : undefined} className={railButtonClass(active)}>
-          {active && <span className="n-ativo absolute left-0 top-2 bottom-2 w-0.5 rounded-r bg-[#FFE14D]" />}
+          {active && <span className="absolute left-0 top-2 bottom-2 w-0.5 rounded-r bg-[#FFE14D]" />}
           {children}
         </button>
       </TooltipTrigger>
@@ -371,9 +387,9 @@ export default function InternoLayout() {
           )}
           <main className="flex-1 overflow-auto bg-background p-4 lg:p-6">
             {/* key por rota: a animação de entrada roda a cada troca de página */}
-            <div key={path} className="n-entra">
+            <TransicaoPagina key={path} chave={path}>
               <Outlet />
-            </div>
+            </TransicaoPagina>
           </main>
         </div>
       </div>
