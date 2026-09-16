@@ -12,7 +12,14 @@ function NotificationIcon({ type }: { type: string }) {
   return <ClipboardList size={14} className="text-brand" />;
 }
 
-export function NotificationBell() {
+/**
+ * Sineta de notificações.
+ *
+ * `lado` decide para onde o painel abre: 'direita' (padrão) ancora à direita,
+ * como no cabeçalho; 'esquerda' ancora à esquerda, para quando a sineta fica
+ * no trilho estreito do sidebar — senão o painel de 320px sairia da tela.
+ */
+export function NotificationBell({ lado = 'direita' }: { lado?: 'direita' | 'esquerda' } = {}) {
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -34,7 +41,7 @@ export function NotificationBell() {
   }
 
   return (
-    <div className="relative ml-auto" ref={ref}>
+    <div className={`relative ${lado === 'direita' ? 'ml-auto' : ''}`} ref={ref}>
       <button
         onClick={() => setOpen((v) => !v)}
         className="relative flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
@@ -49,7 +56,7 @@ export function NotificationBell() {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-10 z-40 w-80 max-h-[70vh] overflow-y-auto rounded-md border border-border bg-popover shadow-lg">
+        <div className={`absolute top-10 z-40 w-80 max-h-[70vh] overflow-y-auto rounded-md border border-border bg-popover shadow-lg ${lado === 'direita' ? 'right-0' : 'left-0'}`}>
           <div className="flex items-center justify-between px-3 py-2.5 border-b border-border">
             <span className="text-sm font-semibold text-foreground">Notificações</span>
             {unreadCount > 0 && (

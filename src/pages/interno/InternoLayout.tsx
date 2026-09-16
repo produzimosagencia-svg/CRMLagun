@@ -294,6 +294,9 @@ export default function InternoLayout() {
                   </RailItem>
                 );
               })}
+              <div className="hidden h-10 w-10 items-center justify-center text-[#8B8A9B] lg:flex [&_button]:h-10 [&_button]:w-10">
+                <NotificationBell lado="esquerda" />
+              </div>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <a href="https://wa.me/5527996528524" target="_blank" rel="noopener noreferrer" aria-label="Suporte"
@@ -354,9 +357,12 @@ export default function InternoLayout() {
 
         {/* Main content */}
         <div className="flex-1 flex flex-col min-w-0">
+          {/* A faixa do topo saiu para ganhar altura: o nome da página já está no
+              trilho e no painel lateral. No celular ela continua, porque é de lá
+              que se abre o menu. */}
           {!isHome && (
-            <header className="sticky top-0 z-30 bg-background/95 backdrop-blur-sm border-b border-border px-4 h-12 flex items-center gap-3 lg:px-6">
-              <button onClick={() => setSidebarOpen(true)} className="lg:hidden text-muted-foreground hover:text-foreground" aria-label="Abrir menu">
+            <header className="sticky top-0 z-30 flex h-12 items-center gap-3 border-b border-border bg-background/95 px-4 backdrop-blur-sm lg:hidden">
+              <button onClick={() => setSidebarOpen(true)} className="text-muted-foreground hover:text-foreground" aria-label="Abrir menu">
                 <Menu size={20} />
               </button>
               <h1 className="font-display text-[15px] font-medium tracking-tight text-foreground">{getPageTitle()}</h1>
