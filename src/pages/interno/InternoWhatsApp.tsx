@@ -234,7 +234,7 @@ const optimizeTemplateImage = async (file: File): Promise<File> => {
   throw new Error('A imagem continua acima do limite da Meta após a otimização');
 };
 
-export default function InternoWhatsApp() {
+export default function InternoWhatsApp({ inicial = 'dashboard' }: { inicial?: 'dashboard' | 'status' }) {
   const [phoneNumbers, setPhoneNumbers] = useState<PhoneNumber[]>([]);
   const [templates, setTemplates] = useState<Template[]>([]);
   const [selectedPhones, setSelectedPhones] = useState<string[]>([]);
@@ -248,7 +248,9 @@ export default function InternoWhatsApp() {
   const [uploadingTemplateImage, setUploadingTemplateImage] = useState(false);
   const [sendResults, setSendResults] = useState<{ total: number; sent: number; errors: number; details: SendResult[] } | null>(null);
   const [step, setStep] = useState(1);
-  const [view, setView] = useState<'dashboard' | 'create' | 'status'>('dashboard');
+  const [view, setView] = useState<'dashboard' | 'create' | 'status'>(inicial);
+  // Status virou item do menu: a rota manda na tela.
+  useEffect(() => { setView(inicial); }, [inicial]);
   const [dashboardLoading, setDashboardLoading] = useState(true);
   const [dashboardError, setDashboardError] = useState('');
   const [apiStatusCounts, setApiStatusCounts] = useState<StatusSummary['counts'] | null>(null);
@@ -692,8 +694,6 @@ export default function InternoWhatsApp() {
             <p className="mt-1 text-sm text-[#8F8A7C]">Acompanhe o percurso de cada envio e identifique falhas.</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button variant="outline" size="sm" onClick={loadDashboard} className="border-white/10 bg-white/5 text-[#D8D2C7] hover:bg-white/10 hover:text-white"><RefreshCw className={`mr-1.5 h-4 w-4 ${dashboardLoading ? 'animate-spin' : ''}`} />Atualizar</Button>
-            <Button variant="outline" size="sm" onClick={() => setView('dashboard')} className="border-white/10 bg-white/5 text-[#D8D2C7] hover:bg-white/10 hover:text-white">← Painel</Button>
           </div>
         </div>
 
@@ -702,11 +702,7 @@ export default function InternoWhatsApp() {
             <p className="text-sm font-semibold text-red-300">A API do WhatsApp não respondeu</p>
             <p className="mt-1 text-xs text-[#D5B8C5]">{dashboardError}</p>
           </section>
-        ) : apiStatusCounts && (
-          <section className="rounded-xl border border-emerald-500/20 bg-emerald-500/[0.05] px-4 py-3">
-            <p className="text-xs font-medium text-emerald-300">API sincronizada · {apiStatusCounts.total.toLocaleString('pt-BR')} disparos registrados{apiStatusUpdatedAt ? ` · ${new Date(apiStatusUpdatedAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}` : ''}</p>
-          </section>
-        )}
+        ) : null}
 
         {sending && (
           <section className="flex items-center gap-3 rounded-xl border border-[#FFE14D]/25 bg-[#FFE14D]/[0.06] p-4">
@@ -833,8 +829,6 @@ export default function InternoWhatsApp() {
             <p className="mt-1 text-sm text-[#8F8A7C]">Acompanhe os envios e mantenha campanhas automáticas ativas.</p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={loadDashboard} className="border-white/10 bg-white/5 text-[#D8D2C7] hover:bg-white/10 hover:text-white"><RefreshCw className={`mr-1.5 h-4 w-4 ${dashboardLoading ? 'animate-spin' : ''}`} />Atualizar</Button>
-            <Button variant="outline" size="sm" onClick={() => setView('status')} className="border-white/10 bg-white/5 text-[#D8D2C7] hover:bg-white/10 hover:text-white"><BarChart3 className="mr-1.5 h-4 w-4" />Status</Button>
             <Button size="sm" onClick={() => void gerarPdfDisparos()} disabled={gerandoPdf || dashboardLoading}
               className="gap-1.5 bg-[#FFE14D] font-semibold text-black shadow-[0_0_20px_rgba(255,225,77,.45)] hover:bg-[#FFEC8A]">
               {gerandoPdf ? <RefreshCw className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}

@@ -1,4 +1,4 @@
-import { useState, useEffect, type ReactNode } from 'react';
+import { useState, useEffect, Suspense, type ReactNode } from 'react';
 import { Navigate, Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useSidebarSettings, type SidebarKey } from '@/hooks/useSidebarSettings';
@@ -6,7 +6,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import {
   LogOut, Menu, X, ChevronRight, Ticket, MessageCircle, Send, Settings, User, Sparkles, HelpCircle,
   Megaphone, BarChart3, Trophy, Users, ClipboardList, Cake, Globe, CalendarRange, LayoutDashboard,
-  TrendingUp, MessagesSquare, ShoppingCart, RotateCcw, MousePointerClick, Zap, Crown, Database,
+  TrendingUp, MessagesSquare, ShoppingCart, RotateCcw, MousePointerClick, Zap, Crown, Database, Activity,
   type LucideIcon,
 } from 'lucide-react';
 import SplashScreen from '@/components/SplashScreen';
@@ -168,6 +168,7 @@ export default function InternoLayout() {
         isActive: (p) => p.startsWith('/interno/whatsapp') && p !== '/interno/whatsapp/chat',
         children: [
           { label: 'Dashboard', to: '/interno/whatsapp', end: true, icon: BarChart3 },
+          { label: 'Status', to: '/interno/whatsapp/status', icon: Activity },
           { label: 'Carrinho Abandonado', to: '/interno/whatsapp/carrinho-abandonado', icon: ShoppingCart },
           { label: 'Aniversário', to: '/interno/whatsapp/aniversario', icon: Cake },
           { label: 'Estornos', to: '/interno/whatsapp/estornos', icon: RotateCcw },
@@ -408,7 +409,10 @@ export default function InternoLayout() {
           <main className="flex-1 overflow-auto bg-background p-4 lg:p-6">
             {/* key por rota: a animação de entrada roda a cada troca de página */}
             <TransicaoPagina key={path} chave={path}>
-              <Outlet />
+              {/* Suspense aqui: trocar de página só troca o conteúdo, o menu fica. */}
+              <Suspense fallback={<div className="flex h-[60vh] items-center justify-center"><div className="h-7 w-7 animate-spin rounded-full border-2 border-[#FFE14D] border-t-transparent" /></div>}>
+                <Outlet />
+              </Suspense>
             </TransicaoPagina>
           </main>
         </div>

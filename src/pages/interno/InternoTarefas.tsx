@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import { confirmDialog } from '@/components/ConfirmDialog';
 import { useAuth } from '@/hooks/useAuth';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { BarraIndicadores, CORES } from '@/components/interno/BarraIndicadores';
 
 interface TeamTask {
   id: string;
@@ -352,6 +353,30 @@ export default function InternoTarefas() {
   if (loading) return <div className="flex items-center justify-center py-20"><div className="h-6 w-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" /></div>;
 
   const tasksByStatus = (status: string) => tasks.filter(t => t.status === status);
+
+  // Indicadores do topo — tudo sobre o que ainda não foi finalizado, exceto "Concluídas".
+  const indicadores = (() => {
+    const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+    const emSeteDias = new Date(hoje); emSeteDias.setDate(emSeteDias.getDate() + 7);
+    const abertas = tasks.filter(t => t.status !== 'finalizado');
+    const prazo = (t: TeamTask) => t.due_date ? new Date(t.due_date + 'T12:00:00') : null;
+    const atrasadas = abertas.filter(t => { const d = prazo(t); return d !== null && d < hoje; }).length;
+    const vencendo = abertas.filter(t => { const d = prazo(t); return d !== null && d >= hoje && d <= emSeteDias; }).length;
+    const urgentes = abertas.filter(t => t.priority === 'urgente').length;
+    const concluidas = tasks.length - abertas.length;
+    const minhas = user ? abertas.filter(t => t.assigned_to === user.id).length : 0;
+    const pct = (n: number) => tasks.length ? Math.round((n / tasks.length) * 100) : 0;
+    return {
+      subtitulo: `${tasks.length} tarefas · ${minhas} abertas com você`,
+      itens: [
+        { label: 'Em aberto', valor: String(abertas.length), sub: `${tasksByStatus('em andamento').length} em andamento`, cor: CORES.ouro, barra: pct(abertas.length) },
+        { label: 'Urgentes', valor: String(urgentes), sub: 'prioridade urgente', cor: CORES.rosa },
+        { label: 'Atrasadas', valor: String(atrasadas), sub: 'prazo vencido', cor: CORES.ambar },
+        { label: 'Vencem em 7 dias', valor: String(vencendo), sub: 'próxima semana', cor: CORES.azul },
+        { label: 'Concluídas', valor: String(concluidas), sub: `${pct(concluidas)}% do total`, cor: CORES.verde, barra: pct(concluidas) },
+      ],
+    };
+  })();
   const getPriority = (key: string | null) => PRIORITIES.find(p => p.key === key);
 
   function openDetail(t: TeamTask) {
@@ -446,6 +471,8 @@ export default function InternoTarefas() {
           </Button>
         </div>
       </div>
+
+      <BarraIndicadores titulo="Tarefas da equipe" subtitulo={indicadores.subtitulo} itens={indicadores.itens} carregando={loading} />
 
       {/* Kanban View */}
       {viewMode === 'kanban' && (

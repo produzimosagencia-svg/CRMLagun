@@ -69,8 +69,8 @@ const InfluenciadorCallback = lazy(() => import("./pages/InfluenciadorCallback.t
 const InfluenciadorPortal   = lazy(() => import("./pages/InfluenciadorPortal.tsx"));
 
 const Fallback = () => (
-  <div className="min-h-screen flex items-center justify-center bg-gray-50">
-    <div className="h-8 w-8 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" />
+  <div className="min-h-screen flex items-center justify-center bg-[#06060A]">
+    <div className="h-8 w-8 border-2 border-[#FFE14D] border-t-transparent rounded-full animate-spin" />
   </div>
 );
 
@@ -114,6 +114,7 @@ createRoot(document.getElementById("root")!).render(
           <Route path="automacoes" element={<InternoAutomacoes />} />
           <Route path="automacoes/:id" element={<InternoAutomacaoEditor />} />
           <Route path="whatsapp" element={<InternoWhatsApp />} />
+          <Route path="whatsapp/status" element={<InternoWhatsApp inicial="status" />} />
           <Route path="whatsapp/dashboard" element={<InternoWhatsAppDashboard />} />
           <Route path="whatsapp/chat" element={<InternoWhatsAppChat />} />
           <Route path="whatsapp/carrinho-abandonado" element={<InternoWhatsAppCampaign campaignKey="carrinho_abandonado" />} />
