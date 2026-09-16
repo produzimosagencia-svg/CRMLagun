@@ -71,15 +71,9 @@ export function BarraIndicadores({ titulo, subtitulo, itens, carregando = false 
           5: 'xl:grid-cols-[minmax(140px,.9fr)_repeat(5,minmax(0,1fr))]',
         }[Math.min(Math.max(itens.length, 2), 5)] ?? 'xl:grid-cols-[minmax(140px,.9fr)_repeat(4,minmax(0,1fr))]'
       }`}
-      // Cor atravessa a faixa inteira: âmbar quente na esquerda, ouro forte na
-      // direita. O degradê linear claro deixava a faixa amarela demais.
-      style={{
-        background: [
-          'radial-gradient(ellipse at 100% 50%, rgba(255,225,77,.42), transparent 55%)',
-          'linear-gradient(90deg, rgba(255,140,40,.20), rgba(255,184,77,.07) 45%, transparent 70%)',
-          'linear-gradient(180deg, #171520, #0B0A10)',
-        ].join(', '),
-      }}
+      // Degradê do marrom (esquerda) ao amarelo (direita). O amarelo para em
+      // #E3B81E: acima disso o texto branco da última coluna começa a lavar.
+      style={{ background: 'linear-gradient(90deg, #1F1407 0%, #7A5A10 50%, #E3B81E 100%)' }}
     >
       <div className="min-w-0 pr-2">
         <strong className="block font-display text-sm font-semibold">{titulo}</strong>

@@ -5,7 +5,7 @@ import { useSidebarSettings, type SidebarKey } from '@/hooks/useSidebarSettings'
 import { NotificationBell } from '@/components/NotificationBell';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
-  LogOut, Menu, X, ChevronRight, Ticket, MessageCircle, Send, Settings, User, Sparkles,
+  LogOut, Menu, X, ChevronRight, Ticket, MessageCircle, Send, Settings, User, Sparkles, HelpCircle,
   Megaphone, BarChart3, Trophy, Users, ClipboardList, Cake, Globe, CalendarRange, LayoutDashboard,
   TrendingUp, MessagesSquare, ShoppingCart, RotateCcw, MousePointerClick, Zap, Crown, Database,
   type LucideIcon,
@@ -298,7 +298,7 @@ export default function InternoLayout() {
                 <TooltipTrigger asChild>
                   <a href="https://wa.me/5527996528524" target="_blank" rel="noopener noreferrer" aria-label="Suporte"
                     className="flex h-10 w-10 items-center justify-center rounded-lg text-[#FFEC8A] hover:bg-[#FFE14D]/15 transition-colors">
-                    <MessageCircle size={18} />
+                    <HelpCircle size={18} />
                   </a>
                 </TooltipTrigger>
                 <TooltipContent side="right" sideOffset={10} className="bg-[#0A0A0F] text-[#F2F1F7] border-white/10 text-xs font-medium">Suporte</TooltipContent>

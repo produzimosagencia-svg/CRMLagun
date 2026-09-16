@@ -1,6 +1,7 @@
 import type { CSSProperties, ReactNode } from 'react';
 import { A4_H, A4_W } from '@/lib/relatorioPdf';
-import flamingoLagun from '@/assets/flamingo-solo.png';
+// Marca escura: no papel branco o flamingo dourado sumia.
+import marcaLagun from '@/assets/palavra-lagun-escuro.png';
 
 /**
  * Relatório de campanhas em A4 — mesmo corpo e mesmas posições do relatório da
@@ -47,7 +48,7 @@ export function FolhaA4({ contexto, children }: { contexto: string; children: Re
   return (
     <div style={{ width: A4_W, minHeight: A4_H, padding: '40px 53px', boxSizing: 'border-box', background: '#fff', color: TINTA, fontFamily: "'IBM Plex Sans', system-ui, sans-serif", display: 'flex', flexDirection: 'column' }}>
       <div data-bloco style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, paddingBottom: 12, marginBottom: 10, borderBottom: `1px solid ${fraco(0.12)}` }}>
-        <img src={flamingoLagun} alt="Lagun" style={{ height: 34, width: 'auto', display: 'block' }} />
+        <img src={marcaLagun} alt="Lagun" style={{ height: 22, width: 'auto', display: 'block' }} />
         <span style={{ fontSize: 11, color: fraco(0.55) }}>{contexto}</span>
       </div>
       <div style={{ flex: 1 }}>{children}</div>
