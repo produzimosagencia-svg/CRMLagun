@@ -20,10 +20,11 @@ const SIDEBAR_ITEMS: { key: SidebarKey; label: string }[] = [
   { key: 'tarefas', label: 'Tarefas' },
   { key: 'calendario', label: 'Calendário' },
   { key: 'chat', label: 'Chat' },
-  { key: 'whatsapp', label: 'WhatsApp' },
+  { key: 'whatsapp', label: 'Disparo' },
   { key: 'ads', label: 'Performance' },
   { key: 'social_media', label: 'Social Media' },
   { key: 'comentarios', label: 'Comentários' },
+  { key: 'automacoes', label: 'Automações' },
 ];
 
 interface UserWithRoles {

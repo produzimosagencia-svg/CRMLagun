@@ -76,6 +76,20 @@ function ScoreBar({ score }: { score: number }) {
   );
 }
 
+// A URL da foto vem do CDN do Instagram e expira em poucos dias; quando quebra,
+// mostra as iniciais em vez de um ícone de imagem quebrada.
+function IgAvatar({ src, initials, size }: { src?: string | null; initials: string; size: string }) {
+  const [broken, setBroken] = useState(false);
+  if (src && !broken) {
+    return <img src={src} alt="" onError={() => setBroken(true)} className={`${size} rounded-full object-cover shrink-0 border`} />;
+  }
+  return (
+    <div className={`${size} rounded-full bg-purple-50 flex items-center justify-center shrink-0 border border-purple-100`}>
+      <span className="text-sm font-bold text-purple-400">{initials}</span>
+    </div>
+  );
+}
+
 export default function InternoDivulgadores() {
   const [influencers, setInfluencers] = useState<Influencer[]>([]);
   const [loading, setLoading]         = useState(true);
@@ -110,6 +124,15 @@ export default function InternoDivulgadores() {
 
     const igMap: Record<string, any> = {};
     for (const a of igRes.data ?? []) igMap[a.influencer_id] = a;
+
+    // Fotos vencem no CDN do Instagram: se ninguém sincronizou nas últimas 24h,
+    // atualiza perfis em segundo plano (uma vez por sessão) e recarrega.
+    const DAY = 24 * 60 * 60 * 1000;
+    const stale = (igRes.data ?? []).some((a: any) => !a.last_synced_at || Date.now() - new Date(a.last_synced_at).getTime() > DAY);
+    if (stale && !sessionStorage.getItem('influencers-auto-sync')) {
+      sessionStorage.setItem('influencers-auto-sync', '1');
+      supabase.functions.invoke('influencer-content-sync').then(({ error }) => { if (!error) load(); }).catch(() => {});
+    }
 
     const detMap: Record<string, number> = {};
     for (const d of detRes.data ?? []) detMap[d.influencer_id] = (detMap[d.influencer_id] || 0) + 1;
@@ -317,13 +340,7 @@ export default function InternoDivulgadores() {
               const ig = inf.ig_account;
               return (
                 <div key={inf.id} className="rounded-xl border bg-card p-4 flex items-center gap-4 hover:border-gray-300 dark:hover:border-neutral-700 transition-all">
-                  {ig?.profile_picture_url ? (
-                    <img src={ig.profile_picture_url} alt="" className="w-11 h-11 rounded-full object-cover shrink-0 border" />
-                  ) : (
-                    <div className="w-11 h-11 rounded-full bg-purple-50 flex items-center justify-center shrink-0 border border-purple-100">
-                      <span className="text-sm font-bold text-purple-400">{inf.full_name.slice(0,2).toUpperCase()}</span>
-                    </div>
-                  )}
+                  <IgAvatar src={ig?.profile_picture_url} initials={inf.full_name.slice(0,2).toUpperCase()} size="w-11 h-11" />
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
@@ -422,13 +439,7 @@ export default function InternoDivulgadores() {
                   </div>
 
                   {/* Avatar */}
-                  {ig?.profile_picture_url ? (
-                    <img src={ig.profile_picture_url} alt="" className="w-10 h-10 rounded-full object-cover shrink-0 border" />
-                  ) : (
-                    <div className="w-10 h-10 rounded-full bg-purple-50 flex items-center justify-center shrink-0 border border-purple-100">
-                      <span className="text-sm font-bold text-purple-400">{inf.full_name.slice(0,2).toUpperCase()}</span>
-                    </div>
-                  )}
+                  <IgAvatar src={ig?.profile_picture_url} initials={inf.full_name.slice(0,2).toUpperCase()} size="w-10 h-10" />
 
                   {/* Info */}
                   <div className="flex-1 min-w-0">

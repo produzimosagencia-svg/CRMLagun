@@ -30,7 +30,17 @@ async function getPageAccessToken(pageId: string, systemUserToken: string): Prom
   return data.access_token ?? null;
 }
 
-function getDmToken(igId?: string | null): string {
+// Conta do Lagun: o token IGAA fica em ig_config (renovado semanalmente pelo cron
+// via ig-oauth). Só cai no secret INSTAGRAM_USER_TOKEN_LAGUN se não houver.
+const LAGUN_IG_ID = "17841436376156784";
+const adminClient = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+async function getDmToken(igId?: string | null): Promise<string> {
+  if (igId === LAGUN_IG_ID) {
+    const { data: cfg } = await adminClient.from("ig_config").select("access_token, token_expires_at").maybeSingle();
+    if (cfg?.access_token && (!cfg.token_expires_at || new Date(cfg.token_expires_at).getTime() > Date.now())) {
+      return String(cfg.access_token).trim();
+    }
+  }
   if (igId && IG_DM_TOKEN_MAP[igId]) {
     const token = Deno.env.get(IG_DM_TOKEN_MAP[igId]);
     if (token) return token.trim();
@@ -196,7 +206,7 @@ Deno.serve(async (req) => {
       case "dm_conversations": {
         const igId = url.searchParams.get("ig_id");
         if (!igId) { result = { error: "ig_id is required" }; break; }
-        const dmAccessToken = getDmToken(igId);
+        const dmAccessToken = await getDmToken(igId);
         const platform = url.searchParams.get("platform") || "instagram";
         const resp = await fetch(
           `${IG_GRAPH_API}/${igId}/conversations?fields=id,participants,updated_time,messages.limit(1){message,from,created_time}&platform=${platform}&access_token=${dmAccessToken}`
@@ -209,7 +219,7 @@ Deno.serve(async (req) => {
         const conversationId = url.searchParams.get("conversation_id");
         if (!conversationId) { result = { error: "conversation_id is required" }; break; }
         const igIdForToken = url.searchParams.get("ig_id");
-        const dmToken2 = getDmToken(igIdForToken);
+        const dmToken2 = await getDmToken(igIdForToken);
         const limit = url.searchParams.get("limit") || "50";
         const resp = await fetch(
           `${IG_GRAPH_API}/${conversationId}?fields=messages.limit(${limit}){message,from,created_time,attachments{mime_type,name,size,image_data}}&access_token=${dmToken2}`
@@ -226,7 +236,7 @@ Deno.serve(async (req) => {
         if (!igId || !recipientId || !messageText) {
           result = { error: "ig_id, recipient_id, and message are required" }; break;
         }
-        const dmToken3 = getDmToken(igId);
+        const dmToken3 = await getDmToken(igId);
         const isIgaaToken = dmToken3.startsWith("IGAA");
 
         if (isIgaaToken) {
@@ -296,7 +306,7 @@ Deno.serve(async (req) => {
           break;
         }
 
-        const dmToken4 = getDmToken(igId);
+        const dmToken4 = await getDmToken(igId);
 
         const serviceSupabase = createClient(
           Deno.env.get("SUPABASE_URL")!,

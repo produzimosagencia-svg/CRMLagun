@@ -56,6 +56,9 @@ const InternoGrafosLista = lazy(() => import("./pages/interno/InternoGrafosLista
 const InternoDados = lazy(() => import("./pages/interno/InternoDados.tsx"));
 const InternoLanding = lazy(() => import("./pages/interno/InternoLanding.tsx"));
 const InternoCalendario = lazy(() => import("./pages/interno/InternoCalendario.tsx"));
+const InternoAutomacoes = lazy(() => import("./pages/interno/InternoAutomacoes.tsx"));
+const InternoAutomacaoEditor = lazy(() => import("./pages/interno/InternoAutomacaoEditor.tsx"));
+const IgLinkRedirect = lazy(() => import("./pages/IgLinkRedirect.tsx"));
 const InternoPrive = lazy(() => import("./pages/interno/InternoPrive.tsx"));
 const PrivePage = lazy(() => import("./pages/PrivePage.tsx"));
 const Privacidade = lazy(() => import("./pages/Privacidade.tsx"));
@@ -88,6 +91,7 @@ createRoot(document.getElementById("root")!).render(
         <Route path="/influenciadores/callback" element={<InfluenciadorCallback />} />
         <Route path="/influenciadores/portal"   element={<InfluenciadorPortal />} />
         <Route path="/r/:token" element={<TrackedRedirect />} />
+        <Route path="/l/:slug" element={<IgLinkRedirect />} />
         <Route path="/fotos" element={<LandingPhotos />} />
 
         <Route path="/interno/login" element={<InternoLogin />} />
@@ -107,6 +111,8 @@ createRoot(document.getElementById("root")!).render(
           <Route path="aniversariantes" element={<CrmAniversariantes />} />
           <Route path="instagram" element={<InternoInstagram />} />
           <Route path="comentarios" element={<InternoComentarios />} />
+          <Route path="automacoes" element={<InternoAutomacoes />} />
+          <Route path="automacoes/:id" element={<InternoAutomacaoEditor />} />
           <Route path="whatsapp" element={<InternoWhatsApp />} />
           <Route path="whatsapp/dashboard" element={<InternoWhatsAppDashboard />} />
           <Route path="whatsapp/chat" element={<InternoWhatsAppChat />} />

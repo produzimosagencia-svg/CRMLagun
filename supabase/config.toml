@@ -25,3 +25,13 @@ verify_jwt = false
 
 [functions.instagram-webhook]
 verify_jwt = false
+
+# Motor de automações do Instagram (ver migration ig_automacoes_lagun).
+[functions.ig-queue-worker]
+verify_jwt = false
+
+[functions.ig-oauth]
+verify_jwt = false
+
+[functions.ig-link]
+verify_jwt = false
