@@ -217,18 +217,24 @@ export default function InternoDashboardSocial() {
     [posts],
   );
 
-  const Periodo = ({ v, label }: { v: 7 | 30 | 90; label: string }) => (
-    <button
-      onClick={() => setDias(v)}
-      className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${dias === v ? 'bg-[#FFE14D] text-black' : 'text-muted-foreground hover:bg-muted'}`}
-    >{label}</button>
-  );
+  const Periodo = ({ v, label }: { v: 7 | 30 | 90; label: string }) => {
+    const ativo = dias === v;
+    return (
+      <button
+        onClick={() => setDias(v)}
+        className={`rounded-full px-5 py-2 text-[13px] font-semibold transition-all ${
+          ativo ? 'text-black' : 'text-muted-foreground hover:bg-white/5 hover:text-foreground'
+        }`}
+        style={ativo ? { background: 'linear-gradient(135deg,#FFEC8A,#FFE14D 45%,#E8B923)', boxShadow: '0 0 18px rgba(255,225,77,.45)' } : undefined}
+      >{label}</button>
+    );
+  };
 
   return (
     <div className="space-y-4">
       {/* Só o seletor de período: identidade e perfil vivem na barra abaixo. */}
-      <div className="flex justify-end">
-        <div className="flex gap-0.5 rounded-full border border-border bg-card p-1">
+      <div className="flex justify-center">
+        <div className="flex gap-1 rounded-full border border-[#FFE14D]/25 bg-card p-1.5 shadow-[0_4px_24px_rgba(0,0,0,.35)]">
           <Periodo v={7} label="7 dias" /><Periodo v={30} label="30 dias" /><Periodo v={90} label="90 dias" />
         </div>
       </div>
@@ -253,7 +259,7 @@ export default function InternoDashboardSocial() {
           { label: 'Seguidores', valor: perfil ? nf.format(perfil.followers_count) : '—', sub: 'conta profissional', cor: CORES.ouro, barra: 100 },
           { label: 'Engajamento', valor: engajamento.taxa ? pct(engajamento.taxa) : '—', sub: engajamento.posts ? `média de ${engajamento.posts} ${engajamento.posts === 1 ? 'post' : 'posts'}` : undefined, cor: CORES.verde, barra: Math.min(100, engajamento.taxa * 20) },
           { label: 'DMs recebidas', valor: nf.format(totais.dms), sub: `últimos ${dias} dias`, cor: CORES.rosa, barra: 62 },
-          { label: 'Comentários', valor: nf.format(totais.comentarios), sub: 'captados pelo webhook', cor: CORES.azul, barra: 48 },
+          { label: 'Curtidas', valor: nf.format(engajamento.curtidas), sub: engajamento.posts ? `em ${engajamento.posts} ${engajamento.posts === 1 ? 'publicação' : 'publicações'}` : 'nas publicações', cor: CORES.azul, barra: 70 },
           { label: 'Cliques no link', valor: nf.format(totais.cliques), sub: `${nf.format(Math.round(totais.cliques / Math.max(dias, 1)))}/dia em média`, cor: CORES.branco, barra: 80 },
         ]}
       />

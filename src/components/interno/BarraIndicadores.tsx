@@ -61,7 +61,7 @@ export function BarraIndicadores({ titulo, subtitulo, itens, carregando = false,
   subtitulo?: ReactNode;
   itens: Indicador[];
   carregando?: boolean;
-  /** Foto opcional ao lado do bloco de contexto (ex.: perfil conectado). */
+  /** Foto opcional à esquerda do bloco de contexto (ex.: perfil conectado). */
   avatar?: ReactNode;
 }) {
   return (
@@ -78,11 +78,11 @@ export function BarraIndicadores({ titulo, subtitulo, itens, carregando = false,
       style={{ background: 'linear-gradient(90deg, #1C1206 0%, #4A360C 65%, #A8811A 100%)' }}
     >
       <div className="flex min-w-0 items-center gap-3 pr-2">
+        {avatar}
         <div className="min-w-0 flex-1">
           <strong className="block truncate font-display text-sm font-semibold">{titulo}</strong>
           {subtitulo && <span className="mt-1 block truncate text-xs text-white/60">{subtitulo}</span>}
         </div>
-        {avatar}
       </div>
       {carregando
         ? Array.from({ length: Math.max(itens.length, 3) }).map((_, i) => (
