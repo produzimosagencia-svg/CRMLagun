@@ -84,7 +84,11 @@ Deno.serve(async (req) => {
       });
     }
 
-    const token = Deno.env.get("META_INSTAGRAM_TOKEN") ?? "";
+    // O System User "Automações" do app Lagun já carrega instagram_basic,
+    // instagram_manage_comments e instagram_content_publish — é o mesmo token
+    // usado em Ads/WhatsApp. META_INSTAGRAM_TOKEN continua tendo precedência
+    // caso um dia se queira um token dedicado só pro Instagram.
+    const token = (Deno.env.get("META_INSTAGRAM_TOKEN") ?? Deno.env.get("META_ADS_TOKEN") ?? "").trim();
 
     const url = new URL(req.url);
     const action = url.searchParams.get("action");
@@ -92,7 +96,7 @@ Deno.serve(async (req) => {
     // Actions that require META_INSTAGRAM_TOKEN
     const tokenRequiredActions = ["accounts", "insights", "media", "media_insights", "comments", "publish"];
     if (tokenRequiredActions.includes(action ?? "") && !token) {
-      return new Response(JSON.stringify({ error: "META_INSTAGRAM_TOKEN not configured" }), {
+      return new Response(JSON.stringify({ error: "Nenhum token Meta configurado (META_INSTAGRAM_TOKEN ou META_ADS_TOKEN)" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
