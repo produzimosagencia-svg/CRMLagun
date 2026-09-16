@@ -53,7 +53,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { email, password, full_name, username, role } = await req.json();
+    const { email, password, full_name, username } = await req.json();
 
     // Create user
     const { data: userData, error: userError } = await supabaseAdmin.auth.admin.createUser({
@@ -76,10 +76,11 @@ Deno.serve(async (req) => {
 
     if (profileError) throw profileError;
 
-    const rolesToInsert = [{ user_id: userId, role: "partner" }];
-    if (role && role !== "partner") {
-      rolesToInsert.push({ user_id: userId, role });
-    }
+    // Sem cargos: toda conta do time entra como admin (acesso completo).
+    const rolesToInsert = [
+      { user_id: userId, role: "partner" },
+      { user_id: userId, role: "admin" },
+    ];
 
     const { error: roleError } = await supabaseAdmin
       .from("user_roles")

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useAuth, AppRole } from '@/hooks/useAuth';
 import { useSidebarSettings, SidebarKey } from '@/hooks/useSidebarSettings';
 import { supabase } from '@/integrations/supabase/client';
-import { Trash2, Plus, UserPlus, Settings2, Pencil, ChevronDown, ChevronUp, Users } from 'lucide-react';
+import { Trash2, UserPlus, Settings2, Pencil, ChevronDown, ChevronUp, Users } from 'lucide-react';
 import { confirmDialog } from '@/components/ConfirmDialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -35,15 +35,7 @@ interface UserWithRoles {
   roles: AppRole[];
 }
 
-// Cargos identificados por ponto de cor discreto — sem pílulas coloridas
-const ROLE_LABELS: Record<string, { label: string; dot: string }> = {
-  admin: { label: 'Admin', dot: 'bg-[#B4432F]' },
-  partner: { label: 'Parceiro', dot: 'bg-[#8A857B]' },
-  design: { label: 'Design', dot: 'bg-[#6B7FA3]' },
-  trafego: { label: 'Tráfego', dot: 'bg-[#4C7A5C]' },
-};
 
-const ASSIGNABLE_ROLES: AppRole[] = ['admin', 'design', 'trafego'];
 
 export default function InternoAdmin() {
   const { isAdmin, user: currentUser } = useAuth();
@@ -55,13 +47,11 @@ export default function InternoAdmin() {
   const [newUsername, setNewUsername] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [newFullName, setNewFullName] = useState('');
-  const [newRole, setNewRole] = useState<AppRole>('design');
   const [creating, setCreating] = useState(false);
   // Criação em lote: uma linha por pessoa ("Nome | usuário"), todas com a mesma senha geral.
   const [showLote, setShowLote] = useState(false);
   const [loteTexto, setLoteTexto] = useState('Lucas Dalla | lucas.lagun\nRoni | roni.lagun\nBruno | bruno.lagun\nSaulo | saulo.lagun\nTavares | tavares.lagun\nNatasha | natasha.lagun');
   const [loteSenha, setLoteSenha] = useState('');
-  const [loteRole, setLoteRole] = useState<AppRole>('design');
   const [loteCriando, setLoteCriando] = useState(false);
   const [loteResultado, setLoteResultado] = useState<{ usuario: string; ok: boolean; erro?: string }[]>([]);
   const [savingKey, setSavingKey] = useState<string | null>(null);
@@ -82,7 +72,7 @@ export default function InternoAdmin() {
     // Sequencial: cada conta é independente, e uma falha não impede as outras.
     for (const [nome, usuario] of loteLinhas) {
       const res = await supabase.functions.invoke('create-partner', {
-        body: { email: `${usuario}@triade.internal`, password: loteSenha, full_name: nome, username: usuario, role: loteRole },
+        body: { email: `${usuario}@triade.internal`, password: loteSenha, full_name: nome, username: usuario, role: 'admin' },
       });
       const erro = res.error ? (await res.error.context?.json?.().catch(() => null))?.error || res.error.message : undefined;
       resultado.push({ usuario, ok: !res.error, erro });
@@ -140,7 +130,7 @@ export default function InternoAdmin() {
           password: newPassword,
           full_name: newFullName,
           username: newUsername,
-          role: newRole,
+          role: 'admin',
         },
       });
       if (res.error) throw res.error;
@@ -149,32 +139,11 @@ export default function InternoAdmin() {
       setNewUsername('');
       setNewPassword('');
       setNewFullName('');
-      setNewRole('design');
       fetchUsers();
     } catch (err: any) {
       toast.error(err.message || 'Erro ao criar usuário');
     }
     setCreating(false);
-  };
-
-  const handleAddRole = async (userId: string, role: AppRole) => {
-    const { error } = await supabase.from('user_roles').insert({ user_id: userId, role });
-    if (error) {
-      toast.error('Erro ao adicionar cargo');
-      return;
-    }
-    toast.success('Cargo adicionado');
-    fetchUsers();
-  };
-
-  const handleRemoveRole = async (userId: string, role: AppRole) => {
-    const { error } = await supabase.from('user_roles').delete().eq('user_id', userId).eq('role', role as any);
-    if (error) {
-      toast.error('Erro ao remover cargo');
-      return;
-    }
-    toast.success('Cargo removido');
-    fetchUsers();
   };
 
   const openUser = async (u: UserWithRoles) => {
@@ -370,20 +339,6 @@ export default function InternoAdmin() {
                 <label className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground mb-1 block">Senha geral</label>
                 <Input type="password" value={loteSenha} onChange={(e) => setLoteSenha(e.target.value)} placeholder="Mínimo 6 caracteres" />
               </div>
-              <div>
-                <label className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground mb-1 block">Cargo</label>
-                <div className="flex gap-2">
-                  {ASSIGNABLE_ROLES.map((r) => (
-                    <button key={r} onClick={() => setLoteRole(r)}
-                      className={`inline-flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium border transition-colors ${
-                        loteRole === r ? 'bg-primary text-primary-foreground border-primary' : 'bg-transparent border-border text-muted-foreground hover:text-foreground'
-                      }`}>
-                      <span className={`h-1.5 w-1.5 rounded-full ${ROLE_LABELS[r].dot}`} />
-                      {ROLE_LABELS[r].label}
-                    </button>
-                  ))}
-                </div>
-              </div>
               {loteResultado.length > 0 && (
                 <ul className="space-y-1 text-xs">
                   {loteResultado.map((r) => (
@@ -420,25 +375,6 @@ export default function InternoAdmin() {
             <div>
               <label className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground mb-1 block">Senha</label>
               <Input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="Mínimo 6 caracteres" />
-            </div>
-            <div>
-              <label className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground mb-1 block">Cargo</label>
-              <div className="flex gap-2">
-                {ASSIGNABLE_ROLES.map((r) => (
-                  <button
-                    key={r}
-                    onClick={() => setNewRole(r)}
-                    className={`inline-flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium border transition-colors ${
-                      newRole === r
-                        ? 'bg-primary text-primary-foreground border-primary'
-                        : 'bg-transparent border-border text-muted-foreground hover:text-foreground'
-                    }`}
-                  >
-                    <span className={`h-1.5 w-1.5 rounded-full ${ROLE_LABELS[r].dot}`} />
-                    {ROLE_LABELS[r].label}
-                  </button>
-                ))}
-              </div>
             </div>
           </div>
           <div className="flex gap-2">
@@ -478,49 +414,8 @@ export default function InternoAdmin() {
                     </div>
                   </div>
 
-                  {/* Cargos */}
-                  <div className="flex items-center gap-1.5 flex-wrap sm:justify-end">
-                    {u.roles.map((r) => (
-                      <span
-                        key={r}
-                        className="inline-flex items-center gap-1.5 rounded border border-border bg-card px-2 py-0.5 font-mono text-[11px] uppercase tracking-wider text-muted-foreground"
-                      >
-                        <span className={`h-1.5 w-1.5 rounded-full ${ROLE_LABELS[r]?.dot || 'bg-muted-foreground'}`} />
-                        {ROLE_LABELS[r]?.label || r}
-                        {r !== 'partner' && (
-                          <button
-                            onClick={() => handleRemoveRole(u.user_id, r)}
-                            className="opacity-50 hover:opacity-100 transition-opacity"
-                            title="Remover cargo"
-                          >
-                            <Trash2 size={11} />
-                          </button>
-                        )}
-                      </span>
-                    ))}
 
-                    {/* Add role dropdown */}
-                    {ASSIGNABLE_ROLES.filter((r) => !u.roles.includes(r)).length > 0 && (
-                      <div className="relative group">
-                        <button className="h-6 w-6 rounded-full bg-secondary flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors" title="Adicionar cargo">
-                          <Plus size={14} />
-                        </button>
-                        <div className="absolute right-0 top-8 bg-popover border border-border rounded-md shadow-md p-1 hidden group-hover:block z-10 min-w-[150px]">
-                          {ASSIGNABLE_ROLES.filter((r) => !u.roles.includes(r)).map((r) => (
-                            <button
-                              key={r}
-                              onClick={() => handleAddRole(u.user_id, r)}
-                              className="w-full text-left px-3 py-1.5 text-xs rounded hover:bg-accent text-foreground"
-                            >
-                              {ROLE_LABELS[r].label}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Ações do usuário — separadas dos cargos */}
+                  {/* Ações do usuário */}
                   <div className="flex items-center gap-1 shrink-0 sm:pl-3 sm:border-l border-border">
                     <button
                       onClick={() => openUser(u)}
