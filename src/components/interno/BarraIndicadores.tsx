@@ -71,9 +71,9 @@ export function BarraIndicadores({ titulo, subtitulo, itens, carregando = false 
           5: 'xl:grid-cols-[minmax(140px,.9fr)_repeat(5,minmax(0,1fr))]',
         }[Math.min(Math.max(itens.length, 2), 5)] ?? 'xl:grid-cols-[minmax(140px,.9fr)_repeat(4,minmax(0,1fr))]'
       }`}
-      // Degradê do marrom (esquerda) ao amarelo (direita). O amarelo para em
-      // #E3B81E: acima disso o texto branco da última coluna começa a lavar.
-      style={{ background: 'linear-gradient(90deg, #1F1407 0%, #7A5A10 50%, #E3B81E 100%)' }}
+      // Degradê do marrom (esquerda) ao ouro (direita), puxado para o marrom:
+      // ele domina até 65% e o ouro entra contido no fim.
+      style={{ background: 'linear-gradient(90deg, #1C1206 0%, #4A360C 65%, #A8811A 100%)' }}
     >
       <div className="min-w-0 pr-2">
         <strong className="block font-display text-sm font-semibold">{titulo}</strong>
