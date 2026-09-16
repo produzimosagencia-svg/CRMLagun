@@ -4,9 +4,12 @@ import { Card } from '@/components/ui/card';
 import { 
   MessageSquare, Phone, FileText, Send, DollarSign,
   RefreshCw, Upload, CheckCircle2, XCircle, AlertTriangle, Users, Plus, CalendarClock, Zap, BarChart3, ShoppingCart,
-  Image as ImageIcon, Database, Search, FileSpreadsheet, UserMinus, ShieldX
+  Image as ImageIcon, Database, Search, FileSpreadsheet, UserMinus, ShieldX, FileDown
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { BarraIndicadores, CORES } from '@/components/interno/BarraIndicadores';
+import { baixarRelatorioPdf } from '@/lib/relatorioPdf';
+import { RelatorioDisparos } from '@/components/interno/RelatorioDisparos';
 import { callWhatsappApi } from '@/lib/whatsappApi';
 import { supabase } from '@/integrations/supabase/client';
 import { Link } from 'react-router-dom';
@@ -250,6 +253,10 @@ export default function InternoWhatsApp() {
   const [dashboardError, setDashboardError] = useState('');
   const [apiStatusCounts, setApiStatusCounts] = useState<StatusSummary['counts'] | null>(null);
   const [apiStatusUpdatedAt, setApiStatusUpdatedAt] = useState('');
+  // Contagem exata no banco — buscar as linhas e medir daria no máximo 1000
+  // por causa do max_rows do PostgREST.
+  const [disparos30d, setDisparos30d] = useState(0);
+  const [gerandoPdf, setGerandoPdf] = useState(false);
   const [recentDispatches, setRecentDispatches] = useState<any[]>([]);
   const [automationCampaigns, setAutomationCampaigns] = useState<any[]>([]);
   const [cartCampaignActive, setCartCampaignActive] = useState(false);
@@ -416,12 +423,16 @@ export default function InternoWhatsApp() {
     setDashboardLoading(true);
     setDashboardError('');
     try {
-      const [statusResult, campaignsResult, cartCampaignResult, cartLogsResult] = await Promise.all([
+      const desde30d = new Date(Date.now() - 30 * 86400_000).toISOString();
+      const [statusResult, campaignsResult, cartCampaignResult, cartLogsResult, total30d] = await Promise.all([
         callApi('status_summary') as Promise<StatusSummary>,
         supabase.from('whatsapp_automation_campaigns' as any).select('*').order('created_at', { ascending: false }),
         supabase.from('bt_auto_dispatch').select('enabled').eq('event_id', '00000000-0000-0000-0000-000000000000').maybeSingle(),
         supabase.from('webhook_logs').select('payload, received_at').eq('source', 'zig_tickets'),
+        supabase.from('whatsapp_messages').select('id', { count: 'exact', head: true })
+          .eq('direction', 'outgoing').neq('channel', 'instagram').gte('timestamp', desde30d),
       ]);
+      setDisparos30d(total30d.count ?? 0);
       if (campaignsResult.error) console.error('Erro ao carregar automações:', campaignsResult.error);
       setRecentDispatches(Array.isArray(statusResult.data) ? statusResult.data : []);
       setApiStatusCounts(statusResult.counts);
@@ -773,6 +784,38 @@ export default function InternoWhatsApp() {
     const marketingDispatches = recentDispatches.filter((item) => item.template_category !== 'UTILITY').length;
     const utilityDispatches = recentDispatches.filter((item) => item.template_category === 'UTILITY').length;
     const estimatedSpend = (marketingDispatches * 0.36) + (utilityDispatches * 0.06);
+    const totalHistorico = apiStatusCounts?.total ?? recentDispatches.length;
+    // Sem erro de sincronização e com contadores da API = conexão de pé.
+    const apiConectada = Boolean(apiStatusCounts) && !dashboardError;
+
+    const gerarPdfDisparos = async () => {
+      setGerandoPdf(true);
+      try {
+        await baixarRelatorioPdf(
+          <RelatorioDisparos
+            periodo="últimos 30 dias"
+            total={totalHistorico}
+            total30d={disparos30d}
+            entregues={delivered}
+            lidas={apiStatusCounts?.read ?? 0}
+            falhas={apiStatusCounts?.failed ?? 0}
+            gasto={estimatedSpend}
+            marketing={marketingDispatches}
+            utilidade={utilityDispatches}
+            apiConectada={apiConectada}
+            linhas={recentDispatches.map((d) => ({
+              id: String(d.id), contato: d.contact_name || d.phone, telefone: d.phone,
+              status: d.status, texto: d.message_text, quando: d.timestamp, categoria: d.template_category,
+            }))}
+          />,
+          'relatorio-disparos-lagun',
+        );
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : 'Falha ao gerar o PDF');
+      } finally {
+        setGerandoPdf(false);
+      }
+    };
     const kpis = [
       { label: 'Disparos enviados', value: apiStatusCounts?.total ?? recentDispatches.length, subtitle: 'histórico da API', icon: Send, color: 'text-emerald-400 bg-emerald-500/10' },
       { label: 'Enviados hoje', value: sentToday, subtitle: 'templates disparados', icon: Zap, color: 'text-[#FFE14D] bg-[#FFE14D]/10' },
@@ -792,6 +835,11 @@ export default function InternoWhatsApp() {
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={loadDashboard} className="border-white/10 bg-white/5 text-[#D8D2C7] hover:bg-white/10 hover:text-white"><RefreshCw className={`mr-1.5 h-4 w-4 ${dashboardLoading ? 'animate-spin' : ''}`} />Atualizar</Button>
             <Button variant="outline" size="sm" onClick={() => setView('status')} className="border-white/10 bg-white/5 text-[#D8D2C7] hover:bg-white/10 hover:text-white"><BarChart3 className="mr-1.5 h-4 w-4" />Status</Button>
+            <Button size="sm" onClick={() => void gerarPdfDisparos()} disabled={gerandoPdf || dashboardLoading}
+              className="gap-1.5 bg-[#FFE14D] font-semibold text-black shadow-[0_0_20px_rgba(255,225,77,.45)] hover:bg-[#FFEC8A]">
+              {gerandoPdf ? <RefreshCw className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
+              {gerandoPdf ? 'Gerando…' : 'Gerar PDF'}
+            </Button>
             <Button size="sm" onClick={() => setView('create')} className="bg-[#25D366] text-white hover:bg-[#20BD5A]"><Plus className="mr-1.5 h-4 w-4" />Novo disparo</Button>
           </div>
         </div>
@@ -807,13 +855,17 @@ export default function InternoWhatsApp() {
           </section>
         )}
 
-        <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
-          {kpis.map((kpi) => <div key={kpi.label} className="min-w-0 rounded-xl border border-[#2A2822] bg-[#1A1916] p-4">
-            <div className={`mb-3 flex h-8 w-8 items-center justify-center rounded-lg ${kpi.color}`}><kpi.icon size={16} /></div>
-            <p className="break-words text-2xl font-bold text-white">{kpi.value.toLocaleString('pt-BR')}</p>
-            <p className="mt-1 text-xs font-medium text-[#D8D2C7]">{kpi.label}</p><p className="break-words text-[11px] text-[#8F8A7C]">{kpi.subtitle}</p>
-          </div>)}
-        </div>
+        <BarraIndicadores
+          titulo="WhatsApp Cloud API"
+          subtitulo={apiStatusUpdatedAt ? `sincronizado às ${new Date(apiStatusUpdatedAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}` : 'aguardando sincronização'}
+          carregando={dashboardLoading}
+          itens={[
+            { label: 'Disparos enviados', valor: (apiStatusCounts?.total ?? recentDispatches.length).toLocaleString('pt-BR'), sub: 'histórico da API', cor: CORES.ouro, barra: 100 },
+            { label: 'Últimos 30 dias', valor: disparos30d.toLocaleString('pt-BR'), sub: 'mensagens disparadas', cor: CORES.branco, barra: totalHistorico ? (disparos30d / totalHistorico) * 100 : 0 },
+            { label: 'Gasto estimado', valor: estimatedSpend.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }), sub: `${marketingDispatches} marketing · ${utilityDispatches} utilidade`, cor: CORES.verde, barra: 72 },
+            { label: 'API', valor: apiConectada ? 'Conectada' : 'Offline', sub: apiConectada ? 'pronta para disparar' : 'verifique a conexão', cor: apiConectada ? CORES.verde : '#F87171', barra: apiConectada ? 100 : 12 },
+          ]}
+        />
 
         <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1.65fr)_minmax(260px,0.85fr)]">
           <section className="min-w-0 rounded-xl border border-[#2A2822] bg-[#1A1916] p-4">
