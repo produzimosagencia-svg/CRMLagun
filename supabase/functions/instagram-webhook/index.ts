@@ -254,9 +254,11 @@ async function trackedUrl(supabase: any, auto: Automation, igsid: string): Promi
   return url;
 }
 
-async function enqueueFollowups(supabase: any, auto: Automation, igsid: string) {
+async function enqueueFollowups(supabase: any, auto: Automation, igsid: string, opts: { incluirLink?: boolean } = {}) {
   const now = Date.now();
-  if (auto.link_url && auto.link_url !== "https://") {
+  // Em comentário o link já foi entregue na resposta privada; aqui só entra
+  // quando o gatilho foi DM/story (incluirLink), onde a conversa já está aberta.
+  if (opts.incluirLink && auto.link_url && auto.link_url !== "https://") {
     const url = await trackedUrl(supabase, auto, igsid);
     await supabase.from("ig_queue").insert({ automation_id: auto.id, igsid, send_type: "dm", requires_24h_window: true,
       scheduled_at: new Date(now).toISOString(), payload: { type: "link", text: auto.link_message, button_label: auto.link_button_label, url } });
@@ -322,15 +324,35 @@ Deno.serve(async (req) => {
       const pub = pickRandom(auto.public_replies);
       if (pub) await supabase.from("ig_queue").insert({ automation_id: auto.id, comment_id: commentId, send_type: "public_reply", payload: { text: pub } });
 
-      // Resposta privada ao comentário fura a janela de 24h (1x por comentário). A Meta não
-      // aceita botão de link aqui, então vai texto + botão de resposta rápida; ao tocar,
-      // o fluxo de quick reply abaixo manda a DM com o botão de link de verdade.
-      if (auto.welcome_message) {
-        await supabase.from("ig_queue").insert({ automation_id: auto.id, comment_id: commentId, igsid: fromId, send_type: "private_reply",
-          payload: { type: "welcome", text: auto.welcome_message, quick_reply_text: auto.quick_reply_text, quick_reply_payload: QUICK_REPLY_PAYLOAD } });
-      } else if (auto.link_url && auto.link_url !== "https://") {
-        await supabase.from("ig_queue").insert({ automation_id: auto.id, comment_id: commentId, igsid: fromId, send_type: "private_reply",
-          payload: { type: "welcome", text: auto.link_message || "Aqui está o link que você pediu 👇", quick_reply_text: (auto.link_button_label || "Abrir link").slice(0, 20), quick_reply_payload: QUICK_REPLY_PAYLOAD } });
+      // ── Entrega do link ────────────────────────────────────────────────────
+      // A Meta trata os dois envios de forma diferente:
+      //   • responder um comentário (recipient: {comment_id}) → PERMITIDO
+      //   • DM livre (recipient: {id})                        → exige acesso
+      //     avançado a instagram_manage_messages, que o app não tem (403)
+      // Por isso o link vai junto da PRÓPRIA resposta ao comentário, em texto.
+      // Botão de link em resposta privada a comentário a Meta recusa (code 1),
+      // então é a URL no corpo da mensagem mesmo.
+      const temLink = Boolean(auto.link_url && auto.link_url !== "https://");
+      const urlRastreada = temLink ? await trackedUrl(supabase, auto, fromId) : null;
+
+      const corpo = [
+        auto.welcome_message || auto.link_message || "Oi! Aqui está o link que você pediu 👇",
+        urlRastreada,
+      ].filter(Boolean).join("\n\n");
+
+      if (corpo.trim()) {
+        await supabase.from("ig_queue").insert({
+          automation_id: auto.id, comment_id: commentId, igsid: fromId, send_type: "private_reply",
+          payload: {
+            type: "welcome",
+            text: corpo,
+            // O botão continua valendo: quando existir um lembrete configurado,
+            // tocar nele abre a janela de 24h e agenda o follow-up.
+            ...(auto.reminder_message
+              ? { quick_reply_text: (auto.quick_reply_text || auto.link_button_label || "Quero saber mais").slice(0, 20), quick_reply_payload: QUICK_REPLY_PAYLOAD }
+              : {}),
+          },
+        });
       }
       enqueued = true;
     }
@@ -428,7 +450,7 @@ Deno.serve(async (req) => {
           await supabase.from("ig_queue").insert({ automation_id: kwAuto.id, igsid: senderId, send_type: "dm",
             payload: { type: "welcome", text: kwAuto.welcome_message, quick_reply_text: kwAuto.quick_reply_text, quick_reply_payload: QUICK_REPLY_PAYLOAD } });
         } else {
-          await enqueueFollowups(supabase, kwAuto, senderId);
+          await enqueueFollowups(supabase, kwAuto, senderId, { incluirLink: true });
         }
         enqueued = true;
         continue; // automação tratou; não passa para a IA
