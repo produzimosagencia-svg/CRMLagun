@@ -37,6 +37,23 @@ interface UserWithRoles {
 
 
 
+// O login é "usuário" e vira o e-mail interno usuario@triade.internal — então nada de @ ou espaço.
+function validarUsuario(usuario: string): string | null {
+  if (usuario.includes('@')) return 'O usuário não pode ser um e-mail. Use algo como "lucas.lagun".';
+  if (!/^[a-zA-Z0-9._-]+$/.test(usuario)) return 'Usuário só pode ter letras, números, ponto, hífen e _ (sem espaços ou acentos).';
+  return null;
+}
+
+// "Edge Function returned a non-2xx" não diz nada: lê o motivo real do corpo da resposta.
+async function mensagemDaFuncao(error: any): Promise<string> {
+  const corpo = await error?.context?.json?.().catch(() => null);
+  const msg: string = corpo?.error || error?.message || 'Erro ao criar usuário';
+  if (/already been registered|already exists/i.test(msg)) return 'Esse usuário já existe.';
+  if (/invalid format|validate email/i.test(msg)) return 'Usuário inválido para login.';
+  if (/password/i.test(msg)) return 'Senha fraca: use pelo menos 6 caracteres.';
+  return msg;
+}
+
 export default function InternoAdmin() {
   const { isAdmin, user: currentUser } = useAuth();
   const { isGlobalEnabled, refetch: refetchSidebarSettings } = useSidebarSettings();
@@ -71,10 +88,11 @@ export default function InternoAdmin() {
     const resultado: { usuario: string; ok: boolean; erro?: string }[] = [];
     // Sequencial: cada conta é independente, e uma falha não impede as outras.
     for (const [nome, usuario] of loteLinhas) {
+      if (validarUsuario(usuario)) { resultado.push({ usuario, ok: false, erro: validarUsuario(usuario)! }); setLoteResultado([...resultado]); continue; }
       const res = await supabase.functions.invoke('create-partner', {
         body: { email: `${usuario}@triade.internal`, password: loteSenha, full_name: nome, username: usuario, role: 'admin' },
       });
-      const erro = res.error ? (await res.error.context?.json?.().catch(() => null))?.error || res.error.message : undefined;
+      const erro = validarUsuario(usuario) ?? (res.error ? await mensagemDaFuncao(res.error) : undefined);
       resultado.push({ usuario, ok: !res.error, erro });
       setLoteResultado([...resultado]);
     }
@@ -122,6 +140,8 @@ export default function InternoAdmin() {
       toast.error('Preencha todos os campos');
       return;
     }
+    const problemaUsuario = validarUsuario(newUsername);
+    if (problemaUsuario) { toast.error(problemaUsuario); return; }
     setCreating(true);
     try {
       const res = await supabase.functions.invoke('create-partner', {
@@ -133,7 +153,7 @@ export default function InternoAdmin() {
           role: 'admin',
         },
       });
-      if (res.error) throw res.error;
+      if (res.error) throw new Error(await mensagemDaFuncao(res.error));
       toast.success('Usuário criado com sucesso!');
       setShowCreate(false);
       setNewUsername('');
@@ -370,7 +390,7 @@ export default function InternoAdmin() {
             </div>
             <div>
               <label className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground mb-1 block">Username (login)</label>
-              <Input value={newUsername} onChange={(e) => setNewUsername(e.target.value)} placeholder="Ex: joao" />
+              <Input value={newUsername} onChange={(e) => setNewUsername(e.target.value)} placeholder="Ex: joao.lagun" />
             </div>
             <div>
               <label className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground mb-1 block">Senha</label>
