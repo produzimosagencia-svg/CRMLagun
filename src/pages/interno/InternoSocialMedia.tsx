@@ -1,10 +1,13 @@
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { BarraIndicadores, CORES } from "@/components/interno/BarraIndicadores";
+import { RelatorioSocialMedia } from "@/components/interno/RelatorioSocialMedia";
+import { baixarRelatorioPdf } from "@/lib/relatorioPdf";
+import { toast } from "sonner";
 import {
   Users, TrendingUp, Eye, UserCheck, Heart, BarChart3,
   ChevronDown, ChevronUp, MessageCircle, Bookmark, Play,
-  ExternalLink, Flame, Clock,
+  ExternalLink, Flame, Clock, FileDown, Instagram, Loader2,
 } from "lucide-react";
 
 interface IGAccount {
@@ -112,6 +115,7 @@ export default function InternoSocialMedia() {
   const [viralOpen, setViralOpen] = useState(true);
   const [recentOpen, setRecentOpen] = useState(true);
   const [mediaLimit, setMediaLimit] = useState(50);
+  const [gerandoPdf, setGerandoPdf] = useState(false);
 
   useEffect(() => {
     fetchAccounts();
@@ -201,6 +205,36 @@ export default function InternoSocialMedia() {
     (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
   );
 
+  const totalComentarios = media.reduce((t, m) => t + (m.comments_count || 0), 0);
+  const taxaEngajamento = (() => {
+    const inter = media.reduce((t, m) => t + (m.like_count || 0) + (m.comments_count || 0), 0);
+    const taxa = media.length && kpis.followers ? (inter / media.length / kpis.followers) * 100 : 0;
+    return taxa ? `${taxa.toFixed(1).replace('.', ',')}%` : '—';
+  })();
+
+  const gerarPdf = async () => {
+    if (!selectedAccount) return;
+    setGerandoPdf(true);
+    try {
+      await baixarRelatorioPdf(
+        <RelatorioSocialMedia
+          usuario={selectedAccount.username}
+          seguidores={kpis.followers || selectedAccount.followers_count}
+          publicacoes={media.length}
+          curtidas={kpis.likes || 0}
+          comentarios={totalComentarios}
+          engajamento={taxaEngajamento}
+          posts={media.map((m) => ({ id: m.id, legenda: m.caption, data: m.timestamp, tipo: m.media_type, curtidas: m.like_count || 0, comentarios: m.comments_count || 0 }))}
+        />,
+        `relatorio-social-media-lagun`,
+      );
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Falha ao gerar o PDF');
+    } finally {
+      setGerandoPdf(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -212,10 +246,17 @@ export default function InternoSocialMedia() {
   return (
     <div className="space-y-6 pb-10">
       {/* Header */}
-      <div className="flex items-center gap-2">
-        <div className="w-2 h-2 rounded-full bg-[#FFE14D]" />
-        <h1 className="text-lg font-bold text-[#FFE14D]">Social Media</h1>
-        {selectedAccount && <span className="text-sm text-muted-foreground">@{selectedAccount.username}</span>}
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 rounded-full bg-[#FFE14D]" />
+          <h1 className="text-lg font-bold text-[#FFE14D]">Social Media</h1>
+          {selectedAccount && <span className="text-sm text-muted-foreground">@{selectedAccount.username}</span>}
+        </div>
+        <button onClick={() => void gerarPdf()} disabled={gerandoPdf || loadingMedia || !selectedAccount}
+          className="flex h-9 items-center gap-1.5 rounded-lg bg-[#FFE14D] px-3.5 text-sm font-semibold text-black shadow-[0_0_20px_rgba(255,225,77,.45)] transition hover:bg-[#FFEC8A] disabled:opacity-50">
+          {gerandoPdf ? <Loader2 size={16} className="animate-spin" /> : <FileDown size={16} />}
+          {gerandoPdf ? 'Gerando…' : 'Gerar PDF'}
+        </button>
       </div>
 
       {/* Uma conta só (@lagunvix): o seletor de contas foi removido — o @ aparece
@@ -228,16 +269,16 @@ export default function InternoSocialMedia() {
         titulo="Instagram conectado"
         subtitulo={selectedAccount ? `@${selectedAccount.username}` : 'carregando…'}
         carregando={!selectedAccount}
+        avatar={selectedAccount?.profile_picture_url
+          ? <img src={selectedAccount.profile_picture_url} alt="" className="h-11 w-11 shrink-0 rounded-full object-cover ring-2 ring-white/15"
+              onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+          : <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white/10 text-white/70"><Instagram size={18} /></span>}
         itens={[
           { label: 'Seguidores', valor: formatNumber(kpis.followers || 0), sub: 'conta profissional', cor: CORES.ouro, barra: 100 },
           { label: 'Publicações', valor: formatNumber(media.length), sub: 'carregadas no período', cor: CORES.branco, barra: 70 },
           { label: 'Curtidas', valor: formatNumber(kpis.likes || 0), sub: 'somadas nas publicações', cor: CORES.rosa, barra: 84 },
-          { label: 'Comentários', valor: formatNumber(media.reduce((t, m) => t + (m.comments_count || 0), 0)), sub: 'somados nas publicações', cor: CORES.azul, barra: 46 },
-          { label: 'Engajamento', valor: (() => {
-              const inter = media.reduce((t, m) => t + (m.like_count || 0) + (m.comments_count || 0), 0);
-              const taxa = media.length && kpis.followers ? (inter / media.length / kpis.followers) * 100 : 0;
-              return taxa ? `${taxa.toFixed(1).replace('.', ',')}%` : '—';
-            })(), sub: 'média por publicação', cor: CORES.verde, barra: 58 },
+          { label: 'Comentários', valor: formatNumber(totalComentarios), sub: 'somados nas publicações', cor: CORES.azul, barra: 46 },
+          { label: 'Engajamento', valor: taxaEngajamento, sub: 'média por publicação', cor: CORES.verde, barra: 58 },
         ]}
       />
 

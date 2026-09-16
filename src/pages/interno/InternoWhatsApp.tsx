@@ -843,15 +843,11 @@ export default function InternoWhatsApp({ inicial = 'dashboard' }: { inicial?: '
             <p className="text-sm font-semibold text-red-300">Não foi possível sincronizar com a API do WhatsApp</p>
             <p className="mt-1 text-xs text-[#D5B8C5]">{dashboardError}</p>
           </section>
-        ) : apiStatusCounts && (
-          <section className="rounded-xl border border-emerald-500/20 bg-emerald-500/[0.05] px-4 py-3">
-            <p className="text-xs font-medium text-emerald-300">API conectada · última sincronização às {new Date(apiStatusUpdatedAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</p>
-          </section>
-        )}
+        ) : null}
 
         <BarraIndicadores
           titulo="WhatsApp Cloud API"
-          subtitulo={apiStatusUpdatedAt ? `sincronizado às ${new Date(apiStatusUpdatedAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}` : 'aguardando sincronização'}
+          subtitulo="Disparos pelo WhatsApp"
           carregando={dashboardLoading}
           itens={[
             { label: 'Disparos enviados', valor: (apiStatusCounts?.total ?? recentDispatches.length).toLocaleString('pt-BR'), sub: 'histórico da API', cor: CORES.ouro, barra: 100 },

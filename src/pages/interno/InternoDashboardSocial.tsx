@@ -120,7 +120,7 @@ const tooltipStyle = {
 
 /** Lista de comentários/directs recentes, no mesmo formato nos dois painéis. */
 function ListaInteracoes({ itens, vazio, carregando }: { itens: Interacao[]; vazio: string; carregando: boolean }) {
-  if (carregando) return <Esqueleto linhas={5} altura={44} />;
+  if (carregando) return <Esqueleto linhas={1} altura={190} />;
   if (!itens.length) return <p className="text-center text-sm text-muted-foreground">{vazio}</p>;
   const quando = (iso: string) => {
     const min = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
@@ -316,32 +316,23 @@ export default function InternoDashboardSocial() {
           {topPosts.length === 0 ? (
             carregando ? <Esqueleto linhas={5} altura={44} /> : <p className="text-center text-sm text-muted-foreground">Nenhuma publicação encontrada.</p>
           ) : (
-            <div className="space-y-2">
-              {topPosts.map((p, i) => {
-                const total = (p.like_count ?? 0) + (p.comments_count ?? 0);
-                const maior = (topPosts[0].like_count ?? 0) + (topPosts[0].comments_count ?? 0);
-                return (
-                  <a key={p.id} href={p.permalink} target="_blank" rel="noreferrer"
-                    className="flex items-center gap-3 rounded-lg border border-border/60 p-2 transition-colors hover:border-[#FFE14D]/50">
-                    <span className="w-4 text-center text-xs font-bold text-muted-foreground">{i + 1}</span>
-                    {p.thumbnail_url || p.media_url
-                      ? <img src={p.thumbnail_url || p.media_url} alt="" className="h-11 w-11 shrink-0 rounded-md object-cover" onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden'; }} />
-                      : <span className="h-11 w-11 shrink-0 rounded-md bg-muted" />}
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-xs">{(p.caption || 'Sem legenda').split('\n')[0]}</p>
-                      <div className="mt-1 h-1 w-full overflow-hidden rounded-full bg-muted">
-                        <span className="block h-full rounded-full" style={{ width: `${maior ? (total / maior) * 100 : 0}%`, background: AMARELO }} />
-                      </div>
-                    </div>
-                    <div className="shrink-0 text-right">
-                      <p className="font-display text-sm font-bold">{nf.format(total)}</p>
-                      <p className="text-[10px] text-muted-foreground">
-                        <Heart size={9} className="inline" /> {nf.format(p.like_count ?? 0)} · {nf.format(p.comments_count ?? 0)}
-                      </p>
-                    </div>
-                  </a>
-                );
-              })}
+            <div className="grid grid-cols-3 gap-2.5 sm:grid-cols-5">
+              {topPosts.map((p, i) => (
+                <a key={p.id} href={p.permalink} target="_blank" rel="noreferrer"
+                  className="group flex min-w-0 flex-col overflow-hidden rounded-lg border border-border/60 transition-colors hover:border-[#FFE14D]/50">
+                  <div className="relative aspect-square bg-muted">
+                    {(p.thumbnail_url || p.media_url) && (
+                      <img src={p.thumbnail_url || p.media_url} alt="" className="h-full w-full object-cover" onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden'; }} />
+                    )}
+                    <span className="absolute left-1.5 top-1.5 grid h-5 w-5 place-items-center rounded-full bg-black/70 text-[10px] font-bold text-white">{i + 1}</span>
+                  </div>
+                  <div className="space-y-1 p-2">
+                    <p className="flex items-center gap-1.5 text-xs"><Heart size={12} className="shrink-0 fill-[#F9A8D4] text-[#F9A8D4]" /> {nf.format(p.like_count ?? 0)}</p>
+                    <p className="flex items-center gap-1.5 text-xs"><MessageCircle size={12} className="shrink-0 text-[#8FB4FF]" /> {nf.format(p.comments_count ?? 0)}</p>
+                    <p className="flex items-center gap-1.5 font-display text-xs font-bold" style={{ color: AMARELO }}><TrendingUp size={12} className="shrink-0" /> {nf.format((p.like_count ?? 0) + (p.comments_count ?? 0))}</p>
+                  </div>
+                </a>
+              ))}
             </div>
           )}
         </CaixaGrafico>
