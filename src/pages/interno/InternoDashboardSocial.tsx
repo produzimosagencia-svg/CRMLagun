@@ -41,6 +41,8 @@ interface Perfil { username: string; followers_count: number; media_count: numbe
 interface SerieDia { dia: string; dms: number; cliques: number }
 interface EventoClique { nome: string; cliques: number }
 interface ResumoAutomacoes { ativas: number; disparos: number; dms: number; cliques: number }
+/** Comentário ou direct recebido — o RPC já descarta os que são só emoji. */
+interface Interacao { texto: string | null; autor: string | null; arroba?: string | null; quando: string }
 
 const nf = new Intl.NumberFormat('pt-BR');
 const pct = (n: number) => `${n.toFixed(1).replace('.', ',')}%`;
@@ -90,10 +92,49 @@ function CaixaGrafico({ titulo, sub, children, acao }: { titulo: string; sub?: s
   );
 }
 
+// itemStyle é obrigatório: sem ele o recharts escreve o valor em preto, que
+// some no fundo escuro do balão.
 const tooltipStyle = {
   contentStyle: { background: '#12121A', border: '1px solid #1E1E29', borderRadius: 10, fontSize: 12 },
-  labelStyle: { color: '#8B8A9B' },
+  labelStyle: { color: '#8B8A9B', marginBottom: 4 },
+  itemStyle: { color: '#F2F1F7' },
+  cursor: { fill: 'rgba(255,255,255,.06)', stroke: 'rgba(255,255,255,.12)' },
 } as const;
+
+/** Lista de comentários/directs recentes, no mesmo formato nos dois painéis. */
+function ListaInteracoes({ itens, vazio, carregando }: { itens: Interacao[]; vazio: string; carregando: boolean }) {
+  if (carregando) return <div className="flex h-40 items-center justify-center"><Loader2 className="animate-spin text-muted-foreground" size={18} /></div>;
+  if (!itens.length) return <p className="py-10 text-center text-sm text-muted-foreground">{vazio}</p>;
+  const quando = (iso: string) => {
+    const min = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
+    if (min < 60) return `${Math.max(min, 1)} min`;
+    if (min < 1440) return `${Math.round(min / 60)} h`;
+    return `${Math.round(min / 1440)} d`;
+  };
+  return (
+    <div className="space-y-1.5">
+      {itens.map((it, i) => {
+        const nome = it.arroba || it.autor;
+        const hue = [...(nome || String(i))].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 7);
+        return (
+          <div key={`${it.quando}-${i}`} className="flex items-start gap-2.5 rounded-lg border border-border/60 px-2.5 py-2">
+            <span className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-full text-[10px] font-bold text-white"
+              style={{ background: `radial-gradient(circle at 30% 30%, oklch(.70 .15 ${hue}), oklch(.42 .17 ${hue}) 70%)` }}>
+              {(nome || '?').replace(/^@/, '').slice(0, 2).toUpperCase()}
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="truncate text-xs font-semibold">{nome ? `@${String(nome).replace(/^@/, '')}` : 'Sem nome'}</span>
+                <span className="shrink-0 text-[10px] text-muted-foreground">{quando(it.quando)}</span>
+              </div>
+              <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{it.texto}</p>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 export default function InternoDashboardSocial() {
   const [dias, setDias] = useState<7 | 30 | 90>(30);
@@ -105,6 +146,8 @@ export default function InternoDashboardSocial() {
   const [porEvento, setPorEvento] = useState<EventoClique[]>([]);
   const [totais, setTotais] = useState({ dms: 0, comentarios: 0, cliques: 0 });
   const [automacoes, setAutomacoes] = useState<ResumoAutomacoes>({ ativas: 0, disparos: 0, dms: 0, cliques: 0 });
+  const [ultimosComentarios, setUltimosComentarios] = useState<Interacao[]>([]);
+  const [ultimosDirects, setUltimosDirects] = useState<Interacao[]>([]);
 
   const carregar = useCallback(async () => {
     setCarregando(true); setErroIg('');
@@ -121,46 +164,22 @@ export default function InternoDashboardSocial() {
       })
       .catch((e) => setErroIg(e instanceof Error ? e.message : String(e)));
 
-    // Banco: DMs, comentários, cliques, automações
+    // Banco: uma RPC agrega tudo. Contar no cliente dava número errado porque
+    // o PostgREST corta qualquer consulta em 1000 linhas (max_rows).
     const banco = (async () => {
-      const [dmRes, comRes, clkRes, autoRes, filaRes, linkRes, eventosRes] = await Promise.all([
-        db.from('whatsapp_messages').select('timestamp').eq('channel', 'instagram').eq('direction', 'incoming').gte('timestamp', desde).limit(20000),
-        db.from('ig_events').select('created_at').eq('event_type', 'comment').gte('created_at', desde).limit(20000),
-        db.from('link_clicks').select('clicked_at, event_id').gte('clicked_at', desde).limit(50000),
-        db.from('ig_automations').select('id, status'),
-        db.from('ig_queue').select('send_type, status'),
-        db.from('ig_links').select('clicks'),
-        db.from('lagun_events').select('id, nome'),
+      const [{ data: resumo }, { data: coments }, { data: dms }] = await Promise.all([
+        db.rpc('painel_social_resumo', { p_dias: dias }),
+        db.rpc('painel_ultimos_comentarios', { p_limite: 8 }),
+        db.rpc('painel_ultimos_directs', { p_limite: 8 }),
       ]);
-
-      const porDia = new Map<string, { dms: number; cliques: number }>();
-      for (let i = dias - 1; i >= 0; i--) {
-        porDia.set(diaCurto(new Date(Date.now() - i * 86400_000)), { dms: 0, cliques: 0 });
+      if (resumo) {
+        setSerie((resumo.serie ?? []) as SerieDia[]);
+        setPorEvento((resumo.por_evento ?? []) as EventoClique[]);
+        setTotais({ dms: resumo.dms ?? 0, comentarios: resumo.comentarios ?? 0, cliques: resumo.cliques ?? 0 });
+        setAutomacoes(resumo.automacoes ?? { ativas: 0, disparos: 0, dms: 0, cliques: 0 });
       }
-      const marcar = (iso: string, campo: 'dms' | 'cliques') => {
-        const k = diaCurto(new Date(iso));
-        const alvo = porDia.get(k);
-        if (alvo) alvo[campo]++;
-      };
-      (dmRes.data ?? []).forEach((r: any) => marcar(r.timestamp, 'dms'));
-      (clkRes.data ?? []).forEach((r: any) => marcar(r.clicked_at, 'cliques'));
-      setSerie([...porDia].map(([dia, v]) => ({ dia, ...v })));
-      setTotais({ dms: dmRes.data?.length ?? 0, comentarios: comRes.data?.length ?? 0, cliques: clkRes.data?.length ?? 0 });
-
-      const nomes = new Map<string, string>((eventosRes.data ?? []).map((e: any) => [String(e.id), String(e.nome ?? 'Sem nome')]));
-      const contagem = new Map<string, number>();
-      (clkRes.data ?? []).forEach((r: any) => {
-        const nome = nomes.get(String(r.event_id)) ?? 'Outros';
-        contagem.set(nome, (contagem.get(nome) ?? 0) + 1);
-      });
-      setPorEvento([...contagem].map(([nome, cliques]) => ({ nome, cliques })).sort((a, b) => b.cliques - a.cliques).slice(0, 6));
-
-      setAutomacoes({
-        ativas: (autoRes.data ?? []).filter((a: any) => a.status === 'active').length,
-        disparos: (filaRes.data ?? []).length,
-        dms: (filaRes.data ?? []).filter((q: any) => q.status === 'sent' && q.send_type !== 'public_reply').length,
-        cliques: (linkRes.data ?? []).reduce((acc: number, l: any) => acc + (l.clicks || 0), 0),
-      });
+      setUltimosComentarios((coments ?? []) as Interacao[]);
+      setUltimosDirects((dms ?? []) as Interacao[]);
     })();
 
     await Promise.all([ig, banco]);
@@ -249,36 +268,36 @@ export default function InternoDashboardSocial() {
         ]}
       />
 
-      {/* Movimento diário */}
-      <CaixaGrafico titulo="Movimento diário" sub="Cliques no link da landing (eixo à esquerda) e DMs recebidas no Instagram (à direita)">
-        {carregando ? (
-          <div className="flex h-56 items-center justify-center"><Loader2 className="animate-spin text-muted-foreground" /></div>
-        ) : (
-          <ResponsiveContainer width="100%" height={220}>
-            <AreaChart data={serie} margin={{ top: 4, right: 0, left: -22, bottom: 0 }}>
-              <defs>
-                <linearGradient id="gCliques" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={AMARELO} stopOpacity={0.35} /><stop offset="100%" stopColor={AMARELO} stopOpacity={0} />
-                </linearGradient>
-                <linearGradient id="gDms" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={ROSA} stopOpacity={0.3} /><stop offset="100%" stopColor={ROSA} stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1E1E29" vertical={false} />
-              <XAxis dataKey="dia" tick={{ fontSize: 10, fill: '#8B8A9B' }} axisLine={false} tickLine={false} interval="preserveStartEnd" minTickGap={24} />
-              {/* Eixos separados: são ~600 cliques/dia contra ~40 DMs — no mesmo
-                  eixo a linha das DMs ficaria colada no zero e ilegível. */}
-              <YAxis yAxisId="cliques" tick={{ fontSize: 10, fill: '#8B8A9B' }} axisLine={false} tickLine={false} />
-              <YAxis yAxisId="dms" orientation="right" tick={{ fontSize: 10, fill: ROSA }} axisLine={false} tickLine={false} width={34} />
-              <Tooltip {...tooltipStyle} />
-              <Area yAxisId="cliques" type="monotone" dataKey="cliques" name="Cliques no link" stroke={AMARELO} strokeWidth={2} fill="url(#gCliques)" />
-              <Area yAxisId="dms" type="monotone" dataKey="dms" name="DMs" stroke={ROSA} strokeWidth={2} fill="url(#gDms)" />
-            </AreaChart>
-          </ResponsiveContainer>
-        )}
-      </CaixaGrafico>
-
       <div className="grid gap-4 lg:grid-cols-2">
+        {/* Movimento diário */}
+        <CaixaGrafico titulo="Movimento diário" sub="Cliques no link da landing (eixo à esquerda) e DMs recebidas no Instagram (à direita)">
+          {carregando ? (
+            <div className="flex h-56 items-center justify-center"><Loader2 className="animate-spin text-muted-foreground" /></div>
+          ) : (
+            <ResponsiveContainer width="100%" height={220}>
+              <AreaChart data={serie} margin={{ top: 4, right: 0, left: -22, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="gCliques" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor={AMARELO} stopOpacity={0.35} /><stop offset="100%" stopColor={AMARELO} stopOpacity={0} />
+                  </linearGradient>
+                  <linearGradient id="gDms" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor={ROSA} stopOpacity={0.3} /><stop offset="100%" stopColor={ROSA} stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#1E1E29" vertical={false} />
+                <XAxis dataKey="dia" tick={{ fontSize: 10, fill: '#8B8A9B' }} axisLine={false} tickLine={false} interval="preserveStartEnd" minTickGap={24} />
+                {/* Eixos separados: são ~600 cliques/dia contra ~40 DMs — no mesmo
+                    eixo a linha das DMs ficaria colada no zero e ilegível. */}
+                <YAxis yAxisId="cliques" tick={{ fontSize: 10, fill: '#8B8A9B' }} axisLine={false} tickLine={false} />
+                <YAxis yAxisId="dms" orientation="right" tick={{ fontSize: 10, fill: ROSA }} axisLine={false} tickLine={false} width={34} />
+                <Tooltip {...tooltipStyle} />
+                <Area yAxisId="cliques" type="monotone" dataKey="cliques" name="Cliques no link" stroke={AMARELO} strokeWidth={2} fill="url(#gCliques)" />
+                <Area yAxisId="dms" type="monotone" dataKey="dms" name="DMs" stroke={ROSA} strokeWidth={2} fill="url(#gDms)" />
+              </AreaChart>
+            </ResponsiveContainer>
+          )}
+        </CaixaGrafico>
+
         {/* Top publicações */}
         <CaixaGrafico titulo="Publicações que mais engajaram" sub="Curtidas + comentários, entre as últimas 50">
           {topPosts.length === 0 ? (
@@ -337,6 +356,19 @@ export default function InternoDashboardSocial() {
             <span className="inline-block h-2 w-2 rounded-sm align-middle" style={{ background: AZUL }} /> Reels ·{' '}
             <span className="inline-block h-2 w-2 rounded-sm align-middle" style={{ background: AMARELO }} /> Feed
           </p>
+        </CaixaGrafico>
+
+
+        {/* Últimos comentários — o RPC já descarta os que são só emoji */}
+        <CaixaGrafico titulo="Últimos comentários" sub="Só os que dizem algo — emojis soltos ficam de fora"
+          acao={<Button asChild variant="outline" size="sm"><Link to="/interno/comentarios">Ver todos <ExternalLink size={12} className="ml-1" /></Link></Button>}>
+          <ListaInteracoes itens={ultimosComentarios} vazio="Nenhum comentário captado ainda." carregando={carregando} />
+        </CaixaGrafico>
+
+        {/* Últimos directs */}
+        <CaixaGrafico titulo="Últimos directs" sub="Mensagens recebidas no Instagram"
+          acao={<Button asChild variant="outline" size="sm"><Link to="/interno/whatsapp/chat">Abrir Chat <ExternalLink size={12} className="ml-1" /></Link></Button>}>
+          <ListaInteracoes itens={ultimosDirects} vazio="Nenhum direct recebido ainda." carregando={carregando} />
         </CaixaGrafico>
 
         {/* Cliques por evento */}
