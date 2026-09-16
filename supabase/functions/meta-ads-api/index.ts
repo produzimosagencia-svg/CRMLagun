@@ -8,6 +8,35 @@ const corsHeaders = {
 
 const GRAPH_API = "https://graph.facebook.com/v21.0";
 
+function saoPauloDate(date = new Date()): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
+}
+
+// Os presets `last_Nd` da Meta consideram dias completos anteriores e podem
+// deixar hoje de fora. Para os períodos móveis do CRM, usamos um intervalo
+// inclusivo que sempre termina no dia atual da conta (São Paulo).
+function dateFilterForPreset(datePreset: string): string {
+  const rollingDays: Record<string, number> = {
+    last_7d: 7,
+    last_14d: 14,
+    last_30d: 30,
+    last_90d: 90,
+  };
+  const days = rollingDays[datePreset];
+  if (!days) return `date_preset=${encodeURIComponent(datePreset)}`;
+
+  const until = saoPauloDate();
+  const anchor = new Date(`${until}T12:00:00Z`);
+  anchor.setUTCDate(anchor.getUTCDate() - (days - 1));
+  const since = saoPauloDate(anchor);
+  return `time_range=${encodeURIComponent(JSON.stringify({ since, until }))}`;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -64,10 +93,63 @@ Deno.serve(async (req) => {
           result = { error: "account_id is required" };
           break;
         }
+        // Mostra TODAS as campanhas que já rodaram (ativas, pausadas e arquivadas)
+        // — modo somente-visualização por enquanto.
         const resp = await fetch(
-          `${GRAPH_API}/act_${accountId}/campaigns?fields=id,name,objective,status,daily_budget,lifetime_budget&filtering=[{"field":"status","operator":"IN","value":["ACTIVE","PAUSED"]}]&limit=100&access_token=${token}`
+          `${GRAPH_API}/act_${accountId}/campaigns?fields=id,name,objective,status,effective_status,daily_budget,lifetime_budget&filtering=[{"field":"effective_status","operator":"IN","value":["ACTIVE","PAUSED","CAMPAIGN_PAUSED","ARCHIVED"]}]&limit=200&access_token=${token}`
         );
         result = await resp.json();
+        break;
+      }
+
+      case "campaign_budgets": {
+        const accountId = url.searchParams.get("account_id");
+        if (!accountId) {
+          result = { error: "account_id is required" };
+          break;
+        }
+
+        const [campaignsResp, adsetsResp] = await Promise.all([
+          fetch(
+            `${GRAPH_API}/act_${accountId}/campaigns?fields=id,name,objective,daily_budget,lifetime_budget&limit=500&access_token=${token}`
+          ),
+          fetch(
+            `${GRAPH_API}/act_${accountId}/adsets?fields=id,campaign_id,daily_budget,lifetime_budget,effective_status&limit=500&access_token=${token}`
+          ),
+        ]);
+        const [campaignsData, adsetsData] = await Promise.all([
+          campaignsResp.json(),
+          adsetsResp.json(),
+        ]);
+
+        if (campaignsData.error) {
+          result = campaignsData;
+          break;
+        }
+        if (adsetsData.error) {
+          result = adsetsData;
+          break;
+        }
+
+        const adsetDailyByCampaign: Record<string, number> = {};
+        for (const adset of adsetsData.data || []) {
+          const dailyBudget = Number(adset.daily_budget || 0);
+          if (dailyBudget > 0 && adset.campaign_id) {
+            adsetDailyByCampaign[adset.campaign_id] =
+              (adsetDailyByCampaign[adset.campaign_id] || 0) + dailyBudget;
+          }
+        }
+
+        result = {
+          data: (campaignsData.data || []).map((campaign: any) => ({
+            campaign_id: campaign.id,
+            campaign_name: campaign.name,
+            objective: campaign.objective,
+            // Meta retorna valores monetários em centavos.
+            daily_budget: Number(campaign.daily_budget || 0) || adsetDailyByCampaign[campaign.id] || 0,
+            budget_source: Number(campaign.daily_budget || 0) > 0 ? "campaign" : "adsets",
+          })),
+        };
         break;
       }
 
@@ -97,8 +179,9 @@ Deno.serve(async (req) => {
           "cost_per_action_type",
         ].join(",");
 
+        const dateFilter = dateFilterForPreset(datePreset);
         const resp = await fetch(
-          `${GRAPH_API}/act_${accountId}/insights?fields=${fields}&date_preset=${datePreset}&level=${level}&limit=500&access_token=${token}`
+          `${GRAPH_API}/act_${accountId}/insights?fields=${fields}&${dateFilter}&level=${level}&limit=500&access_token=${token}`
         );
         result = await resp.json();
         break;
@@ -111,6 +194,8 @@ Deno.serve(async (req) => {
           break;
         }
         const datePreset = url.searchParams.get("date_preset") || "last_30d";
+        const since = url.searchParams.get("since");
+        const until = url.searchParams.get("until");
 
         const fields = [
           "spend",
@@ -122,8 +207,11 @@ Deno.serve(async (req) => {
           "purchase_roas",
         ].join(",");
 
+        const dateFilter = since && until
+          ? `time_range=${encodeURIComponent(JSON.stringify({ since, until }))}`
+          : dateFilterForPreset(datePreset);
         const resp = await fetch(
-          `${GRAPH_API}/act_${accountId}/insights?fields=${fields}&date_preset=${datePreset}&access_token=${token}`
+          `${GRAPH_API}/act_${accountId}/insights?fields=${fields}&${dateFilter}&access_token=${token}`
         );
         result = await resp.json();
         break;
@@ -136,6 +224,7 @@ Deno.serve(async (req) => {
           break;
         }
         const datePreset = url.searchParams.get("date_preset") || "last_30d";
+        const dateFilter = dateFilterForPreset(datePreset);
 
         // Fetch ad-level insights
         const fields = [
@@ -156,7 +245,7 @@ Deno.serve(async (req) => {
         ].join(",");
 
         // Use filtering to include all ad statuses (ACTIVE, PAUSED, ARCHIVED)
-        const insightsUrl = `${GRAPH_API}/act_${accountId}/insights?fields=${fields}&date_preset=${datePreset}&level=ad&limit=500&filtering=[{"field":"ad.effective_status","operator":"IN","value":["ACTIVE","PAUSED","ARCHIVED","CAMPAIGN_PAUSED","ADSET_PAUSED"]}]&access_token=${token}`;
+        const insightsUrl = `${GRAPH_API}/act_${accountId}/insights?fields=${fields}&${dateFilter}&level=ad&limit=500&filtering=[{"field":"ad.effective_status","operator":"IN","value":["ACTIVE","PAUSED","ARCHIVED","CAMPAIGN_PAUSED","ADSET_PAUSED"]}]&access_token=${token}`;
         console.log("[ad_creatives] Fetching insights URL:", insightsUrl.replace(token, "TOKEN_HIDDEN"));
         
         const insightsResp = await fetch(insightsUrl);
@@ -170,7 +259,7 @@ Deno.serve(async (req) => {
         if (!insightsData.data || insightsData.error) {
           // If filtering fails, try without filtering
           console.log("[ad_creatives] Retrying without filtering...");
-          const retryUrl = `${GRAPH_API}/act_${accountId}/insights?fields=${fields}&date_preset=${datePreset}&level=ad&limit=500&access_token=${token}`;
+          const retryUrl = `${GRAPH_API}/act_${accountId}/insights?fields=${fields}&${dateFilter}&level=ad&limit=500&access_token=${token}`;
           const retryResp = await fetch(retryUrl);
           const retryData = await retryResp.json();
           console.log("[ad_creatives] Retry response data count:", retryData.data?.length ?? 0);
@@ -210,7 +299,7 @@ Deno.serve(async (req) => {
           const batchPromises = batch.map(async (adId: string) => {
             try {
               const adResp = await fetch(
-                `${GRAPH_API}/${adId}?fields=creative{thumbnail_url,image_url,video_id,object_story_spec,effective_object_story_id}&access_token=${token}`
+                `${GRAPH_API}/${adId}?fields=creative{thumbnail_url,image_url,image_hash,video_id,object_story_spec,asset_feed_spec,effective_object_story_id}&access_token=${token}`
               );
               const adData = await adResp.json();
               if (adData.creative) {
@@ -219,10 +308,11 @@ Deno.serve(async (req) => {
                 const hasVideo = !!videoId;
 
                 let videoUrl = null;
+                let highResolutionPreview = adData.creative.image_url || null;
                 if (videoId) {
                   try {
                     const vidResp = await fetch(
-                      `${GRAPH_API}/${videoId}?fields=source,permalink_url,embed_html&access_token=${token}`
+                      `${GRAPH_API}/${videoId}?fields=source,permalink_url,embed_html,picture,thumbnails&access_token=${token}`
                     );
                     const vidData = await vidResp.json();
                     console.log(`[ad_creatives] Video ${videoId}:`, JSON.stringify({ 
@@ -232,6 +322,11 @@ Deno.serve(async (req) => {
                       error: vidData.error?.message || null 
                     }));
                     videoUrl = vidData.source || vidData.permalink_url || null;
+                    const videoThumbnails = vidData.thumbnails?.data || [];
+                    const largestVideoThumbnail = [...videoThumbnails].sort(
+                      (a: any, b: any) => Number(b.width || 0) * Number(b.height || 0) - Number(a.width || 0) * Number(a.height || 0)
+                    )[0];
+                    highResolutionPreview = largestVideoThumbnail?.uri || vidData.picture || highResolutionPreview;
                   } catch (ve) {
                     console.error(`[ad_creatives] Failed to fetch video source for ${videoId}:`, ve);
                   }
@@ -242,9 +337,39 @@ Deno.serve(async (req) => {
                   console.log(`[ad_creatives] Ad ${adId} has video_data but no video_id`);
                 }
 
+                if (!highResolutionPreview && adData.creative.effective_object_story_id) {
+                  try {
+                    const storyResp = await fetch(
+                      `${GRAPH_API}/${adData.creative.effective_object_story_id}?fields=full_picture&access_token=${token}`
+                    );
+                    const storyData = await storyResp.json();
+                    highResolutionPreview = storyData.full_picture || null;
+                  } catch (storyError) {
+                    console.error(`[ad_creatives] Failed to fetch story preview for ${adId}:`, storyError);
+                  }
+                }
+
+                const imageHash = adData.creative.image_hash
+                  || adData.creative.object_story_spec?.link_data?.image_hash
+                  || adData.creative.object_story_spec?.photo_data?.image_hash
+                  || adData.creative.asset_feed_spec?.images?.[0]?.hash
+                  || null;
+                if (!highResolutionPreview && imageHash) {
+                  try {
+                    const hashes = encodeURIComponent(JSON.stringify([imageHash]));
+                    const imageResp = await fetch(
+                      `${GRAPH_API}/act_${accountId}/adimages?hashes=${hashes}&fields=hash,url,url_128,width,height&access_token=${token}`
+                    );
+                    const imageData = await imageResp.json();
+                    highResolutionPreview = imageData.data?.[0]?.url || imageData.data?.[0]?.url_128 || null;
+                  } catch (imageError) {
+                    console.error(`[ad_creatives] Failed to fetch original image for ${adId}:`, imageError);
+                  }
+                }
+
                 creativeMap[adId] = {
                   thumbnail_url: adData.creative.thumbnail_url || null,
-                  image_url: adData.creative.image_url || null,
+                  image_url: highResolutionPreview,
                   creative_type: hasVideo ? 'video' : 'static',
                   video_url: videoUrl,
                   video_embed_url: videoId ? `https://www.facebook.com/video/embed?video_id=${videoId}` : null,

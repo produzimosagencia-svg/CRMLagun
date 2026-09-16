@@ -25,10 +25,12 @@ const InternoDivulgadoresInstagram = lazy(() => import("./pages/interno/InternoD
 const InternoReferencias = lazy(() => import("./pages/interno/InternoReferencias.tsx"));
 const InternoDesign = lazy(() => import("./pages/interno/InternoDesign.tsx"));
 const InternoSocialMedia = lazy(() => import("./pages/interno/InternoSocialMedia.tsx"));
+const InternoComentarios = lazy(() => import("./pages/interno/InternoComentarios.tsx"));
 const InternoCampanhas = lazy(() => import("./pages/interno/InternoCampanhas.tsx"));
 const InternoRelatorios = lazy(() => import("./pages/interno/InternoRelatorios.tsx"));
 const InternoCriativosCampeoes = lazy(() => import("./pages/interno/InternoCriativosCampeoes.tsx"));
 const InternoAdsCriarCampanha = lazy(() => import("./pages/interno/InternoAdsCriarCampanha.tsx"));
+const InternoAdsGerenciar = lazy(() => import("./pages/interno/InternoAdsGerenciar.tsx"));
 const InternoAdsPixel = lazy(() => import("./pages/interno/InternoAdsPixel.tsx"));
 const InternoLeBai = lazy(() => import("./pages/interno/InternoLeBai.tsx"));
 const InternoAura = lazy(() => import("./pages/interno/InternoAura.tsx"));
@@ -37,6 +39,10 @@ const InternoInstagram = lazy(() => import("./pages/interno/InternoInstagram.tsx
 const InternoWhatsApp = lazy(() => import("./pages/interno/InternoWhatsApp.tsx"));
 const InternoWhatsAppChat = lazy(() => import("./pages/interno/InternoWhatsAppChat.tsx"));
 const InternoWhatsAppDashboard = lazy(() => import("./pages/interno/InternoWhatsAppDashboard.tsx"));
+const InternoWhatsAppCampaign = lazy(() => import("./pages/interno/InternoWhatsAppCampaign.tsx"));
+const InternoRastreamento = lazy(() => import("./pages/interno/InternoRastreamento.tsx"));
+const TrackedRedirect = lazy(() => import("./pages/TrackedRedirect.tsx"));
+const LandingPhotos = lazy(() => import("./pages/LandingPhotos.tsx"));
 const InternoBluetick = lazy(() => import("./pages/interno/InternoBluetick.tsx"));
 const InternoZigTickets = lazy(() => import("./pages/interno/InternoZigTickets.tsx"));
 const InternoZigTicketsGeral = lazy(() => import("./pages/interno/InternoZigTicketsGeral.tsx"));
@@ -81,6 +87,8 @@ createRoot(document.getElementById("root")!).render(
         <Route path="/influenciadores/conectar" element={<InfluenciadorConectar />} />
         <Route path="/influenciadores/callback" element={<InfluenciadorCallback />} />
         <Route path="/influenciadores/portal"   element={<InfluenciadorPortal />} />
+        <Route path="/r/:token" element={<TrackedRedirect />} />
+        <Route path="/fotos" element={<LandingPhotos />} />
 
         <Route path="/interno/login" element={<InternoLogin />} />
         <Route path="/interno/trafego-gpt" element={<InternoTrafegoGPT />} />
@@ -98,9 +106,14 @@ createRoot(document.getElementById("root")!).render(
           <Route path="superclientes" element={<CrmSuperclientes />} />
           <Route path="aniversariantes" element={<CrmAniversariantes />} />
           <Route path="instagram" element={<InternoInstagram />} />
+          <Route path="comentarios" element={<InternoComentarios />} />
           <Route path="whatsapp" element={<InternoWhatsApp />} />
           <Route path="whatsapp/dashboard" element={<InternoWhatsAppDashboard />} />
           <Route path="whatsapp/chat" element={<InternoWhatsAppChat />} />
+          <Route path="whatsapp/carrinho-abandonado" element={<InternoWhatsAppCampaign campaignKey="carrinho_abandonado" />} />
+          <Route path="whatsapp/aniversario" element={<InternoWhatsAppCampaign campaignKey="aniversario" />} />
+          <Route path="whatsapp/estornos" element={<InternoWhatsAppCampaign campaignKey="estornos" />} />
+          <Route path="whatsapp/rastreamento" element={<InternoRastreamento />} />
           <Route path="lebai" element={<InternoLeBai />} />
           <Route path="aura" element={<InternoAura />} />
           <Route path="prive" element={<InternoPrive />} />
@@ -111,6 +124,7 @@ createRoot(document.getElementById("root")!).render(
           <Route path="ads/campanhas" element={<InternoRelatorios />} />
           <Route path="ads/criativos" element={<InternoCriativosCampeoes />} />
           <Route path="ads/criar" element={<InternoAdsCriarCampanha />} />
+          <Route path="ads/gerenciar" element={<InternoAdsGerenciar />} />
           <Route path="ads/pixel" element={<InternoAdsPixel />} />
           <Route path="zig-tickets" element={<InternoZigTickets />} />
           <Route path="zig-tickets/:eventId" element={<InternoZigTickets />} />

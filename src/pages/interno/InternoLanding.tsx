@@ -8,6 +8,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
+import InternoLandingPhotos from './InternoLandingPhotos';
 
 interface LandingEvent {
   id: string;
@@ -49,6 +50,7 @@ export default function InternoLanding() {
   const [saving, setSaving] = useState(false);
   const [uploadingMobile, setUploadingMobile] = useState(false);
   const [uploadingDesktop, setUploadingDesktop] = useState(false);
+  const [managingPhotos, setManagingPhotos] = useState(false);
   const mobileInputRef = useRef<HTMLInputElement>(null);
   const desktopInputRef = useRef<HTMLInputElement>(null);
 
@@ -176,6 +178,8 @@ export default function InternoLanding() {
     </div>
   );
 
+  if (managingPhotos) return <InternoLandingPhotos onBack={() => setManagingPhotos(false)} />;
+
   return (
     <div className="max-w-4xl mx-auto">
       {/* Header */}
@@ -193,6 +197,12 @@ export default function InternoLanding() {
           >
             <Globe size={14} /> Ver site
           </a>
+          <button
+            onClick={() => setManagingPhotos(true)}
+            className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-[#D9B14E] border border-gray-200 rounded-lg px-3 py-2 transition-colors"
+          >
+            <Globe size={14} /> Fotos
+          </button>
           <button
             onClick={openNew}
             className="flex items-center gap-2 bg-[#D9B14E] hover:bg-[#B98F35] text-white shadow-[0_2px_12px_rgba(168,85,247,0.35)] dark:bg-gradient-to-br dark:from-[#E8C766] dark:via-[#e8b830] dark:to-[#E8C766] dark:hover:brightness-105 dark:text-[#1A0800] text-sm font-semibold px-4 py-2 rounded-lg transition-all dark:shadow-[0_2px_12px_rgba(232,184,48,0.35)]"

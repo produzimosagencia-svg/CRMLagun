@@ -94,15 +94,10 @@ export default function InternoAdsCriarCampanha() {
   const [creating, setCreating] = useState(false);
 
   useEffect(() => {
-    const lagunAccount: AdAccount = {
-      id: 'act_1278683517052021',
-      name: 'CA - Lagun',
-      account_id: '1278683517052021',
-      currency: 'BRL',
-    };
-    setAccounts([lagunAccount]);
-    setData((prev) => ({ ...prev, account: lagunAccount }));
-    setLoadingAccounts(false);
+    callMetaApi({ action: 'accounts' })
+      .then((response) => setAccounts(response.data || []))
+      .catch(() => setAccounts([]))
+      .finally(() => setLoadingAccounts(false));
   }, []);
 
   const set = (patch: Partial<WizardData>) => setData((prev) => ({ ...prev, ...patch }));
@@ -209,7 +204,7 @@ export default function InternoAdsCriarCampanha() {
               {loadingAccounts ? (
                 <div className="flex items-center gap-2 text-gray-400"><Loader2 size={16} className="animate-spin" /> Carregando contas...</div>
               ) : accounts.length === 0 ? (
-                <p className="text-sm text-red-500">Nenhuma conta encontrada. Verifique o token do Meta.</p>
+                <p className="text-sm text-gray-400">Nenhuma conta de anúncios configurada ainda para a Lagun.</p>
               ) : (
                 <div className="space-y-2">
                   {accounts.map((acc) => (
@@ -238,7 +233,7 @@ export default function InternoAdsCriarCampanha() {
               <div className="space-y-2">
                 <Label>Nome da campanha</Label>
                 <Input
-                  placeholder="Ex: BoomRAP 2026 — Tráfego"
+                  placeholder="Ex: Lagun 2026 — Tráfego"
                   value={data.campaignName}
                   onChange={(e) => set({ campaignName: e.target.value })}
                 />

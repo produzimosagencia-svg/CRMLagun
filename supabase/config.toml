@@ -7,6 +7,19 @@ verify_jwt = true
 [functions.whatsapp-webhook]
 verify_jwt = false
 
+# A mídia do WhatsApp é exibida em elementos <img>, sem header. As demais
+# ações continuam protegidas pela autenticação implementada na própria função.
+[functions.whatsapp-api]
+verify_jwt = false
+
+# Redirecionamento público dos links rastreáveis enviados pelo WhatsApp.
+[functions.wa-track]
+verify_jwt = false
+
+
+
+
+
 [functions.blueticket-webhook]
 verify_jwt = false
 

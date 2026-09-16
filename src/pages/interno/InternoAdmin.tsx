@@ -21,7 +21,9 @@ const SIDEBAR_ITEMS: { key: SidebarKey; label: string }[] = [
   { key: 'calendario', label: 'Calendário' },
   { key: 'chat', label: 'Chat' },
   { key: 'whatsapp', label: 'WhatsApp' },
-  { key: 'ads', label: 'Ads' },
+  { key: 'ads', label: 'Performance' },
+  { key: 'social_media', label: 'Social Media' },
+  { key: 'comentarios', label: 'Comentários' },
 ];
 
 interface UserWithRoles {

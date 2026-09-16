@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
@@ -28,6 +28,18 @@ interface AdCreative {
   video_url?: string | null;
   video_embed_url?: string | null;
 }
+
+type RankedCreative = Omit<AdCreative, 'spend' | 'impressions' | 'clicks' | 'ctr' | 'creative_type'> & {
+  purchases: number;
+  purchaseValue: number;
+  spend: number;
+  roas: number;
+  impressions: number;
+  clicks: number;
+  ctr: number;
+  event: string;
+  creative_type: 'video' | 'static';
+};
 
 interface Comment {
   id: string;
@@ -67,6 +79,7 @@ const EVENT_OPTIONS = [
 
 const fmt = (n: number) => n.toLocaleString('pt-BR', { maximumFractionDigits: 2 });
 const fmtBRL = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+const DEFAULT_AD_ACCOUNT_ID = (import.meta.env.VITE_META_AD_ACCOUNT_ID || '').replace(/^act_/, '');
 
 function detectEvent(campaignName: string, adName: string): string {
   const text = `${campaignName} ${adName}`.toLowerCase();
@@ -88,17 +101,24 @@ export default function InternoCriativosCampeoes() {
   const [typeFilter, setTypeFilter] = useState('all');
 
   // Modal
-  const [selectedCreative, setSelectedCreative] = useState<any | null>(null);
+  const [selectedCreative, setSelectedCreative] = useState<RankedCreative | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState('');
   const [loadingComments, setLoadingComments] = useState(false);
   const [submittingComment, setSubmittingComment] = useState(false);
 
   useEffect(() => {
-    setSelectedAccount('1278683517052021');
+    supabase.functions.invoke('meta-ads-api?action=accounts', { method: 'GET' })
+      .then(({ data }) => {
+        const availableAccounts = data?.data || [];
+        setAccounts(availableAccounts);
+        const preferred = availableAccounts.find((account: { account_id: string }) => account.account_id === DEFAULT_AD_ACCOUNT_ID);
+        setSelectedAccount(preferred?.account_id || availableAccounts[0]?.account_id || DEFAULT_AD_ACCOUNT_ID);
+      })
+      .catch(() => setSelectedAccount(DEFAULT_AD_ACCOUNT_ID));
   }, []);
 
-  const fetchCreatives = async () => {
+  const fetchCreatives = useCallback(async () => {
     if (!selectedAccount) return;
     setLoading(true);
     setError('');
@@ -108,20 +128,23 @@ export default function InternoCriativosCampeoes() {
         { method: 'GET' }
       );
       if (res.data?.error) {
-        setError(res.data.error.message || res.data.error);
+        const message = res.data.error.message || res.data.error;
+        setError(String(message).includes('ads_management') || String(message).includes('ads_read')
+          ? 'A Meta recusou o acesso aos criativos. Reconecte a conta de anúncios com a permissão ads_read e tente novamente.'
+          : message);
       } else if (res.data?.data) {
         setCreatives(res.data.data);
       }
-    } catch (e: any) {
-      setError(e.message);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Não foi possível carregar os criativos.');
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedAccount, datePreset]);
 
   useEffect(() => {
     if (selectedAccount) fetchCreatives();
-  }, [selectedAccount, datePreset]);
+  }, [selectedAccount, fetchCreatives]);
 
   const rankedCreatives = useMemo(() => {
     return [...creatives]
@@ -188,7 +211,7 @@ export default function InternoCriativosCampeoes() {
     if (selectedCreative) fetchComments(selectedCreative.ad_id);
   };
 
-  const openCreativeModal = (creative: any) => {
+  const openCreativeModal = (creative: RankedCreative) => {
     setSelectedCreative(creative);
     setNewComment('');
     fetchComments(creative.ad_id);
@@ -208,16 +231,19 @@ export default function InternoCriativosCampeoes() {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
-          <Select value={selectedAccount} onValueChange={setSelectedAccount}>
-            <SelectTrigger className="w-[200px] h-9 text-xs">
-              <SelectValue placeholder="Selecionar conta" />
-            </SelectTrigger>
-            <SelectContent>
-              {accounts.map(a => (
-                <SelectItem key={a.account_id} value={a.account_id}>{a.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {/* Seletor de conta só aparece quando há mais de uma conta de anúncios. */}
+          {accounts.length > 1 && (
+            <Select value={selectedAccount} onValueChange={setSelectedAccount}>
+              <SelectTrigger className="w-[200px] h-9 text-xs">
+                <SelectValue placeholder="Selecionar conta" />
+              </SelectTrigger>
+              <SelectContent>
+                {accounts.map(a => (
+                  <SelectItem key={a.account_id} value={a.account_id}>{a.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
 
           <Select value={typeFilter} onValueChange={setTypeFilter}>
             <SelectTrigger className="w-[120px] h-9 text-xs">

@@ -9,8 +9,8 @@ import {
   ChevronDown, ChevronRight, Settings, User, Moon, Sun, Zap, Sparkles,
   Megaphone, BarChart3, Trophy, Users, ClipboardList, Cake,
   Database, Plus, Globe, CalendarRange, LayoutDashboard,
+  TrendingUp, MessagesSquare, ShoppingCart, RotateCcw, MousePointerClick,
 } from 'lucide-react';
-import { MetaIcon } from '@/components/icons/MetaIcon';
 import SplashScreen from '@/components/SplashScreen';
 import { supabase } from '@/integrations/supabase/client';
 import logoLagun from '@/assets/palavra-lagun-branco.png';
@@ -22,9 +22,14 @@ interface EventItem {
   name: string;
 }
 
+// Módulos preservados no código, mas retirados da navegação interna do Lagun.
+const DISABLED_SIDEBAR_MODULES = new Set(['prive', 'zig_tickets', 'blueticket']);
+
 export default function InternoLayout() {
   const { user, loading, isPartner, isAdmin, roles, signOut } = useAuth();
-  const { isEnabled } = useSidebarSettings();
+  const { isEnabled: isEnabledSetting } = useSidebarSettings();
+  const isEnabled = (key: Parameters<typeof isEnabledSetting>[0]) =>
+    !DISABLED_SIDEBAR_MODULES.has(key) && isEnabledSetting(key);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [isDark, setIsDark] = useState(() => {
@@ -140,6 +145,7 @@ export default function InternoLayout() {
     if (location.pathname === '/interno/ads/campanhas') return 'Campanhas';
     if (location.pathname === '/interno/ads/criativos') return 'Criativos Campeões';
     if (location.pathname === '/interno/ads/criar') return 'Nova Campanha';
+    if (location.pathname === '/interno/ads/gerenciar') return 'Gerenciar Meta Ads';
     if (location.pathname === '/interno/ads/pixel') return 'Pixel & Públicos';
     if (location.pathname.startsWith('/interno/ads')) return 'Ads';
     if (location.pathname === '/interno/crm-visao-geral') return 'Visão Geral - CRM';
@@ -148,6 +154,8 @@ export default function InternoLayout() {
     if (location.pathname.startsWith('/interno/zig-tickets')) return 'Zig Tickets';
     if (location.pathname === '/interno/tarefas') return 'Tarefas';
     if (location.pathname === '/interno/whatsapp/chat') return 'Chat';
+    if (location.pathname === '/interno/comentarios') return 'Comentários';
+    if (location.pathname === '/interno/marketing/social-media') return 'Social Media';
     if (location.pathname.startsWith('/interno/whatsapp')) return 'WhatsApp';
     if (location.pathname.startsWith('/interno/marketing/design')) return 'Design';
     if (location.pathname.startsWith('/interno/marketing/referencias')) return 'Referências';
@@ -545,11 +553,20 @@ export default function InternoLayout() {
               </button>
               {whatsappOpen && !collapsed && (
                 <div className="space-y-0.5">
-                  <NavLink to="/interno/whatsapp/dashboard" onClick={() => setSidebarOpen(false)} className={({ isActive }) => subItemClass(isActive)}>
-                    <BarChart3 size={14} className="mr-2" /> Dashboard
-                  </NavLink>
                   <NavLink to="/interno/whatsapp" end onClick={() => setSidebarOpen(false)} className={({ isActive }) => subItemClass(isActive)}>
-                    <Send size={14} className="mr-2" /> Disparo
+                    <BarChart3 size={14} className="mr-2" /> Dashboard · Disparo
+                  </NavLink>
+                  <NavLink to="/interno/whatsapp/carrinho-abandonado" onClick={() => setSidebarOpen(false)} className={({ isActive }) => subItemClass(isActive)}>
+                    <ShoppingCart size={14} className="mr-2" /> Carrinho Abandonado
+                  </NavLink>
+                  <NavLink to="/interno/whatsapp/aniversario" onClick={() => setSidebarOpen(false)} className={({ isActive }) => subItemClass(isActive)}>
+                    <Cake size={14} className="mr-2" /> Aniversário
+                  </NavLink>
+                  <NavLink to="/interno/whatsapp/estornos" onClick={() => setSidebarOpen(false)} className={({ isActive }) => subItemClass(isActive)}>
+                    <RotateCcw size={14} className="mr-2" /> Estornos
+                  </NavLink>
+                  <NavLink to="/interno/whatsapp/rastreamento" onClick={() => setSidebarOpen(false)} className={({ isActive }) => subItemClass(isActive)}>
+                    <MousePointerClick size={14} className="mr-2" /> Rastreamento
                   </NavLink>
                 </div>
               )}
@@ -557,7 +574,7 @@ export default function InternoLayout() {
           )}
 
 
-          {/* 6. Ads */}
+          {/* 6. Performance */}
           {canSeeAds && isEnabled('ads') && (
             <>
               <button
@@ -566,14 +583,14 @@ export default function InternoLayout() {
                   else { setAdsOpen(!adsOpen); }
                 }}
                 className={navLinkClass(isActiveRoute('/interno/ads'))}
-                title={collapsed ? 'Ads' : undefined}
+                title={collapsed ? 'Performance' : undefined}
               >
                 <div className={`flex items-center justify-center ${collapsed ? '' : 'mr-2'}`}>
-                  <MetaIcon size={18} />
+                  <TrendingUp size={18} />
                 </div>
                 {!collapsed && (
                   <>
-                    <span className="text-sm font-medium flex-1 text-left">Ads</span>
+                    <span className="text-sm font-medium flex-1 text-left">Performance</span>
                     <ChevronRight size={14} className={`text-white/25 transition-transform duration-200 ${adsOpen ? 'rotate-90' : ''}`} />
                   </>
                 )}
@@ -586,9 +603,42 @@ export default function InternoLayout() {
                   <NavLink to="/interno/ads/criativos" onClick={() => setSidebarOpen(false)} className={({ isActive }) => subItemClass(isActive)}>
                     <Trophy size={14} className="mr-2" /> Criativos Campeões
                   </NavLink>
+                  <NavLink to="/interno/ads/gerenciar" onClick={() => setSidebarOpen(false)} className={({ isActive }) => subItemClass(isActive)}>
+                    <Settings size={14} className="mr-2" /> Gerenciar
+                  </NavLink>
                 </div>
               )}
             </>
+          )}
+
+          {/* Social Media */}
+          {canSeeHome && isEnabled('social_media') && (
+            <NavLink
+              to="/interno/marketing/social-media"
+              onClick={() => setSidebarOpen(false)}
+              className={({ isActive }) => navLinkClass(isActive)}
+              title={collapsed ? 'Social Media' : undefined}
+            >
+              <div className={`flex items-center justify-center ${collapsed ? '' : 'mr-2'}`}>
+                <BarChart3 size={18} />
+              </div>
+              {!collapsed && <span className="text-sm font-medium">Social Media</span>}
+            </NavLink>
+          )}
+
+          {/* Comentários do Instagram */}
+          {canSeeHome && isEnabled('comentarios') && (
+            <NavLink
+              to="/interno/comentarios"
+              onClick={() => setSidebarOpen(false)}
+              className={({ isActive }) => navLinkClass(isActive)}
+              title={collapsed ? 'Comentários' : undefined}
+            >
+              <div className={`flex items-center justify-center ${collapsed ? '' : 'mr-2'}`}>
+                <MessagesSquare size={18} />
+              </div>
+              {!collapsed && <span className="text-sm font-medium">Comentários</span>}
+            </NavLink>
           )}
 
           {/* 8. Admin */}

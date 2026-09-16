@@ -6,10 +6,12 @@ import {
   DollarSign,
   Eye,
   FileDown,
+  ImageOff,
   Loader2,
   MousePointerClick,
   RotateCcw,
   TrendingUp,
+  Video,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -18,7 +20,7 @@ import { generateAdsReport } from '@/lib/generateAdsReport';
 import { toast } from 'sonner';
 import flamingoSrc from '@/assets/simbolo-lagun.png';
 
-const LAGUN_ACCOUNT_ID = '1278683517052021';
+const ADS_ACCOUNT_ID = (import.meta.env.VITE_META_AD_ACCOUNT_ID || '').replace(/^act_/, '');
 
 interface CampaignInsight {
   campaign_name: string;
@@ -34,6 +36,23 @@ interface CampaignInsight {
   actions?: Array<{ action_type: string; value: string }>;
   action_values?: Array<{ action_type: string; value: string }>;
   purchase_roas?: Array<{ action_type: string; value: string }>;
+}
+
+interface AdCreativeInsight extends CampaignInsight {
+  ad_name: string;
+  ad_id: string;
+  thumbnail_url: string | null;
+  image_url: string | null;
+  creative_type?: 'video' | 'static';
+  video_url?: string | null;
+  video_embed_url?: string | null;
+}
+
+interface CampaignBudget {
+  campaign_id: string;
+  campaign_name: string;
+  objective: string;
+  daily_budget: number;
 }
 
 interface AccountSummary {
@@ -55,6 +74,7 @@ interface ObjectiveSummaryRow {
   impressions: number;
   clicks: number;
   returnValue: number;
+  dailyBudget: number;
 }
 
 interface EventGroup {
@@ -72,7 +92,7 @@ interface EventGroup {
 const KNOWN_EVENTS = [
   'Isso É Trap',
   'Maestria',
-  'BoomRAP',
+  'Lagun',
   'Fantástico Mundo Lukão',
   'Pagodear',
   'Aperta O Play',
@@ -121,6 +141,9 @@ const DATE_PRESETS = [
   { value: 'last_14d', label: 'Últimos 14 dias' },
   { value: 'last_30d', label: 'Últimos 30 dias' },
   { value: 'last_90d', label: 'Últimos 90 dias' },
+  { value: 'this_year', label: 'Este ano' },
+  { value: 'last_year', label: 'Ano passado' },
+  { value: 'maximum', label: 'Todo o período' },
 ];
 
 function formatCurrency(value: number) {
@@ -193,13 +216,18 @@ export default function InternoRelatorios() {
   const [loadingInsights, setLoadingInsights] = useState(false);
   const [generatingPDF, setGeneratingPDF] = useState(false);
   const [collapsedEvents, setCollapsedEvents] = useState<Record<string, boolean>>({});
+  const [creatives, setCreatives] = useState<AdCreativeInsight[]>([]);
+  const [loadingCreatives, setLoadingCreatives] = useState(false);
+  const [campaignBudgets, setCampaignBudgets] = useState<CampaignBudget[]>([]);
 
   useEffect(() => {
+    if (!ADS_ACCOUNT_ID) { setLoading(false); return; }
     (async () => {
       try {
         const { data: session } = await supabase.auth.getSession();
         const token = session?.session?.access_token;
-        const projectId = 'xwxiijbovreucnrbyput';
+        const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID
+          || (import.meta.env.VITE_SUPABASE_URL || '').match(/https?:\/\/([^.]+)\./)?.[1];
         const resp = await fetch(
           `https://${projectId}.supabase.co/functions/v1/meta-ads-api?action=accounts`,
           { headers: { Authorization: `Bearer ${token}` } }
@@ -209,12 +237,11 @@ export default function InternoRelatorios() {
         if (result.error) {
           setError(result.error?.message || result.error);
         } else if (result.data) {
-          // Always use the Lagun account
-          const lagun = result.data.find(
-            (acc: any) => acc.account_id === LAGUN_ACCOUNT_ID
+          const account = result.data.find(
+            (acc: any) => acc.account_id === ADS_ACCOUNT_ID
           );
-          if (lagun) setSelectedAccount(lagun.account_id);
-          else setSelectedAccount(LAGUN_ACCOUNT_ID);
+          if (account) setSelectedAccount(account.account_id);
+          else setSelectedAccount(ADS_ACCOUNT_ID);
         }
       } catch (err: any) {
         setError(err.message);
@@ -232,7 +259,8 @@ export default function InternoRelatorios() {
       try {
         const { data: session } = await supabase.auth.getSession();
         const token = session?.session?.access_token;
-        const projectId = 'xwxiijbovreucnrbyput';
+        const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID
+          || (import.meta.env.VITE_SUPABASE_URL || '').match(/https?:\/\/([^.]+)\./)?.[1];
         const resp = await fetch(
           `https://${projectId}.supabase.co/functions/v1/meta-ads-api?action=insights&account_id=${selectedAccount}&date_preset=${datePreset}`,
           { headers: { Authorization: `Bearer ${token}` } }
@@ -254,6 +282,67 @@ export default function InternoRelatorios() {
       }
     })();
   }, [selectedAccount, datePreset]);
+
+  useEffect(() => {
+    if (!selectedAccount) return;
+    (async () => {
+      try {
+        const { data: session } = await supabase.auth.getSession();
+        const token = session?.session?.access_token;
+        const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID
+          || (import.meta.env.VITE_SUPABASE_URL || '').match(/https?:\/\/([^.]+)\./)?.[1];
+        const response = await fetch(
+          `https://${projectId}.supabase.co/functions/v1/meta-ads-api?action=campaign_budgets&account_id=${selectedAccount}`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        const payload = await response.json();
+        setCampaignBudgets(payload.error ? [] : (payload.data || []));
+      } catch (budgetError) {
+        console.error('[Relatórios] Falha ao carregar orçamentos', budgetError);
+        setCampaignBudgets([]);
+      }
+    })();
+  }, [selectedAccount]);
+
+  const dailyBudgetByCampaign = useMemo(() => new Map(
+    campaignBudgets.map((campaign) => [campaign.campaign_id, Number(campaign.daily_budget || 0) / 100])
+  ), [campaignBudgets]);
+
+  useEffect(() => {
+    if (!selectedAccount) return;
+    (async () => {
+      setLoadingCreatives(true);
+      try {
+        const response = await supabase.functions.invoke(
+          `meta-ads-api?action=ad_creatives&account_id=${selectedAccount}&date_preset=${datePreset}`,
+          { method: 'GET' }
+        );
+        if (response.error || response.data?.error) {
+          console.error('[Relatórios] Falha ao carregar criativos', response.error || response.data?.error);
+          setCreatives([]);
+        } else {
+          setCreatives((response.data?.data || []) as AdCreativeInsight[]);
+        }
+      } catch (creativeError) {
+        console.error('[Relatórios] Falha ao carregar criativos', creativeError);
+        setCreatives([]);
+      } finally {
+        setLoadingCreatives(false);
+      }
+    })();
+  }, [selectedAccount, datePreset]);
+
+  const creativesByEvent = useMemo(() => {
+    const grouped = new Map<string, AdCreativeInsight[]>();
+    for (const creative of creatives) {
+      const eventName = extractEventName(creative.campaign_name);
+      grouped.set(eventName, [...(grouped.get(eventName) || []), creative]);
+    }
+    for (const [eventName, items] of grouped) {
+      grouped.set(eventName, items.sort((a, b) => Number(b.spend || 0) - Number(a.spend || 0)));
+    }
+    return grouped;
+  }, [creatives]);
 
   const summary: AccountSummary = useMemo(() => {
     const totals = {
@@ -313,6 +402,7 @@ export default function InternoRelatorios() {
         impressions: 0,
         clicks: 0,
         returnValue: 0,
+        dailyBudget: 0,
       };
 
       const spend = parseFloat(row.spend || '0');
@@ -333,6 +423,7 @@ export default function InternoRelatorios() {
       objectiveRow.impressions += impressions;
       objectiveRow.clicks += clicks;
       objectiveRow.returnValue += purchaseValue;
+      objectiveRow.dailyBudget += dailyBudgetByCampaign.get(row.campaign_id) || 0;
 
       event.rowsMap.set(rowKey, objectiveRow);
       events.set(eventName, event);
@@ -353,7 +444,7 @@ export default function InternoRelatorios() {
         ),
       }))
       .sort((a, b) => b.totalSpend - a.totalSpend);
-  }, [insights]);
+  }, [insights, dailyBudgetByCampaign]);
 
   const pdfGroups = useMemo(() => {
     const grouped: Record<
@@ -490,6 +581,33 @@ export default function InternoRelatorios() {
     return (
       <div className="flex items-center justify-center py-20">
         <Loader2 className="animate-spin text-gray-400 dark:text-gray-500" size={28} />
+      </div>
+    );
+  }
+
+  if (!ADS_ACCOUNT_ID) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-3">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate('/interno/marketing')}
+            className="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
+          >
+            <ArrowLeft size={16} className="mr-1" /> Marketing
+          </Button>
+          <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+            Relatórios · Lagun
+          </h2>
+        </div>
+        <div className="flex flex-col items-center justify-center gap-3 py-20 text-center">
+          <TrendingUp size={32} className="text-gray-300 dark:text-gray-700" />
+          <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Conta de anúncios ainda não configurada</p>
+          <p className="text-xs text-gray-400 max-w-sm">
+            Assim que a conta do Meta Ads da Lagun for definida, os relatórios de campanhas aparecem aqui.
+          </p>
+        </div>
       </div>
     );
   }
@@ -691,6 +809,7 @@ export default function InternoRelatorios() {
                   <div className="p-4 space-y-1">
                     <div className="flex items-center justify-between gap-4 px-1 text-[10px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-2">
                       <span className="flex-1">Tipo</span>
+                      <span className="w-28 text-right">Orçamento diário</span>
                       <span className="w-28 text-right">Gasto</span>
                       <span className="w-20 text-right">Impressões</span>
                       <span className="w-16 text-right">Cliques</span>
@@ -706,6 +825,9 @@ export default function InternoRelatorios() {
                               {row.objLabel}
                             </p>
                           </div>
+                          <p className="w-28 text-right text-sm font-semibold text-amber-600 dark:text-amber-400">
+                            {row.dailyBudget > 0 ? formatCurrency(row.dailyBudget) : '—'}
+                          </p>
                           <p className="w-28 text-right text-sm text-gray-500 dark:text-gray-400">
                             {formatCurrency(row.spend)}
                           </p>
@@ -720,6 +842,22 @@ export default function InternoRelatorios() {
                           </p>
                         </div>
                       ))}
+                    </div>
+
+                    <div className="mt-5 border-t border-gray-100 pt-4 dark:border-gray-800">
+                      <div className="mb-3 flex items-center justify-between gap-3">
+                        <div><h4 className="text-xs font-bold text-gray-800 dark:text-gray-200">Criativos das campanhas</h4><p className="mt-0.5 text-[10px] text-gray-400">Anúncios veiculados no período selecionado.</p></div>
+                        <span className="rounded-full border border-gray-200 px-2 py-1 text-[10px] font-semibold text-gray-500 dark:border-gray-700 dark:text-gray-400">{(creativesByEvent.get(eventGroup.eventName) || []).length} criativo{(creativesByEvent.get(eventGroup.eventName) || []).length === 1 ? '' : 's'}</span>
+                      </div>
+
+                      {loadingCreatives ? <div className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-gray-200 py-8 text-xs text-gray-400 dark:border-gray-800"><Loader2 size={15} className="animate-spin" />Carregando criativos...</div> : (creativesByEvent.get(eventGroup.eventName) || []).length === 0 ? <div className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-gray-200 py-8 text-xs text-gray-400 dark:border-gray-800"><ImageOff size={15} />Nenhum criativo com entrega neste período.</div> : <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{(creativesByEvent.get(eventGroup.eventName) || []).map(creative => {
+                        const preview = creative.image_url || creative.thumbnail_url;
+                        const isVideo = creative.creative_type === 'video';
+                        return <a key={creative.ad_id} href={creative.video_url || creative.image_url || creative.thumbnail_url || undefined} target="_blank" rel="noreferrer" onClick={event => { if (!preview && !creative.video_url) event.preventDefault(); }} className="group overflow-hidden rounded-xl border border-gray-200 bg-gray-50 transition hover:-translate-y-0.5 hover:border-purple-300 hover:shadow-lg dark:border-gray-800 dark:bg-[#160F20] dark:hover:border-purple-500/40">
+                          <div className="relative aspect-video overflow-hidden bg-black/20">{isVideo && creative.video_url ? <video src={creative.video_url} poster={preview || undefined} preload="metadata" muted playsInline className="h-full w-full object-cover" /> : preview ? <img src={preview} alt={creative.ad_name || 'Criativo da campanha'} loading="lazy" decoding="async" className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.03]" /> : <div className="flex h-full items-center justify-center text-gray-500"><ImageOff size={22} /></div>}<span className="absolute left-2 top-2 flex items-center gap-1 rounded-full bg-black/70 px-2 py-1 text-[9px] font-bold uppercase tracking-wide text-white backdrop-blur">{isVideo ? <Video size={11} /> : null}{isVideo ? 'Vídeo' : 'Imagem'}</span></div>
+                          <div className="space-y-2 p-3"><div><p className="truncate text-xs font-bold text-gray-900 dark:text-gray-100" title={creative.ad_name}>{creative.ad_name || 'Anúncio sem nome'}</p><p className="mt-0.5 truncate text-[10px] text-gray-400" title={creative.campaign_name}>{creative.campaign_name}</p></div><div className="grid grid-cols-3 gap-1.5 text-center"><div className="rounded-md bg-white px-1 py-1.5 dark:bg-white/[0.04]"><p className="text-[8px] uppercase text-gray-400">Gasto</p><p className="text-[10px] font-semibold text-gray-700 dark:text-gray-300">{formatCurrency(Number(creative.spend || 0))}</p></div><div className="rounded-md bg-white px-1 py-1.5 dark:bg-white/[0.04]"><p className="text-[8px] uppercase text-gray-400">Impressões</p><p className="text-[10px] font-semibold text-gray-700 dark:text-gray-300">{formatNumber(Number(creative.impressions || 0))}</p></div><div className="rounded-md bg-white px-1 py-1.5 dark:bg-white/[0.04]"><p className="text-[8px] uppercase text-gray-400">Cliques</p><p className="text-[10px] font-semibold text-gray-700 dark:text-gray-300">{formatNumber(Number(creative.clicks || 0))}</p></div></div></div>
+                        </a>;
+                      })}</div>}
                     </div>
                   </div>
                 )}

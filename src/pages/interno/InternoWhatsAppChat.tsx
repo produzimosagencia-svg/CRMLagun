@@ -4,7 +4,7 @@ import { callWhatsappApi } from '@/lib/whatsappApi';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { MessageCircle, ArrowLeft, Send, Clock, Check, CheckCheck, Bot, UserRound, DollarSign, Loader2, UserCircle, MapPin, Phone, ShoppingCart, AlertTriangle, Power, Smartphone, BrainCircuit, Plus, Trash2, Calendar, MapPinned, Music, ShieldAlert, FileText, Link as LinkIcon, Pencil, Instagram, RefreshCw, ChevronDown, Armchair } from 'lucide-react';
+import { MessageCircle, ArrowLeft, Send, Clock, Check, CheckCheck, Bot, UserRound, DollarSign, Loader2, UserCircle, MapPin, Phone, ShoppingCart, AlertTriangle, Power, Smartphone, BrainCircuit, Plus, Trash2, Calendar, MapPinned, Music, ShieldAlert, FileText, Link as LinkIcon, Pencil, Instagram, RefreshCw, ChevronDown, UserCheck, Megaphone, TicketCheck, Armchair } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
@@ -12,15 +12,19 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { confirmDialog } from '@/components/ConfirmDialog';
 import { formatPhone } from '@/lib/formatPhone';
 import { format, isToday, isYesterday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 
 interface Message {
   id: string;
   phone: string;
   contact_name: string | null;
+  contact_avatar?: string | null;
+  contact_username?: string | null;
   direction: string;
   message_type: string;
   message_text: string | null;
@@ -29,17 +33,24 @@ interface Message {
   status: string | null;
   wamid: string | null;
   channel?: string;
+  raw_payload?: Record<string, any> | null;
 }
 
 interface Conversation {
   phone: string;
   contact_name: string | null;
+  contact_avatar: string | null;
+  contact_username: string | null;
   last_message: string | null;
   last_timestamp: string;
   unread_count: number;
   needs_support: boolean;
+  support_requested_at: string | null;
   last_direction: string;
   last_status: string | null;
+  has_incoming: boolean;
+  latest_incoming_timestamp: string | null;
+  started_by_broadcast: boolean;
 }
 
 interface EventBreakdown {
@@ -53,6 +64,13 @@ interface AbandonedCart {
   amount: number;
 }
 
+interface CustomerRegistration {
+  type: 'divulgador' | 'creator' | 'prevenda';
+  label: string;
+  registered_at: string | null;
+  detail?: string | null;
+}
+
 interface CustomerProfile {
   full_name: string;
   phone: string | null;
@@ -61,6 +79,7 @@ interface CustomerProfile {
   ltv: number | null;
   events: EventBreakdown[];
   abandonedCarts: AbandonedCart[];
+  registrations: CustomerRegistration[];
   found: boolean;
 }
 
@@ -81,6 +100,9 @@ interface ApiPhoneNumber {
   verified_name: string;
 }
 
+// Deriva o project ref da URL do Supabase se VITE_SUPABASE_PROJECT_ID não estiver
+// definido (ex.: produção onde só VITE_SUPABASE_URL foi configurado). Evita montar
+// URLs `https://undefined.supabase.co/...` que quebram as chamadas às functions.
 interface OpenEvent {
   id: string;
   nome: string;
@@ -89,7 +111,8 @@ interface OpenEvent {
 
 const LOUNGE_NAMES = ['Lounge 1', 'Lounge 2', 'Lounge 3', 'Lounge 4', 'Lounge 5', 'Lounge 6'];
 
-const PROJECT_ID = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+const PROJECT_ID = import.meta.env.VITE_SUPABASE_PROJECT_ID
+  || (import.meta.env.VITE_SUPABASE_URL || '').match(/https?:\/\/([^.]+)\./)?.[1];
 const ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
 const AGE_RATING_OPTIONS = [
@@ -120,6 +143,53 @@ function normalizePhone(phone: string): string {
   return phone.replace(/\D/g, '').slice(-9);
 }
 
+function phoneSearchVariants(phone: string): string[] {
+  const original = phone.trim();
+  const digits = original.replace(/\D/g, '');
+  const national = digits.startsWith('55') && digits.length >= 12 ? digits.slice(2) : digits;
+  const variants = new Set([original, digits, national, `55${national}`, `+55${national}`]);
+
+  if (national.length === 11) {
+    const ddd = national.slice(0, 2);
+    const first = national.slice(2, 7);
+    const last = national.slice(7);
+    variants.add(`(${ddd}) ${first}-${last}`);
+    variants.add(`(${ddd})${first}-${last}`);
+    variants.add(`${ddd} ${first}-${last}`);
+    variants.add(`+55 ${ddd} ${first}-${last}`);
+  }
+
+  return Array.from(variants).filter(Boolean);
+}
+
+function inferMessageChannel(message: Message): 'whatsapp' | 'instagram' {
+  if (message.channel === 'instagram') return 'instagram';
+  if (message.channel === 'whatsapp') return 'whatsapp';
+
+  const payload = message.raw_payload as Record<string, any> | null | undefined;
+  const hasWhatsappMetadata = Boolean(
+    payload?.phone_number_id
+    || payload?.metadata?.phone_number_id
+    || payload?.metadata?.display_phone_number
+    || payload?.contacts
+  );
+  if (hasWhatsappMetadata) return 'whatsapp';
+
+  // Antes de `channel` existir, as DMs do Instagram já salvavam username/avatar
+  // e usavam o ID numérico longo do usuário como `phone`.
+  if (
+    message.contact_username
+    || message.contact_avatar
+    || /^\d{16,}$/.test(message.phone || '')
+    || payload?.sender?.id
+    || payload?.recipient?.id
+  ) {
+    return 'instagram';
+  }
+
+  return 'whatsapp';
+}
+
 export default function InternoWhatsAppChat() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedPhone, setSelectedPhone] = useState<string | null>(null);
@@ -131,8 +201,10 @@ export default function InternoWhatsAppChat() {
   const [profile, setProfile] = useState<CustomerProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const conversationLoadIdRef = useRef(0);
+  const reduceMotion = useReducedMotion();
 
-  const [globalAiEnabled, setGlobalAiEnabled] = useState(true);
+  const [globalAiEnabled, setGlobalAiEnabled] = useState(false);
   const [togglingGlobal, setTogglingGlobal] = useState(false);
   const [selectedApiPhone, setSelectedApiPhone] = useState('');
   const [apiPhones, setApiPhones] = useState<ApiPhoneNumber[]>([]);
@@ -146,18 +218,69 @@ export default function InternoWhatsAppChat() {
   const [savingEvent, setSavingEvent] = useState(false);
 
   // Channel tabs
-  const [activeChannel, setActiveChannel] = useState<'whatsapp' | 'instagram'>('whatsapp');
+  const [activeChannel, setActiveChannel] = useState<'whatsapp' | 'instagram'>('instagram');
+  const [activeWhatsappInbox, setActiveWhatsappInbox] = useState<'chat' | 'window24h' | 'help' | 'broadcasts'>('chat');
+  const [inboxNow, setInboxNow] = useState(Date.now());
   const [syncingInstagram, setSyncingInstagram] = useState(false);
   const [igAccounts, setIgAccounts] = useState<{ id: string; username: string; profile_picture_url?: string; name?: string }[]>([]);
   const [selectedIgAccount, setSelectedIgAccount] = useState<{ id: string; username: string; profile_picture_url?: string; name?: string } | null>(null);
   const [igAutoReply, setIgAutoReply] = useState(false);
   const [togglingIgAi, setTogglingIgAi] = useState(false);
 
-  // Lounges
+  // Recurso próprio do Lagun: gestão dos lounges dos eventos publicados.
   const [openEvents, setOpenEvents] = useState<OpenEvent[]>([]);
-  const [loungesData, setLoungesData] = useState<Record<string, number[]>>({}); // event_id -> sold lounge numbers
+  const [loungesData, setLoungesData] = useState<Record<string, number[]>>({});
   const [loadingLounges, setLoadingLounges] = useState(false);
-  const [togglingLounge, setTogglingLounge] = useState<string | null>(null); // `${eventId}-${loungeNum}`
+  const [togglingLounge, setTogglingLounge] = useState<string | null>(null);
+
+  const getAccountScope = (channel: 'whatsapp' | 'instagram' = activeChannel) =>
+    channel === 'whatsapp' ? (selectedApiPhone || 'default') : (selectedIgAccount?.id || 'default');
+
+  const markConversationRead = async (phone: string, readAt = new Date().toISOString()) => {
+    const channel = activeChannel;
+    const accountScope = getAccountScope(channel);
+
+    // Atualização otimista: o destaque some no mesmo clique.
+    setConversations(prev => prev.map(conv =>
+      conv.phone === phone ? { ...conv, unread_count: 0 } : conv
+    ));
+
+    const { data: { user } } = await supabase.auth.getUser();
+    const { error } = await supabase
+      .from('chat_conversation_reads')
+      .upsert({
+        channel,
+        account_scope: accountScope,
+        contact_id: phone,
+        last_read_at: readAt,
+        updated_at: new Date().toISOString(),
+        updated_by: user?.id || null,
+      }, { onConflict: 'channel,account_scope,contact_id' });
+
+    if (error) console.error('Error marking conversation as read:', error);
+  };
+
+  const handleConversationSelect = (conv: Conversation) => {
+    setSelectedPhone(conv.phone);
+    void markConversationRead(conv.phone);
+  };
+
+  const messageApiPhoneId = (message: any) =>
+    message?.raw_payload?.phone_number_id
+    || message?.raw_payload?.metadata?.phone_number_id
+    // Mensagens antigas não guardavam a API de origem. Elas pertencem ao
+    // primeiro número que já era usado antes da inclusão do seletor.
+    || apiPhones[0]?.id
+    || '';
+
+  // Atualiza a classificação automaticamente quando uma janela completa 24h,
+  // mesmo que nenhuma mensagem nova seja recebida naquele momento.
+  useEffect(() => {
+    if (activeChannel !== 'whatsapp') return;
+    setInboxNow(Date.now());
+    const interval = window.setInterval(() => setInboxNow(Date.now()), 60_000);
+    return () => window.clearInterval(interval);
+  }, [activeChannel]);
 
   // Load API phone numbers
   const loadApiPhones = async () => {
@@ -182,7 +305,6 @@ export default function InternoWhatsAppChat() {
     setLoadingApiPhones(false);
   };
 
-  // Load lounges data
   const loadLounges = async () => {
     setLoadingLounges(true);
     const { data: events } = await supabase
@@ -192,16 +314,13 @@ export default function InternoWhatsAppChat() {
       .order('display_order', { ascending: true });
     if (events) setOpenEvents(events as OpenEvent[]);
 
-    const { data: lounges } = await supabase
-      .from('event_lounges')
-      .select('event_id, lounge_number, is_sold');
+    const { data: lounges } = await supabase.from('event_lounges').select('event_id, lounge_number, is_sold');
     if (lounges) {
       const map: Record<string, number[]> = {};
       lounges.forEach((l: any) => {
-        if (l.is_sold) {
-          if (!map[l.event_id]) map[l.event_id] = [];
-          map[l.event_id].push(l.lounge_number);
-        }
+        if (!l.is_sold) return;
+        if (!map[l.event_id]) map[l.event_id] = [];
+        map[l.event_id].push(l.lounge_number);
       });
       setLoungesData(map);
     }
@@ -213,16 +332,15 @@ export default function InternoWhatsAppChat() {
     setTogglingLounge(key);
     const currentSold = loungesData[eventId] || [];
     const isSold = currentSold.includes(loungeNum);
-    const newSold = isSold ? currentSold.filter(n => n !== loungeNum) : [...currentSold, loungeNum];
-    setLoungesData(prev => ({ ...prev, [eventId]: newSold }));
-
-    const { error } = await supabase
-      .from('event_lounges')
-      .upsert({ event_id: eventId, lounge_number: loungeNum, is_sold: !isSold }, { onConflict: 'event_id,lounge_number' });
-
+    const nextSold = isSold ? currentSold.filter((number) => number !== loungeNum) : [...currentSold, loungeNum];
+    setLoungesData((previous) => ({ ...previous, [eventId]: nextSold }));
+    const { error } = await supabase.from('event_lounges').upsert(
+      { event_id: eventId, lounge_number: loungeNum, is_sold: !isSold },
+      { onConflict: 'event_id,lounge_number' },
+    );
     if (error) {
       toast.error('Erro ao atualizar lounge');
-      setLoungesData(prev => ({ ...prev, [eventId]: currentSold }));
+      setLoungesData((previous) => ({ ...previous, [eventId]: currentSold }));
     }
     setTogglingLounge(null);
   };
@@ -250,13 +368,11 @@ export default function InternoWhatsAppChat() {
           }
         }
       }
-      setIgAccounts(accounts);
       const lagunvixFallback = { id: '17841436376156784', username: 'lagunvix', name: 'Lagun' };
       if (accounts.length > 0 && !selectedIgAccount) {
         const preferred = accounts.find(a => a.username === 'lagunvix') || accounts.find(a => a.username === 'triade.ent') || accounts[0];
         setSelectedIgAccount(preferred);
       } else if (accounts.length === 0 && !selectedIgAccount) {
-        // Fallback: lagunvix sempre disponível mesmo se a API não retornar contas
         setSelectedIgAccount(lagunvixFallback);
       }
     } catch (err) {
@@ -296,6 +412,7 @@ export default function InternoWhatsAppChat() {
   };
 
   const loadConversationsForChannel = async (channel: string) => {
+    const loadId = ++conversationLoadIdRef.current;
     setLoading(true);
     // For whatsapp: include messages with channel='whatsapp' OR channel=null (legacy Meta API messages)
     const query = supabase.from('whatsapp_messages').select('*').order('timestamp', { ascending: false }).limit(1000);
@@ -303,37 +420,98 @@ export default function InternoWhatsAppChat() {
       ? await query.or('channel.eq.whatsapp,channel.is.null')
       : await query.eq('channel', channel);
 
+    if (loadId !== conversationLoadIdRef.current) return;
     if (error) { console.error('Error loading messages:', error); setLoading(false); return; }
 
+    const accountScope = channel === 'whatsapp'
+      ? (selectedApiPhone || 'default')
+      : (selectedIgAccount?.id || 'default');
+    const { data: readReceipts, error: receiptError } = await supabase
+      .from('chat_conversation_reads')
+      .select('contact_id, last_read_at')
+      .eq('channel', channel)
+      .eq('account_scope', accountScope);
+    if (receiptError) console.error('Error loading conversation read receipts:', receiptError);
+    const lastReadByContact = new Map(
+      (readReceipts || []).map(receipt => [receipt.contact_id, new Date(receipt.last_read_at).getTime()])
+    );
+
+    const channelMessages = (data || []).filter((msg: any) => inferMessageChannel(msg as Message) === channel);
+    const scopedMessages = channel === 'whatsapp' && selectedApiPhone
+      ? channelMessages.filter((msg: any) => messageApiPhoneId(msg) === selectedApiPhone)
+      : channelMessages;
+
     const convMap = new Map<string, Conversation>();
-    for (const msg of (data || [])) {
+    for (const msg of scopedMessages) {
       const existing = convMap.get(msg.phone);
       const needsSupport = msg.status === 'need_support';
+      const isBroadcast = msg.direction === 'outgoing' && msg.message_type === 'template';
       if (!existing) {
         convMap.set(msg.phone, {
           phone: msg.phone, contact_name: msg.contact_name,
+          contact_avatar: (msg as Message).contact_avatar ?? null,
+          contact_username: (msg as Message).contact_username ?? null,
           last_message: msg.message_text, last_timestamp: msg.timestamp,
-          unread_count: msg.direction === 'incoming' ? 1 : 0,
+          unread_count: msg.direction === 'incoming'
+            && new Date(msg.timestamp).getTime() > (lastReadByContact.get(msg.phone) || 0) ? 1 : 0,
           needs_support: needsSupport,
+          support_requested_at: needsSupport ? msg.timestamp : null,
           last_direction: msg.direction,
           last_status: msg.status,
+          has_incoming: msg.direction === 'incoming',
+          latest_incoming_timestamp: msg.direction === 'incoming' ? msg.timestamp : null,
+          started_by_broadcast: isBroadcast,
         });
       } else {
-        if (msg.direction === 'incoming') existing.unread_count++;
+        if (
+          msg.direction === 'incoming'
+          && new Date(msg.timestamp).getTime() > (lastReadByContact.get(msg.phone) || 0)
+        ) existing.unread_count++;
+        if (msg.direction === 'incoming') {
+          existing.has_incoming = true;
+          if (!existing.latest_incoming_timestamp) existing.latest_incoming_timestamp = msg.timestamp;
+        }
+        if (isBroadcast) existing.started_by_broadcast = true;
         if (!existing.contact_name && msg.contact_name) existing.contact_name = msg.contact_name;
+        if (!existing.contact_avatar && (msg as Message).contact_avatar) existing.contact_avatar = (msg as Message).contact_avatar ?? null;
+        if (!existing.contact_username && (msg as Message).contact_username) existing.contact_username = (msg as Message).contact_username ?? null;
         if (needsSupport) existing.needs_support = true;
+        if (needsSupport && !existing.support_requested_at) existing.support_requested_at = msg.timestamp;
+      }
+    }
+
+    // Uma solicitação de ajuda permanece na fila até o cliente responder
+    // novamente. Apenas abrir a conversa não altera seu estado.
+    for (const conversation of convMap.values()) {
+      if (
+        conversation.support_requested_at
+        && conversation.latest_incoming_timestamp
+        && new Date(conversation.latest_incoming_timestamp).getTime() > new Date(conversation.support_requested_at).getTime()
+      ) {
+        conversation.needs_support = false;
       }
     }
 
     setConversations(
       Array.from(convMap.values()).sort((a, b) => new Date(b.last_timestamp).getTime() - new Date(a.last_timestamp).getTime())
     );
-    setLoading(false);
+    if (loadId === conversationLoadIdRef.current) setLoading(false);
   };
 
   const toggleIgAutoReply = async () => {
-    setTogglingIgAi(true);
     const newVal = !igAutoReply;
+    // Ativar exige confirmação — evita ligar a resposta automática sem querer.
+    if (newVal) {
+      const ok = await confirmDialog({
+        title: 'Ativar IA no Instagram?',
+        description: 'A IA passará a responder AUTOMATICAMENTE todos os DMs do Instagram, sem revisão humana. Só ative quando o atendimento automático estiver liberado.',
+        confirmText: 'Ativar IA',
+        cancelText: 'Cancelar',
+        destructive: true,
+      });
+      if (!ok) return;
+    }
+    setTogglingIgAi(true);
     setIgAutoReply(newVal);
     await supabase.from('whatsapp_bot_settings')
       .upsert({ phone: 'ig_auto_reply_global', bot_enabled: newVal, updated_at: new Date().toISOString() }, { onConflict: 'phone' });
@@ -355,51 +533,94 @@ export default function InternoWhatsAppChat() {
         .eq('phone', 'ig_auto_reply_global')
         .maybeSingle();
       setIgAutoReply(igSetting?.bot_enabled === true);
+      // O seletor de número não precisa ser aberto para a caixa do WhatsApp carregar.
+      await loadApiPhones();
     };
     init();
   }, []);
 
-  // Load conversations when channel changes
+  // Cada número da API possui sua própria caixa de entrada. Ao trocar de
+  // número, limpa a conversa aberta e recarrega somente o histórico daquela API.
   useEffect(() => {
+    if (activeChannel === 'whatsapp' && !selectedApiPhone) {
+      if (!loadingApiPhones) setLoading(false);
+      return;
+    }
     loadConversationsForChannel(activeChannel);
     setSelectedPhone(null);
-  }, [activeChannel]);
+    setMessages([]);
+  }, [activeChannel, selectedApiPhone, selectedIgAccount?.id]);
+
+  const handleChannelChange = (channel: 'whatsapp' | 'instagram') => {
+    if (channel === activeChannel) return;
+    // Invalida imediatamente qualquer consulta anterior e remove o conteúdo da
+    // outra aba no mesmo clique, antes do próximo frame ser renderizado.
+    conversationLoadIdRef.current += 1;
+    setConversations([]);
+    setSelectedPhone(null);
+    setMessages([]);
+    setLoading(true);
+    setActiveChannel(channel);
+  };
+
+  const handleApiPhoneChange = (phoneId: string) => {
+    if (phoneId === selectedApiPhone) return;
+    conversationLoadIdRef.current += 1;
+    setConversations([]);
+    setSelectedPhone(null);
+    setMessages([]);
+    setLoading(true);
+    setSelectedApiPhone(phoneId);
+  };
 
   useEffect(() => {
     const channel = supabase
       .channel('whatsapp-messages-realtime')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'whatsapp_messages' }, (payload) => {
         const newMsg = payload.new as Message & { channel?: string };
-        const msgChannel = newMsg.channel || 'whatsapp';
+        const msgChannel = inferMessageChannel(newMsg);
         
         // Only add to conversation list if it matches the active channel
-        if (msgChannel === activeChannel) {
+        const belongsToSelectedApi = msgChannel !== 'whatsapp'
+          || !selectedApiPhone
+          || messageApiPhoneId(newMsg) === selectedApiPhone;
+
+        if (msgChannel === activeChannel && belongsToSelectedApi) {
           const needsSupport = newMsg.status === 'need_support';
           setConversations(prev => {
             const existing = prev.find(c => c.phone === newMsg.phone);
             if (existing) {
               return prev.map(c => c.phone === newMsg.phone ? {
                 ...c, last_message: newMsg.message_text, last_timestamp: newMsg.timestamp,
-                unread_count: newMsg.direction === 'incoming' ? c.unread_count + 1 : c.unread_count,
+                unread_count: newMsg.direction === 'incoming' && newMsg.phone !== selectedPhone ? c.unread_count + 1 : c.unread_count,
                 contact_name: c.contact_name || newMsg.contact_name,
-                needs_support: needsSupport ? true : c.needs_support,
+                contact_avatar: c.contact_avatar || newMsg.contact_avatar || null,
+                contact_username: c.contact_username || newMsg.contact_username || null,
+                needs_support: needsSupport ? true : (newMsg.direction === 'incoming' ? false : c.needs_support),
+                support_requested_at: needsSupport ? newMsg.timestamp : c.support_requested_at,
                 last_direction: newMsg.direction,
                 last_status: newMsg.status,
+                has_incoming: c.has_incoming || newMsg.direction === 'incoming',
+                latest_incoming_timestamp: newMsg.direction === 'incoming' ? newMsg.timestamp : c.latest_incoming_timestamp,
+                started_by_broadcast: c.started_by_broadcast || (newMsg.direction === 'outgoing' && newMsg.message_type === 'template'),
               } : c).sort((a, b) => new Date(b.last_timestamp).getTime() - new Date(a.last_timestamp).getTime());
             }
-            return [{ phone: newMsg.phone, contact_name: newMsg.contact_name, last_message: newMsg.message_text, last_timestamp: newMsg.timestamp, unread_count: newMsg.direction === 'incoming' ? 1 : 0, needs_support: needsSupport, last_direction: newMsg.direction, last_status: newMsg.status }, ...prev];
+            return [{ phone: newMsg.phone, contact_name: newMsg.contact_name, contact_avatar: newMsg.contact_avatar || null, contact_username: newMsg.contact_username || null, last_message: newMsg.message_text, last_timestamp: newMsg.timestamp, unread_count: newMsg.direction === 'incoming' ? 1 : 0, needs_support: needsSupport, support_requested_at: needsSupport ? newMsg.timestamp : null, last_direction: newMsg.direction, last_status: newMsg.status, has_incoming: newMsg.direction === 'incoming', latest_incoming_timestamp: newMsg.direction === 'incoming' ? newMsg.timestamp : null, started_by_broadcast: newMsg.direction === 'outgoing' && newMsg.message_type === 'template' }, ...prev];
           });
         }
         
-        if (newMsg.phone === selectedPhone) {
+        if (msgChannel === activeChannel && newMsg.phone === selectedPhone && belongsToSelectedApi) {
           setMessages(prev => {
             if (prev.some(m => m.id === newMsg.id || (m.wamid && m.wamid === newMsg.wamid))) return prev;
             return [...prev, newMsg];
           });
+          if (newMsg.direction === 'incoming') void markConversationRead(newMsg.phone, newMsg.timestamp);
         }
       })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'whatsapp_messages' }, (payload) => {
         const updated = payload.new as Message;
+        if (inferMessageChannel(updated) !== activeChannel) return;
+        if (activeChannel === 'whatsapp' && selectedApiPhone && messageApiPhoneId(updated) !== selectedApiPhone) return;
         setMessages(prev => prev.map(m => m.id === updated.id ? { ...m, status: updated.status } : m));
         setConversations(prev => prev.map(c => {
           if (c.phone === updated.phone) {
@@ -411,20 +632,21 @@ export default function InternoWhatsAppChat() {
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [selectedPhone, activeChannel]);
+  }, [selectedPhone, activeChannel, selectedApiPhone, apiPhones]);
 
   useEffect(() => {
     const loadBotSettings = async () => {
       const { data } = await supabase.from('whatsapp_bot_settings').select('phone, bot_enabled');
       if (data) {
         const map: Record<string, boolean> = {};
-        let allEnabled = true;
         data.forEach((s: { phone: string; bot_enabled: boolean }) => {
           map[s.phone] = s.bot_enabled;
-          if (!s.bot_enabled) allEnabled = false;
         });
         setBotEnabled(map);
-        if (data.length > 0) setGlobalAiEnabled(allEnabled);
+        // Interruptor global (desligado por padrão): lê o registro dedicado
+        // 'wa_ai_global'. Sem registro = IA desligada.
+        const global = data.find((s: { phone: string }) => s.phone === 'wa_ai_global');
+        setGlobalAiEnabled(global?.bot_enabled === true);
       }
     };
     loadBotSettings();
@@ -432,9 +654,6 @@ export default function InternoWhatsAppChat() {
 
   useEffect(() => {
     if (!selectedPhone) { setProfile(null); return; }
-
-    // Clear needs_support when opening conversation
-    setConversations(prev => prev.map(c => c.phone === selectedPhone ? { ...c, needs_support: false } : c));
 
     const loadMessages = async () => {
       const msgQuery = supabase.from('whatsapp_messages').select('*')
@@ -444,7 +663,11 @@ export default function InternoWhatsAppChat() {
         ? await msgQuery.or('channel.eq.whatsapp,channel.is.null')
         : await msgQuery.eq('channel', activeChannel);
       // Filter out system messages
-      setMessages(((data || []) as Message[]).filter(m => m.message_type !== 'system'));
+      setMessages(((data || []) as Message[]).filter(m =>
+        m.message_type !== 'system'
+        && inferMessageChannel(m) === activeChannel
+        && (activeChannel !== 'whatsapp' || !selectedApiPhone || messageApiPhoneId(m) === selectedApiPhone)
+      ));
     };
 
     const loadProfile = async () => {
@@ -452,6 +675,26 @@ export default function InternoWhatsAppChat() {
       setProfile(null);
 
       const needle = normalizePhone(selectedPhone);
+      const selectedConversation = conversations.find(c => c.phone === selectedPhone);
+      const username = (selectedConversation?.contact_username || '').replace(/^@/, '').trim();
+      const phoneVariants = activeChannel === 'whatsapp' ? phoneSearchVariants(selectedPhone) : [];
+
+      const findRegistration = async (table: string, select: string) => {
+        const lookups: PromiseLike<any>[] = [];
+        if (phoneVariants.length > 0) {
+          lookups.push((supabase as any).from(table).select(select).in('whatsapp', phoneVariants).limit(1));
+        }
+        if (username) {
+          lookups.push((supabase as any).from(table).select(select).ilike('instagram', username).limit(1));
+          lookups.push((supabase as any).from(table).select(select).ilike('instagram', `@${username}`).limit(1));
+        }
+        if (lookups.length === 0) return null;
+        const results = await Promise.all(lookups);
+        return results.flatMap(result => result.data || [])[0] || null;
+      };
+
+      const registrations: CustomerRegistration[] = [];
+
 
       const { data: customers } = await supabase
         .from('crm_customers')
@@ -500,7 +743,7 @@ export default function InternoWhatsAppChat() {
         setProfile({
           full_name: match.full_name, phone: match.phone, ltv: match.ltv,
           city: match.city, neighborhood: match.neighborhood,
-          events: eventBreakdown, abandonedCarts, found: true,
+          events: eventBreakdown, abandonedCarts, registrations, found: true,
         });
       } else {
         const conv = conversations.find(c => c.phone === selectedPhone);
@@ -538,12 +781,12 @@ export default function InternoWhatsAppChat() {
           setProfile({
             full_name: newCustomer.full_name, phone: newCustomer.phone, ltv: newCustomer.ltv,
             city: newCustomer.city, neighborhood: newCustomer.neighborhood,
-            events: [], abandonedCarts: abandonedCarts2, found: true,
+            events: [], abandonedCarts: abandonedCarts2, registrations, found: true,
           });
         } else {
           setProfile({
             full_name: contactName, phone: selectedPhone, ltv: 0,
-            city: null, neighborhood: null, events: [], abandonedCarts: [], found: true,
+            city: null, neighborhood: null, events: [], abandonedCarts: [], registrations, found: true,
           });
         }
       }
@@ -552,12 +795,14 @@ export default function InternoWhatsAppChat() {
 
     loadMessages();
     loadProfile();
-  }, [selectedPhone]);
+  }, [selectedPhone, selectedApiPhone, activeChannel]);
 
-  useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, [messages.length]);
 
   const toggleBot = async (phone: string) => {
-    const current = botEnabled[phone] !== false;
+    const current = botEnabled[phone] === true;
     const newVal = !current;
     setBotEnabled(prev => ({ ...prev, [phone]: newVal }));
     await supabase.from('whatsapp_bot_settings')
@@ -565,21 +810,25 @@ export default function InternoWhatsAppChat() {
   };
 
   const toggleGlobalAi = async () => {
-    setTogglingGlobal(true);
     const newVal = !globalAiEnabled;
-    setGlobalAiEnabled(newVal);
-
-    const phones = conversations.map(c => c.phone);
-    const newMap: Record<string, boolean> = {};
-
-    for (const phone of phones) {
-      newMap[phone] = newVal;
-      await supabase.from('whatsapp_bot_settings')
-        .upsert({ phone, bot_enabled: newVal, updated_at: new Date().toISOString() }, { onConflict: 'phone' });
+    // Ativar exige confirmação — a IA responderá automaticamente no WhatsApp.
+    if (newVal) {
+      const ok = await confirmDialog({
+        title: 'Ativar IA no WhatsApp?',
+        description: 'A IA passará a responder AUTOMATICAMENTE as mensagens recebidas no WhatsApp, sem revisão humana. Só ative quando o atendimento automático estiver liberado.',
+        confirmText: 'Ativar IA',
+        cancelText: 'Cancelar',
+        destructive: true,
+      });
+      if (!ok) return;
     }
-
-    setBotEnabled(prev => ({ ...prev, ...newMap }));
-    toast.success(newVal ? 'IA ativada em todas as conversas' : 'IA desativada em todas as conversas');
+    setTogglingGlobal(true);
+    setGlobalAiEnabled(newVal);
+    // Interruptor global (desligado por padrão). O webhook só aciona a IA se
+    // este registro estiver explicitamente ligado.
+    await supabase.from('whatsapp_bot_settings')
+      .upsert({ phone: 'wa_ai_global', bot_enabled: newVal, updated_at: new Date().toISOString() }, { onConflict: 'phone' });
+    toast.success(newVal ? 'IA do WhatsApp ativada' : 'IA do WhatsApp desativada');
     setTogglingGlobal(false);
   };
 
@@ -649,7 +898,6 @@ export default function InternoWhatsAppChat() {
 
     // Instagram DM send
     if (activeChannel === 'instagram') {
-      // Always fallback to lagunvix if no account selected
       const igAccount = selectedIgAccount ?? { id: '17841436376156784', username: 'lagunvix' };
       setSending(true);
       try {
@@ -678,6 +926,10 @@ export default function InternoWhatsAppChat() {
             media_url: null, timestamp: sentAt, status: 'sent', wamid: result.message_id || null,
           };
           setMessages(prev => [...prev, optimisticMsg]);
+          // Uma resposta manual assume o atendimento e pausa a IA somente
+          // para este contato, mesmo que o interruptor global volte a ser ligado.
+          await supabase.from('whatsapp_bot_settings')
+            .upsert({ phone: `ig:${selectedPhone}`, bot_enabled: false, updated_at: new Date().toISOString() }, { onConflict: 'phone' });
           setReplyText('');
         }
       } catch (err) { console.error('IG send error:', err); toast.error('Erro ao enviar DM'); }
@@ -703,6 +955,7 @@ export default function InternoWhatsAppChat() {
           id: crypto.randomUUID(), phone: selectedPhone, contact_name: contactName,
           direction: 'outgoing', message_type: 'text', message_text: replyText,
           media_url: null, timestamp: sentAt, status: 'sent', wamid,
+          channel: 'whatsapp', raw_payload: { phone_number_id: selectedApiPhone },
         };
         setMessages(prev => [...prev, optimisticMsg]);
         setConversations(prev => {
@@ -713,8 +966,9 @@ export default function InternoWhatsAppChat() {
                 last_direction: 'outgoing', last_status: 'sent',
               } : c)
             : [{ phone: selectedPhone, contact_name: contactName, last_message: replyText,
-                 last_timestamp: sentAt, unread_count: 0, needs_support: false,
-                 last_direction: 'outgoing', last_status: 'sent' }, ...prev];
+                 last_timestamp: sentAt, unread_count: 0, needs_support: false, support_requested_at: null,
+                 last_direction: 'outgoing', last_status: 'sent',
+                 has_incoming: false, latest_incoming_timestamp: null, started_by_broadcast: false }, ...prev];
           return updated.sort((a, b) => new Date(b.last_timestamp).getTime() - new Date(a.last_timestamp).getTime());
         });
         setReplyText('');
@@ -730,6 +984,27 @@ export default function InternoWhatsAppChat() {
   };
 
   const selectedConv = conversations.find(c => c.phone === selectedPhone);
+  const isConversationWindowOpen = (conversation: Conversation) => Boolean(
+    conversation.latest_incoming_timestamp
+    && inboxNow - new Date(conversation.latest_incoming_timestamp).getTime() <= WHATSAPP_WINDOW_MS
+  );
+  const visibleConversations = activeChannel === 'whatsapp'
+    ? conversations.filter((conversation) => {
+      const unansweredBroadcast = conversation.started_by_broadcast && !conversation.has_incoming;
+      const windowOpen = isConversationWindowOpen(conversation);
+      if (activeWhatsappInbox === 'help') return conversation.needs_support;
+      if (conversation.needs_support) return false;
+      if (activeWhatsappInbox === 'broadcasts') return unansweredBroadcast;
+      if (activeWhatsappInbox === 'window24h') return !unansweredBroadcast && windowOpen;
+      return !unansweredBroadcast && !windowOpen;
+    })
+    : conversations;
+  const whatsappInboxCounts = activeChannel === 'whatsapp' ? {
+    chat: conversations.filter(conversation => !conversation.needs_support && !(conversation.started_by_broadcast && !conversation.has_incoming) && !isConversationWindowOpen(conversation)).length,
+    window24h: conversations.filter(conversation => !conversation.needs_support && !(conversation.started_by_broadcast && !conversation.has_incoming) && isConversationWindowOpen(conversation)).length,
+    help: conversations.filter(conversation => conversation.needs_support).length,
+    broadcasts: conversations.filter(conversation => !conversation.needs_support && conversation.started_by_broadcast && !conversation.has_incoming).length,
+  } : { chat: 0, window24h: 0, help: 0, broadcasts: 0 };
   const latestIncomingMessage = [...messages].reverse().find((message) => message.direction === 'incoming');
   const is24hWindowOpen = latestIncomingMessage
     ? Date.now() - new Date(latestIncomingMessage.timestamp).getTime() <= WHATSAPP_WINDOW_MS
@@ -741,7 +1016,18 @@ export default function InternoWhatsAppChat() {
         <div className="border-b">
           <div className="flex">
             <button
-              onClick={() => setActiveChannel('whatsapp')}
+              onClick={() => handleChannelChange('instagram')}
+              className={`flex-1 flex items-center justify-center gap-2 py-3 text-sm font-semibold border-b-2 transition-colors ${
+                activeChannel === 'instagram'
+                  ? 'border-[#E4405F] text-[#E4405F]'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <Instagram className="w-4 h-4" />
+              Instagram
+            </button>
+            <button
+              onClick={() => handleChannelChange('whatsapp')}
               className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 text-sm font-semibold border-b-2 transition-colors ${
                 activeChannel === 'whatsapp'
                   ? 'border-[#25D366] text-[#25D366]'
@@ -752,17 +1038,6 @@ export default function InternoWhatsAppChat() {
                 <MessageCircle className="w-4 h-4" />
                 WhatsApp
               </div>
-            </button>
-            <button
-              onClick={() => setActiveChannel('instagram')}
-              className={`flex-1 flex items-center justify-center gap-2 py-3 text-sm font-semibold border-b-2 transition-colors ${
-                activeChannel === 'instagram'
-                  ? 'border-[#E4405F] text-[#E4405F]'
-                  : 'border-transparent text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              <Instagram className="w-4 h-4" />
-              Instagram
             </button>
           </div>
           {activeChannel === 'instagram' && selectedIgAccount && (
@@ -779,24 +1054,85 @@ export default function InternoWhatsAppChat() {
               </span>
             </div>
           )}
+          {activeChannel === 'whatsapp' && (
+            <div className="flex px-2 pt-2 gap-1">
+              <button
+                onClick={() => { setActiveWhatsappInbox('chat'); setSelectedPhone(null); }}
+                className={`flex-1 rounded-md px-2 py-1.5 text-xs font-semibold transition-colors ${
+                  activeWhatsappInbox === 'chat' ? 'bg-[#25D366]/15 text-[#25D366]' : 'text-muted-foreground hover:bg-muted'
+                }`}
+              >
+                Chat <span className="ml-1 opacity-70">{whatsappInboxCounts.chat}</span>
+              </button>
+              <button
+                onClick={() => { setActiveWhatsappInbox('window24h'); setSelectedPhone(null); }}
+                className={`flex-1 rounded-md px-2 py-1.5 text-xs font-semibold transition-colors ${
+                  activeWhatsappInbox === 'window24h' ? 'bg-[#25D366]/15 text-[#25D366]' : 'text-muted-foreground hover:bg-muted'
+                }`}
+                title="Conversas com janela de atendimento aberta nas últimas 24 horas"
+              >
+                24h <span className="ml-1 opacity-70">{whatsappInboxCounts.window24h}</span>
+              </button>
+              <button
+                onClick={() => { setActiveWhatsappInbox('help'); setSelectedPhone(null); }}
+                className={`flex-1 rounded-md px-2 py-1.5 text-xs font-semibold transition-colors ${
+                  activeWhatsappInbox === 'help' ? 'bg-red-500/15 text-red-400' : 'text-muted-foreground hover:bg-muted'
+                }`}
+                title="Conversas que precisam de intervenção humana"
+              >
+                Help <span className="ml-1 opacity-70">{whatsappInboxCounts.help}</span>
+              </button>
+              <button
+                onClick={() => { setActiveWhatsappInbox('broadcasts'); setSelectedPhone(null); }}
+                className={`flex-1 rounded-md px-2 py-1.5 text-xs font-semibold transition-colors ${
+                  activeWhatsappInbox === 'broadcasts' ? 'bg-[#25D366]/15 text-[#25D366]' : 'text-muted-foreground hover:bg-muted'
+                }`}
+              >
+                Disparos <span className="ml-1 opacity-70">{whatsappInboxCounts.broadcasts}</span>
+              </button>
+            </div>
+          )}
         </div>
         <ScrollArea className="flex-1">
           {loading ? (
             <div className="p-4 text-center text-muted-foreground text-sm">Carregando...</div>
-          ) : conversations.length === 0 ? (
+          ) : visibleConversations.length === 0 ? (
             <div className="p-8 text-center">
               <MessageCircle className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
-              <p className="text-muted-foreground text-sm">Nenhuma conversa ainda</p>
+              <p className="text-muted-foreground text-sm">
+                {activeChannel === 'whatsapp' && activeWhatsappInbox === 'broadcasts'
+                  ? 'Nenhum disparo sem resposta'
+                  : activeChannel === 'whatsapp' && activeWhatsappInbox === 'help'
+                    ? 'Nenhuma conversa aguardando ajuda humana'
+                  : activeChannel === 'whatsapp' && activeWhatsappInbox === 'window24h'
+                    ? 'Nenhuma janela de 24h aberta'
+                    : 'Nenhuma conversa no histórico'}
+              </p>
             </div>
-          ) : conversations.map(conv => (
-            <button
-              key={conv.phone}
-              onClick={() => setSelectedPhone(conv.phone)}
-              className={`w-full text-left p-4 border-b hover:bg-muted/50 transition-colors ${selectedPhone === conv.phone ? 'bg-muted' : ''}`}
+          ) : (
+            <AnimatePresence initial={false} mode="popLayout">
+              {visibleConversations.map(conv => (
+            <motion.button
+              layout={!reduceMotion}
+              initial={reduceMotion ? false : { opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={reduceMotion ? undefined : { opacity: 0, y: -6 }}
+              transition={reduceMotion
+                ? { duration: 0 }
+                : { layout: { type: 'spring', stiffness: 420, damping: 38 }, opacity: { duration: 0.16 }, y: { duration: 0.18 } }}
+              key={`${activeChannel}:${selectedApiPhone}:${conv.phone}`}
+              onClick={() => handleConversationSelect(conv)}
+              className={`relative w-full text-left p-4 border-b transition-colors ${
+                selectedPhone === conv.phone
+                  ? 'bg-muted'
+                  : conv.unread_count > 0
+                    ? activeChannel === 'instagram' ? 'bg-[#E4405F]/10 hover:bg-[#E4405F]/15' : 'bg-[#25D366]/10 hover:bg-[#25D366]/15'
+                    : 'hover:bg-muted/50'
+              }`}
             >
               <div className="flex items-center gap-3">
-                {activeChannel === 'instagram' && selectedIgAccount?.profile_picture_url ? (
-                  <img src={selectedIgAccount.profile_picture_url} alt="" className="w-10 h-10 rounded-full object-cover shrink-0" />
+                {conv.contact_avatar ? (
+                  <img src={conv.contact_avatar} alt="" className="w-10 h-10 rounded-full object-cover shrink-0" />
                 ) : (
                   <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 font-bold text-sm ${
                     activeChannel === 'instagram' ? 'bg-[#E4405F]/20 text-[#E4405F]' : 'bg-[#25D366]/20 text-[#25D366]'
@@ -807,21 +1143,33 @@ export default function InternoWhatsAppChat() {
                 <div className="flex-1 min-w-0 overflow-hidden">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                      <p className="font-semibold text-sm truncate">{activeChannel === 'instagram' ? `@${conv.contact_name || conv.phone}` : (conv.contact_name || formatPhone(conv.phone))}</p>
+                      <p className={`${conv.unread_count > 0 ? 'font-extrabold text-foreground' : 'font-semibold'} text-sm truncate`}>{activeChannel === 'instagram' ? (conv.contact_name || conv.phone) : (conv.contact_name || formatPhone(conv.phone))}</p>
                       {conv.needs_support && (
                         <span className="w-2.5 h-2.5 rounded-full bg-red-500 shrink-0 animate-pulse" title="Precisa de suporte humano" />
                       )}
                     </div>
-                    <span className="text-xs text-muted-foreground shrink-0 ml-2">{formatTimestamp(conv.last_timestamp)}</span>
+                    <div className="flex items-center gap-2 shrink-0 ml-2">
+                      <span className={`text-xs ${conv.unread_count > 0 ? activeChannel === 'instagram' ? 'text-[#E4405F] font-bold' : 'text-[#25D366] font-bold' : 'text-muted-foreground'}`}>{formatTimestamp(conv.last_timestamp)}</span>
+                      {conv.unread_count > 0 && (
+                        <span
+                          className={`min-w-5 h-5 px-1.5 rounded-full flex items-center justify-center text-[10px] font-black text-white ${activeChannel === 'instagram' ? 'bg-[#E4405F]' : 'bg-[#25D366]'}`}
+                          title={`${conv.unread_count} mensagem${conv.unread_count === 1 ? '' : 's'} não lida${conv.unread_count === 1 ? '' : 's'}`}
+                        >
+                          {conv.unread_count > 99 ? '99+' : conv.unread_count}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  <p className="text-xs text-muted-foreground truncate mt-0.5 pr-2 flex items-center gap-1">
+                  <p className={`text-xs truncate mt-0.5 pr-2 flex items-center gap-1 ${conv.unread_count > 0 ? 'text-foreground font-semibold' : 'text-muted-foreground'}`}>
                     {conv.last_direction === 'outgoing' && <StatusIcon status={conv.last_status} />}
                     <span className="truncate">{conv.last_message && conv.last_message.trim() !== '' ? conv.last_message : '📸 Mencionou no story'}</span>
                   </p>
                 </div>
               </div>
-            </button>
-          ))}
+            </motion.button>
+              ))}
+            </AnimatePresence>
+          )}
         </ScrollArea>
 
         {activeChannel === 'instagram' && (
@@ -843,15 +1191,14 @@ export default function InternoWhatsAppChat() {
         {activeChannel === 'whatsapp' && (
           <div className="border-t p-2 grid grid-cols-2 gap-1">
             <Button
-              variant={globalAiEnabled ? "default" : "outline"}
+              variant="outline"
               size="sm"
-              onClick={toggleGlobalAi}
-              disabled={togglingGlobal}
-              className={`gap-1.5 text-xs ${globalAiEnabled ? 'bg-[#25D366] hover:bg-[#20BD5A] text-white' : ''}`}
-              title={globalAiEnabled ? 'IA ativa em todas as conversas' : 'IA desativada globalmente'}
+              disabled
+              className="gap-1.5 text-xs opacity-70"
+              title="IA do WhatsApp temporariamente desativada"
             >
               <Power className="w-3.5 h-3.5 shrink-0" />
-              {togglingGlobal ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : (globalAiEnabled ? 'IA On' : 'IA Off')}
+              IA Off
             </Button>
 
             <Popover onOpenChange={(open) => { if (open) loadApiPhones(); }}>
@@ -870,7 +1217,7 @@ export default function InternoWhatsAppChat() {
                 ) : apiPhones.length === 0 ? (
                   <p className="text-xs text-muted-foreground">Nenhum número encontrado na API</p>
                 ) : (
-                  <RadioGroup value={selectedApiPhone} onValueChange={setSelectedApiPhone} className="space-y-2">
+                  <RadioGroup value={selectedApiPhone} onValueChange={handleApiPhoneChange} className="space-y-2">
                     {apiPhones.map(p => (
                       <div key={p.id} className="flex items-center gap-2 p-2 rounded-lg border hover:bg-muted/50 cursor-pointer">
                         <RadioGroupItem value={p.id} id={`phone-${p.id}`} />
@@ -896,67 +1243,32 @@ export default function InternoWhatsAppChat() {
               Memória
             </Button>
 
-            <Popover onOpenChange={(open) => { if (open) loadLounges(); }}>
+            <Popover onOpenChange={(open) => { if (open) void loadLounges(); }}>
               <PopoverTrigger asChild>
                 <Button variant="outline" size="sm" className="gap-1.5 text-xs">
-                  <Armchair className="w-3.5 h-3.5 shrink-0" />
-                  Lounge
+                  <Armchair className="w-3.5 h-3.5 shrink-0" /> Lounge
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-80 p-3" align="start" side="top">
-                <p className="text-xs font-semibold mb-3 flex items-center gap-1.5">
-                  <Armchair className="w-3.5 h-3.5" />
-                  Lounges por Evento
-                </p>
-                {loadingLounges ? (
-                  <div className="flex items-center justify-center py-4">
-                    <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
-                  </div>
-                ) : openEvents.length === 0 ? (
-                  <p className="text-xs text-muted-foreground text-center py-4">Nenhum evento aberto na Landing Page</p>
-                ) : (
-                  <div className="space-y-4 max-h-72 overflow-y-auto pr-1">
-                    {openEvents.map(event => {
-                      const soldLounges = loungesData[event.id] || [];
-                      return (
-                        <div key={event.id}>
-                          <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-2 truncate">{event.nome}</p>
-                          <div className="grid grid-cols-3 gap-1.5">
-                            {LOUNGE_NAMES.map((name, idx) => {
-                              const num = idx + 1;
-                              const sold = soldLounges.includes(num);
-                              const loading = togglingLounge === `${event.id}-${num}`;
-                              return (
-                                <button
-                                  key={num}
-                                  onClick={() => toggleLounge(event.id, num)}
-                                  disabled={!!loading}
-                                  className={`flex flex-col items-center justify-center gap-0.5 px-2 py-2 rounded-lg text-[11px] font-medium border transition-all ${
-                                    sold
-                                      ? 'bg-red-50 border-red-300 text-red-600 dark:bg-red-900/20 dark:border-red-700 dark:text-red-400'
-                                      : 'bg-emerald-50 border-emerald-300 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:border-emerald-700 dark:text-emerald-400'
-                                  }`}
-                                  title={sold ? 'Vendido — clique para liberar' : 'Disponível — clique para marcar como vendido'}
-                                >
-                                  {loading
-                                    ? <Loader2 className="w-3 h-3 animate-spin" />
-                                    : <Armchair className="w-3.5 h-3.5" />
-                                  }
-                                  {name}
-                                  <span className={`text-[9px] font-bold ${sold ? 'text-red-500' : 'text-emerald-600'}`}>
-                                    {sold ? 'Vendido' : 'Livre'}
-                                  </span>
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
+                <p className="text-xs font-semibold mb-3 flex items-center gap-1.5"><Armchair className="w-3.5 h-3.5" /> Lounges por Evento</p>
+                {loadingLounges ? <div className="flex items-center justify-center py-4"><Loader2 className="w-4 h-4 animate-spin text-muted-foreground" /></div>
+                  : openEvents.length === 0 ? <p className="text-xs text-muted-foreground text-center py-4">Nenhum evento aberto na Landing Page</p>
+                  : <div className="space-y-4 max-h-72 overflow-y-auto pr-1">{openEvents.map((event) => {
+                    const soldLounges = loungesData[event.id] || [];
+                    return <div key={event.id}><p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-2 truncate">{event.nome}</p>
+                      <div className="grid grid-cols-3 gap-1.5">{LOUNGE_NAMES.map((name, index) => {
+                        const number = index + 1;
+                        const sold = soldLounges.includes(number);
+                        const isSaving = togglingLounge === `${event.id}-${number}`;
+                        return <button key={number} onClick={() => void toggleLounge(event.id, number)} disabled={isSaving}
+                          className={`flex flex-col items-center justify-center gap-0.5 px-2 py-2 rounded-lg text-[11px] font-medium border transition-all ${sold ? 'bg-red-50 border-red-300 text-red-600 dark:bg-red-900/20 dark:border-red-700 dark:text-red-400' : 'bg-emerald-50 border-emerald-300 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:border-emerald-700 dark:text-emerald-400'}`}>
+                          {isSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Armchair className="w-3.5 h-3.5" />}{name}<span className="text-[9px] font-bold">{sold ? 'Vendido' : 'Livre'}</span>
+                        </button>;
+                      })}</div></div>;
+                  })}</div>}
               </PopoverContent>
             </Popover>
+
           </div>
         )}
       </div>
@@ -975,8 +1287,8 @@ export default function InternoWhatsAppChat() {
               <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setSelectedPhone(null)}>
                 <ArrowLeft className="w-5 h-5" />
               </Button>
-              {activeChannel === 'instagram' && selectedIgAccount?.profile_picture_url ? (
-                <img src={selectedIgAccount.profile_picture_url} alt="" className="w-10 h-10 rounded-full object-cover" />
+              {selectedConv?.contact_avatar ? (
+                <img src={selectedConv.contact_avatar} alt="" className="w-10 h-10 rounded-full object-cover" />
               ) : (
                 <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm ${
                   activeChannel === 'instagram' ? 'bg-[#E4405F]/20 text-[#E4405F]' : 'bg-[#25D366]/20 text-[#25D366]'
@@ -985,45 +1297,44 @@ export default function InternoWhatsAppChat() {
                 </div>
               )}
               <div className="flex-1 min-w-0">
-                <p className="font-bold text-sm truncate">{activeChannel === 'instagram' ? `@${selectedConv?.contact_name || selectedPhone}` : (selectedConv?.contact_name || formatPhone(selectedPhone))}</p>
-                <p className="text-xs text-muted-foreground truncate">{activeChannel === 'instagram' ? `@${selectedIgAccount?.username || 'Instagram'}` : formatPhone(selectedPhone)}</p>
+                <p className="font-bold text-sm truncate">{activeChannel === 'instagram' ? (selectedConv?.contact_name || selectedPhone) : (selectedConv?.contact_name || formatPhone(selectedPhone))}</p>
+                <p className="text-xs text-muted-foreground truncate">{activeChannel === 'instagram' ? `@${selectedConv?.contact_username || selectedPhone}` : formatPhone(selectedPhone)}</p>
               </div>
               {activeChannel === 'whatsapp' && (
                 <Button
-                  variant={botEnabled[selectedPhone] !== false ? "default" : "outline"}
+                  variant="outline"
                   size="sm"
-                  onClick={() => toggleBot(selectedPhone)}
-                  className={botEnabled[selectedPhone] !== false
-                    ? "bg-[#25D366] hover:bg-[#20BD5A] text-white gap-1.5"
-                    : "gap-1.5"
-                  }
+                  disabled
+                  className="gap-1.5 opacity-70"
                 >
-                  {botEnabled[selectedPhone] !== false ? (
-                    <><Bot className="w-4 h-4" /> IA Ativa</>
-                  ) : (
-                    <><UserRound className="w-4 h-4" /> Humano</>
-                  )}
+                  <><UserRound className="w-4 h-4" /> Humano</>
                 </Button>
               )}
             </div>
 
-            <ScrollArea className="flex-1 p-4">
-              <div className="space-y-2 max-w-2xl mx-auto">
-                {messages.map(msg => (
-                  <div key={msg.id} className={`flex ${msg.direction === 'outgoing' ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-[75%] rounded-xl px-3 py-2 ${
+            <ScrollArea className="flex-1 px-4 py-5">
+              <div className="space-y-1.5 max-w-2xl mx-auto">
+                {messages.map((msg, i) => (
+                  <div key={msg.id} className={`flex ${i === messages.length - 1 ? (msg.direction === 'outgoing' ? 'chat-message-out' : 'chat-message-in') : ''} ${msg.direction === 'outgoing' ? 'justify-end' : 'justify-start'}`}>
+                    <div className={`max-w-[78%] rounded-2xl border px-3.5 py-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.08)] ${
                       msg.direction === 'outgoing'
-                        ? (activeChannel === 'instagram' ? 'bg-gradient-to-r from-[#833AB4] via-[#E4405F] to-[#FCAF45] text-white rounded-br-sm' : 'bg-[#25D366] text-white rounded-br-sm')
-                        : 'bg-muted rounded-bl-sm'
+                        ? (activeChannel === 'instagram' ? 'border-[#E4405F]/20 bg-[#E4405F]/15 text-foreground rounded-br-md' : 'border-[#25D366]/20 bg-[#25D366]/15 text-foreground rounded-br-md')
+                        : 'border-border/60 bg-card/80 text-foreground rounded-bl-md'
                     }`}>
-                      {msg.media_url && (msg.message_type === 'image' || msg.message_type === 'sticker') && (
-                        <img
-                          src={msg.media_url.startsWith('http') ? msg.media_url : `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/whatsapp-api?action=get_media&media_id=${msg.media_url}`}
-                          alt="Mídia"
-                          className="rounded-lg max-w-full max-h-64 mb-1 cursor-pointer"
-                          onClick={() => window.open(msg.media_url!.startsWith('http') ? msg.media_url! : `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/whatsapp-api?action=get_media&media_id=${msg.media_url}`, '_blank')}
-                          loading="lazy"
-                        />
+                      {msg.media_url && (msg.message_type === 'image' || msg.message_type === 'sticker' || msg.message_type === 'story_mention' || msg.message_type === 'story_reply') && (
+                        <div className="mb-1">
+                          {(msg.message_type === 'story_mention' || msg.message_type === 'story_reply') && (
+                            <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide opacity-70">Story mencionado</p>
+                          )}
+                          <img
+                            src={msg.media_url.startsWith('http') ? msg.media_url : `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/whatsapp-api?action=get_media&media_id=${msg.media_url}`}
+                            alt={msg.message_type === 'story_mention' || msg.message_type === 'story_reply' ? 'Conteúdo do story mencionado' : ''}
+                            className={`rounded-lg max-w-full cursor-pointer ${msg.message_type === 'sticker' ? 'max-h-32 w-auto' : 'max-h-64'}`}
+                            onClick={() => window.open(msg.media_url!.startsWith('http') ? msg.media_url! : `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/whatsapp-api?action=get_media&media_id=${msg.media_url}`, '_blank')}
+                            loading="lazy"
+                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                          />
+                        </div>
                       )}
                       {msg.media_url && msg.message_type === 'video' && (
                         <video
@@ -1056,7 +1367,7 @@ export default function InternoWhatsAppChat() {
                             : `[${msg.message_type}]`}
                         </p>
                       )}
-                      <div className={`flex items-center gap-1 justify-end mt-1 ${msg.direction === 'outgoing' ? 'text-white/70' : 'text-muted-foreground'}`}>
+                      <div className="mt-1.5 flex items-center justify-end gap-1 text-muted-foreground/80">
                         <span className="text-[10px]">{formatTimestamp(msg.timestamp)}</span>
                         {msg.direction === 'outgoing' && <StatusIcon status={msg.status} />}
                       </div>
@@ -1067,24 +1378,26 @@ export default function InternoWhatsAppChat() {
               </div>
             </ScrollArea>
 
-            <div className="p-4 border-t">
-              <div className="flex gap-2 max-w-2xl mx-auto">
+            <div className="border-t border-border/60 bg-background/80 px-4 py-3 backdrop-blur-sm">
+              <div className={`flex gap-2 max-w-2xl mx-auto rounded-2xl border border-border/70 bg-card/70 p-1.5 shadow-sm transition-colors ${activeChannel === 'instagram' ? 'focus-within:border-[#E4405F]/60' : 'focus-within:border-[#25D366]/40'}`}>
                 <Input
                   value={replyText} onChange={e => setReplyText(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSendReply()}
                   placeholder={activeChannel === 'instagram' ? 'Enviar mensagem no Instagram...' : 'Digite uma mensagem...'}
-                  className="flex-1"
-                  disabled={sending}
+                  className="flex-1 border-0 bg-transparent shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
                 />
                 <Button
                   onClick={handleSendReply}
                   disabled={!replyText.trim() || sending}
-                  className={activeChannel === 'instagram'
-                    ? 'bg-gradient-to-r from-[#833AB4] via-[#E4405F] to-[#FCAF45] hover:opacity-90 text-white'
+                  size="icon"
+                  aria-label={sending ? 'Enviando mensagem' : 'Enviar mensagem'}
+                  className={`h-9 w-9 shrink-0 rounded-xl shadow-none transition-all duration-150 active:scale-95 ${activeChannel === 'instagram'
+                    ? 'bg-[#E4405F] hover:bg-[#D93654] text-white'
                     : 'bg-[#25D366] hover:bg-[#20BD5A] text-white'
+                  }`
                   }
                 >
-                  <Send className="w-4 h-4" />
+                  {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                 </Button>
               </div>
             </div>
@@ -1173,16 +1486,38 @@ export default function InternoWhatsAppChat() {
                     <AccordionTrigger className="text-xs font-semibold uppercase text-muted-foreground py-2 hover:no-underline">
                       <span className="flex items-center gap-1.5">
                         <ShoppingCart className="w-3.5 h-3.5" /> Registros
-                        {profile.abandonedCarts.length > 0 && (
+                        {(profile.registrations.length + profile.abandonedCarts.length) > 0 && (
                           <span className="ml-1 bg-destructive/10 text-destructive text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-                            {profile.abandonedCarts.length}
+                            {profile.registrations.length + profile.abandonedCarts.length}
                           </span>
                         )}
                       </span>
                     </AccordionTrigger>
                     <AccordionContent>
-                      {profile.abandonedCarts.length > 0 ? (
-                        <div className="space-y-2">
+                      {(profile.registrations.length > 0 || profile.abandonedCarts.length > 0) ? (
+                        <div className="space-y-2.5">
+                          {profile.registrations.map(registration => {
+                            const config = registration.type === 'divulgador'
+                              ? { Icon: Megaphone, className: 'bg-sky-500/10 border-sky-500/20 text-sky-300' }
+                              : registration.type === 'creator'
+                                ? { Icon: UserCheck, className: 'bg-violet-500/10 border-violet-500/20 text-violet-300' }
+                                : { Icon: TicketCheck, className: 'bg-amber-500/10 border-amber-500/20 text-amber-300' };
+                            return (
+                              <div key={registration.type} className={`rounded-lg border p-2.5 ${config.className}`}>
+                                <div className="flex items-start gap-2">
+                                  <config.Icon className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                                  <div className="min-w-0">
+                                    <p className="text-xs font-bold text-foreground">{registration.label}</p>
+                                    {(registration.detail || registration.registered_at) && (
+                                      <p className="text-[10px] text-muted-foreground mt-0.5">
+                                        {[registration.detail, registration.registered_at ? `Cadastro: ${new Date(registration.registered_at).toLocaleDateString('pt-BR')}` : null].filter(Boolean).join(' • ')}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
                           {profile.abandonedCarts.map((cart, i) => (
                             <div key={i} className="bg-destructive/5 border border-destructive/10 rounded-lg p-2.5">
                               <div className="flex items-start gap-2">
@@ -1198,7 +1533,7 @@ export default function InternoWhatsAppChat() {
                           ))}
                         </div>
                       ) : (
-                        <p className="text-xs text-muted-foreground/60">Nenhum carrinho abandonado</p>
+                        <p className="text-xs text-muted-foreground/60">Nenhum cadastro ou carrinho abandonado</p>
                       )}
                     </AccordionContent>
                   </AccordionItem>

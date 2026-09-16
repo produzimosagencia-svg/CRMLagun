@@ -1,147 +1,346 @@
-import { useEffect, useState, useMemo } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { Button } from '@/components/ui/button';
-import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { ChevronLeft, ChevronRight, ArrowLeft } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useState, useCallback } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import {
+  Users, TrendingUp, Eye, UserCheck, Heart, BarChart3,
+  ChevronDown, ChevronUp, MessageCircle, Bookmark, Play,
+  ExternalLink, Flame, Clock,
+} from "lucide-react";
 
-interface EventOption {
+interface IGAccount {
   id: string;
   name: string;
-  avatar_url: string | null;
+  username: string;
+  profile_picture_url: string;
+  followers_count: number;
+  media_count: number;
 }
 
-interface Demand {
+interface IGInsight {
+  name: string;
+  values: { value: number }[];
+}
+
+interface IGMedia {
   id: string;
-  title: string;
-  publish_date: string | null;
-  status: string;
-  event_id: string;
+  caption: string;
+  media_type: "IMAGE" | "VIDEO" | "CAROUSEL_ALBUM";
+  media_url: string;
+  thumbnail_url?: string;
+  timestamp: string;
+  like_count: number;
+  comments_count: number;
+  permalink: string;
+}
+
+const KPI_CARDS = [
+  { key: "followers", label: "Seguidores", icon: Users, color: "#E8C766" },
+  { key: "reach", label: "Alcance (30d)", icon: TrendingUp, color: "#22C55E" },
+  { key: "impressions", label: "Impressões (30d)", icon: Eye, color: "#3B82F6" },
+  { key: "profile_views", label: "Visitas ao Perfil (30d)", icon: UserCheck, color: "#A855F7" },
+  { key: "likes", label: "Curtidas do mês", icon: Heart, color: "#EF4444" },
+  { key: "accounts_engaged", label: "Contas Engajadas (30d)", icon: BarChart3, color: "#14B8A6" },
+];
+
+function formatNumber(n: number): string {
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1).replace(".0", "") + "M";
+  if (n >= 1_000) return (n / 1_000).toFixed(n >= 10_000 ? 0 : 1).replace(".0", "") + "k";
+  return n.toLocaleString("pt-BR");
+}
+
+function PostCard({ post }: { post: IGMedia }) {
+  const isVideo = post.media_type === "VIDEO";
+  const thumb = post.thumbnail_url || post.media_url;
+  const caption = post.caption || "";
+
+  return (
+    <a
+      href={post.permalink}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="group block rounded-xl overflow-hidden bg-[#191813] border border-white/5 hover:border-[#E8C766]/30 transition-all"
+    >
+      <div className="relative aspect-square overflow-hidden">
+        <img
+          src={thumb}
+          alt=""
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+          loading="lazy"
+        />
+        {isVideo && (
+          <div className="absolute top-2 right-2 bg-black/60 rounded-full p-1">
+            <Play size={14} className="text-white fill-white" />
+          </div>
+        )}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className="absolute bottom-2 right-2">
+            <ExternalLink size={14} className="text-white/80" />
+          </div>
+        </div>
+      </div>
+      <div className="p-3 space-y-2">
+        <p className="text-xs text-[#B8B2A6] line-clamp-2 min-h-[2rem]">
+          {caption.slice(0, 120)}{caption.length > 120 ? "..." : ""}
+        </p>
+        <div className="flex items-center gap-3 text-xs">
+          <span className="flex items-center gap-1 text-red-400">
+            <Heart size={12} className="fill-red-400" /> {formatNumber(post.like_count)}
+          </span>
+          <span className="flex items-center gap-1 text-blue-400">
+            <MessageCircle size={12} /> {post.comments_count}
+          </span>
+        </div>
+        <p className="text-[10px] text-[#8F8A7C]">
+          {new Date(post.timestamp).toLocaleDateString("pt-BR", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+          })}
+        </p>
+      </div>
+    </a>
+  );
 }
 
 export default function InternoSocialMedia() {
-  const navigate = useNavigate();
-  const [events, setEvents] = useState<EventOption[]>([]);
-  const [selectedEvent, setSelectedEvent] = useState<string>('');
-  const [demands, setDemands] = useState<Demand[]>([]);
+  const [accounts, setAccounts] = useState<IGAccount[]>([]);
+  const [selectedAccount, setSelectedAccount] = useState<IGAccount | null>(null);
+  const [kpis, setKpis] = useState<Record<string, number>>({});
+  const [media, setMedia] = useState<IGMedia[]>([]);
   const [loading, setLoading] = useState(true);
-  const [currentDate, setCurrentDate] = useState(new Date());
+  const [loadingMedia, setLoadingMedia] = useState(false);
+  const [viralOpen, setViralOpen] = useState(true);
+  const [recentOpen, setRecentOpen] = useState(true);
+  const [mediaLimit, setMediaLimit] = useState(50);
 
   useEffect(() => {
-    supabase.from('events').select('id, name, avatar_url').order('name').then(({ data }) => {
-      const evts = data || [];
-      setEvents(evts);
-      if (evts.length > 0) setSelectedEvent(evts[0].id);
-      setLoading(false);
-    });
+    fetchAccounts();
+  }, []);
+
+  const fetchAccounts = async () => {
+    setLoading(true);
+    const resp = await supabase.functions.invoke("instagram-api?action=accounts");
+    const result = resp.data;
+    if (result?.data) {
+      const accs: IGAccount[] = result.data
+        .filter((p: any) => p.instagram_business_account)
+        .map((p: any) => ({
+          id: p.instagram_business_account.id,
+          name: p.instagram_business_account.name || p.name,
+          username: p.instagram_business_account.username,
+          profile_picture_url: p.instagram_business_account.profile_picture_url,
+          followers_count: p.instagram_business_account.followers_count || 0,
+          media_count: p.instagram_business_account.media_count || 0,
+        }));
+      setAccounts(accs);
+      if (accs.length > 0) {
+        setSelectedAccount(accs[0]);
+      }
+    }
+    setLoading(false);
+  };
+
+  const fetchInsights = useCallback(async (igId: string) => {
+    const resp = await supabase.functions.invoke(
+      `instagram-api?action=insights&ig_id=${igId}&period=day&metrics=impressions,reach,profile_views,accounts_engaged`
+    );
+    const result = resp.data;
+    const newKpis: Record<string, number> = {};
+    if (result?.data) {
+      result.data.forEach((insight: IGInsight) => {
+        const vals = insight.values || [];
+        const total = vals.reduce((sum: number, v: any) => sum + (v.value || 0), 0);
+        newKpis[insight.name] = total;
+      });
+    }
+    return newKpis;
+  }, []);
+
+  const fetchMedia = useCallback(async (igId: string, limit: number) => {
+    setLoadingMedia(true);
+    const resp = await supabase.functions.invoke(
+      `instagram-api?action=media&ig_id=${igId}&limit=${limit}`
+    );
+    const result = resp.data;
+    if (result?.data) {
+      setMedia(result.data);
+    }
+    setLoadingMedia(false);
   }, []);
 
   useEffect(() => {
-    if (!selectedEvent) return;
-    supabase.from('design_demands').select('id, title, publish_date, status, event_id')
-      .eq('event_id', selectedEvent)
-      .then(({ data }) => setDemands(data || []));
-  }, [selectedEvent]);
+    if (!selectedAccount) return;
+    const load = async () => {
+      const insights = await fetchInsights(selectedAccount.id);
+      const totalLikes = media.reduce((s, m) => s + m.like_count, 0);
+      setKpis({
+        followers: selectedAccount.followers_count,
+        reach: insights.reach || 0,
+        impressions: insights.impressions || 0,
+        profile_views: insights.profile_views || 0,
+        likes: totalLikes,
+        accounts_engaged: insights.accounts_engaged || 0,
+      });
+    };
+    load();
+    fetchMedia(selectedAccount.id, mediaLimit);
+  }, [selectedAccount, mediaLimit]);
 
-  const year = currentDate.getFullYear();
-  const month = currentDate.getMonth();
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const firstDayOfWeek = new Date(year, month, 1).getDay();
+  useEffect(() => {
+    if (media.length > 0 && selectedAccount) {
+      const totalLikes = media.reduce((s, m) => s + m.like_count, 0);
+      setKpis((prev) => ({ ...prev, likes: totalLikes }));
+    }
+  }, [media]);
 
-  const demandsByDate = useMemo(() => {
-    const map = new Map<string, Demand[]>();
-    demands.forEach(d => {
-      if (!d.publish_date) return;
-      const key = d.publish_date;
-      map.set(key, [...(map.get(key) || []), d]);
-    });
-    return map;
-  }, [demands]);
+  const viralPosts = [...media]
+    .sort((a, b) => (b.like_count + b.comments_count) - (a.like_count + a.comments_count))
+    .slice(0, 10);
 
-  const prevMonth = () => setCurrentDate(new Date(year, month - 1, 1));
-  const nextMonth = () => setCurrentDate(new Date(year, month + 1, 1));
+  const recentPosts = [...media].sort(
+    (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+  );
 
-  const monthName = currentDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
-  const weekDays = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
-
-  const selectedEvt = events.find(e => e.id === selectedEvent);
-
-  const statusDot: Record<string, string> = {
-    pendente: 'bg-yellow-400',
-    'em andamento': 'bg-blue-400',
-    aprovado: 'bg-emerald-400',
-  };
-
-  if (loading) return <div className="flex items-center justify-center py-20"><div className="h-6 w-6 border-2 border-[#FF0080] border-t-transparent rounded-full animate-spin" /></div>;
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="h-6 w-6 border-2 border-[#E8C766] border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-3">
-        <Button variant="ghost" size="sm" onClick={() => navigate('/interno/marketing')}>
-          <ArrowLeft size={16} className="mr-1" /> Marketing
-        </Button>
-        <h2 className="text-sm font-semibold text-gray-900">Social Media</h2>
+    <div className="space-y-6 pb-10">
+      {/* Header */}
+      <div className="flex items-center gap-2">
+        <div className="w-2 h-2 rounded-full bg-[#E8C766]" />
+        <h1 className="text-lg font-bold text-[#E8C766]">Social Media</h1>
       </div>
 
-      {/* Event selector */}
-      <div className="flex items-center gap-3 overflow-x-auto pb-2">
-        {events.map(ev => (
-          <button
-            key={ev.id}
-            onClick={() => setSelectedEvent(ev.id)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-medium transition-all shrink-0
-              ${selectedEvent === ev.id ? 'border-[#FF0080] bg-[#FF0080]/5 text-[#FF0080]' : 'border-gray-200 text-gray-500 hover:border-gray-300'}
-            `}
+      {/* Account selector */}
+      {accounts.length > 0 && (
+        <div className="flex items-center gap-3 overflow-x-auto pb-1">
+          {accounts.map((acc) => (
+            <button
+              key={acc.id}
+              onClick={() => setSelectedAccount(acc)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all shrink-0 ${
+                selectedAccount?.id === acc.id
+                  ? "bg-[#E1306C] text-white"
+                  : "bg-white/5 text-[#8F8A7C] hover:bg-white/10 hover:text-white"
+              }`}
+            >
+              {acc.profile_picture_url && (
+                <img
+                  src={acc.profile_picture_url}
+                  alt=""
+                  className="w-6 h-6 rounded-full"
+                />
+              )}
+              @{acc.username}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* KPI Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        {KPI_CARDS.map(({ key, label, icon: Icon, color }) => (
+          <div
+            key={key}
+            className="rounded-xl border border-white/5 bg-[#191813] p-4 space-y-2"
           >
-            <Avatar className="h-6 w-6">
-              {ev.avatar_url ? <AvatarImage src={ev.avatar_url} /> : null}
-              <AvatarFallback className="text-[8px] font-bold bg-gray-100">{ev.name.slice(0, 2).toUpperCase()}</AvatarFallback>
-            </Avatar>
-            {ev.name}
-          </button>
+            <div
+              className="w-8 h-8 rounded-lg flex items-center justify-center"
+              style={{ backgroundColor: `${color}15` }}
+            >
+              <Icon size={16} style={{ color }} />
+            </div>
+            <p className="text-xl font-bold text-white">
+              {formatNumber(kpis[key] || 0)}
+            </p>
+            <p className="text-[11px] text-[#8F8A7C]">{label}</p>
+          </div>
         ))}
       </div>
 
-      {/* Calendar header */}
-      <div className="flex items-center justify-between">
-        <Button variant="ghost" size="sm" onClick={prevMonth}><ChevronLeft size={16} /></Button>
-        <h3 className="text-sm font-semibold text-gray-900 capitalize">{monthName}</h3>
-        <Button variant="ghost" size="sm" onClick={nextMonth}><ChevronRight size={16} /></Button>
+      {/* Viral Posts */}
+      <div className="rounded-xl border border-white/5 bg-[#191813]">
+        <button
+          onClick={() => setViralOpen(!viralOpen)}
+          className="w-full flex items-center justify-between p-4"
+        >
+          <div className="flex items-center gap-2">
+            <Flame size={18} className="text-orange-400" />
+            <h2 className="text-sm font-bold text-white">Publicações Virais</h2>
+            <span className="text-xs text-[#8F8A7C]">Top 10 por engajamento</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-[#E8C766] font-medium">
+              {viralPosts.length} posts
+            </span>
+            {viralOpen ? (
+              <ChevronUp size={16} className="text-[#8F8A7C]" />
+            ) : (
+              <ChevronDown size={16} className="text-[#8F8A7C]" />
+            )}
+          </div>
+        </button>
+        {viralOpen && (
+          <div className="px-4 pb-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+              {viralPosts.map((post) => (
+                <PostCard key={post.id} post={post} />
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Calendar grid */}
-      <div className="bg-white border border-gray-100 rounded-xl overflow-hidden">
-        <div className="grid grid-cols-7">
-          {weekDays.map(d => (
-            <div key={d} className="text-center text-[11px] font-medium text-gray-400 py-2 border-b border-gray-100">{d}</div>
-          ))}
-        </div>
-        <div className="grid grid-cols-7">
-          {/* Empty cells for first week offset */}
-          {Array.from({ length: firstDayOfWeek }).map((_, i) => (
-            <div key={`empty-${i}`} className="min-h-[80px] border-b border-r border-gray-50" />
-          ))}
-          {Array.from({ length: daysInMonth }).map((_, i) => {
-            const day = i + 1;
-            const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-            const dayDemands = demandsByDate.get(dateStr) || [];
-            const isToday = new Date().toISOString().slice(0, 10) === dateStr;
-
-            return (
-              <div key={day} className={`min-h-[80px] border-b border-r border-gray-50 p-1.5 ${isToday ? 'bg-[#FF0080]/5' : ''}`}>
-                <span className={`text-xs font-medium ${isToday ? 'text-[#FF0080] font-bold' : 'text-gray-500'}`}>{day}</span>
-                <div className="mt-1 space-y-0.5">
-                  {dayDemands.map(d => (
-                    <div key={d.id} className="flex items-center gap-1 text-[10px] text-gray-700 bg-gray-50 rounded px-1 py-0.5 truncate">
-                      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${statusDot[d.status] || 'bg-gray-300'}`} />
-                      <span className="truncate">{d.title}</span>
-                    </div>
-                  ))}
-                </div>
+      {/* Recent Posts */}
+      <div className="rounded-xl border border-white/5 bg-[#191813]">
+        <button
+          onClick={() => setRecentOpen(!recentOpen)}
+          className="w-full flex items-center justify-between p-4"
+        >
+          <div className="flex items-center gap-2">
+            <Clock size={18} className="text-blue-400" />
+            <h2 className="text-sm font-bold text-white">Publicações Recentes</h2>
+          </div>
+          <div className="flex items-center gap-2">
+            <select
+              onClick={(e) => e.stopPropagation()}
+              value={mediaLimit}
+              onChange={(e) => setMediaLimit(Number(e.target.value))}
+              className="text-xs bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-[#E8C766] font-medium"
+            >
+              <option value={20}>20 posts</option>
+              <option value={50}>50 posts</option>
+              <option value={100}>100 posts</option>
+              <option value={200}>200 posts</option>
+              <option value={300}>300 posts</option>
+            </select>
+            {recentOpen ? (
+              <ChevronUp size={16} className="text-[#8F8A7C]" />
+            ) : (
+              <ChevronDown size={16} className="text-[#8F8A7C]" />
+            )}
+          </div>
+        </button>
+        {recentOpen && (
+          <div className="px-4 pb-4">
+            {loadingMedia ? (
+              <div className="flex justify-center py-10">
+                <div className="h-6 w-6 border-2 border-[#E8C766] border-t-transparent rounded-full animate-spin" />
               </div>
-            );
-          })}
-        </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                {recentPosts.map((post) => (
+                  <PostCard key={post.id} post={post} />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
