@@ -9,6 +9,8 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const IG_BASE = "https://graph.instagram.com/v25.0";
+const FB_BASE = "https://graph.facebook.com/v21.0";
+const LAGUN_PAGE_ID = "1041049812431226";
 const LAGUN_IG_ID = "17841436376156784";
 const BATCH = 20;
 const GAP_MS = 500;
@@ -24,14 +26,31 @@ interface QueueRow {
   send_type: "private_reply" | "dm" | "public_reply"; payload: any; requires_24h_window: boolean; attempts?: number;
 }
 
-// Token IGAA: ig_config (renovado pelo cron) ou, na falta, o secret antigo.
-async function credentials(supabase: any): Promise<{ igUserId: string; token: string } | null> {
+// Dois caminhos possíveis para falar com o Instagram:
+//  • "igaa"  — token do Instagram Login (graph.instagram.com). Preferido: é o que
+//              também lê nome/@/foto de quem manda DM.
+//  • "eaa"   — System User do app Lagun via Página (graph.facebook.com). Não lê
+//              perfil de terceiros (app sem Advanced Access em
+//              instagram_manage_messages), mas responde comentário e manda DM.
+// Usar o EAA como reserva deixa a automação rodar sem depender de reconexão.
+type Cred = { mode: "igaa" | "eaa"; igUserId: string; pageId: string; token: string };
+
+async function credentials(supabase: any): Promise<Cred | null> {
   const { data: cfg } = await supabase.from("ig_config").select("ig_user_id, access_token, token_expires_at").maybeSingle();
   if (cfg?.access_token && (!cfg.token_expires_at || new Date(cfg.token_expires_at).getTime() > Date.now())) {
-    return { igUserId: cfg.ig_user_id || LAGUN_IG_ID, token: cfg.access_token };
+    return { mode: "igaa", igUserId: cfg.ig_user_id || LAGUN_IG_ID, pageId: LAGUN_PAGE_ID, token: cfg.access_token };
   }
-  const secret = (Deno.env.get("INSTAGRAM_USER_TOKEN_LAGUN") ?? "").trim();
-  return secret ? { igUserId: LAGUN_IG_ID, token: secret } : null;
+  const igaaSecret = (Deno.env.get("INSTAGRAM_USER_TOKEN_LAGUN") ?? "").trim();
+  if (igaaSecret.startsWith("IGAA")) {
+    // Só vale se ainda estiver válido — o antigo expirou em 24/07/2026.
+    const check = await fetch(`${IG_BASE}/me?fields=id&access_token=${encodeURIComponent(igaaSecret)}`).then((r) => r.json());
+    if (!check?.error) return { mode: "igaa", igUserId: LAGUN_IG_ID, pageId: LAGUN_PAGE_ID, token: igaaSecret };
+  }
+  const sys = (Deno.env.get("META_ADS_TOKEN") ?? "").trim();
+  if (!sys) return null;
+  const pt = await fetch(`${FB_BASE}/${LAGUN_PAGE_ID}?fields=access_token&access_token=${encodeURIComponent(sys)}`).then((r) => r.json());
+  if (!pt?.access_token) return null;
+  return { mode: "eaa", igUserId: LAGUN_IG_ID, pageId: LAGUN_PAGE_ID, token: pt.access_token };
 }
 
 function buildMessage(payload: any): any {
@@ -46,19 +65,27 @@ function buildMessage(payload: any): any {
   return { text: payload?.text || "" };
 }
 
-async function sendOne(row: QueueRow, igUserId: string, token: string) {
+async function sendOne(row: QueueRow, cred: Cred) {
+  const base = cred.mode === "igaa" ? IG_BASE : FB_BASE;
+
   if (row.send_type === "public_reply") {
-    const res = await fetch(`${IG_BASE}/${row.comment_id}/replies?message=${encodeURIComponent(row.payload?.text || "")}&access_token=${token}`, { method: "POST" });
-    if (!res.ok) throw new Error(`public_reply ${res.status}: ${await res.text()}`);
+    const res = await fetch(`${base}/${row.comment_id}/replies?message=${encodeURIComponent(row.payload?.text || "")}&access_token=${encodeURIComponent(cred.token)}`, { method: "POST" });
+    if (!res.ok) throw new Error(`public_reply(${cred.mode}) ${res.status}: ${await res.text()}`);
     return;
   }
+
   const recipient = row.send_type === "private_reply" ? { comment_id: row.comment_id } : { id: row.igsid };
-  const res = await fetch(`${IG_BASE}/${igUserId}/messages`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ recipient, message: buildMessage(row.payload), messaging_type: "RESPONSE" }),
-  });
-  if (!res.ok) throw new Error(`${row.send_type} ${res.status}: ${await res.text()}`);
+  const body = { recipient, message: buildMessage(row.payload), messaging_type: "RESPONSE" };
+  // IGAA fala com o id do Instagram e manda o token no header; o System User
+  // fala com a Página e manda o token na query.
+  const res = cred.mode === "igaa"
+    ? await fetch(`${IG_BASE}/${cred.igUserId}/messages`, {
+        method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${cred.token}` }, body: JSON.stringify(body),
+      })
+    : await fetch(`${FB_BASE}/${cred.pageId}/messages?access_token=${encodeURIComponent(cred.token)}`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+      });
+  if (!res.ok) throw new Error(`${row.send_type}(${cred.mode}) ${res.status}: ${await res.text()}`);
   // Espelha a DM automática no Chat para a equipe ver o que o robô mandou.
   if (row.igsid) {
     const texto = row.payload?.text || (row.payload?.type === "link" ? `[link] ${row.payload.url}` : "");
@@ -73,7 +100,7 @@ async function sendOne(row: QueueRow, igUserId: string, token: string) {
 Deno.serve(async () => {
   const supabase = sb();
   const cred = await credentials(supabase);
-  if (!cred) return out({ ok: false, reason: "Instagram não conectado (ig_config sem token)" });
+  if (!cred) return out({ ok: false, reason: "Sem token do Instagram (nem ig_config nem System User)" });
 
   const hourAgo = new Date(Date.now() - 3600_000).toISOString();
   const { count: sentLastHour } = await supabase.from("ig_queue").select("id", { count: "exact", head: true }).eq("status", "sent").gte("sent_at", hourAgo);
@@ -96,7 +123,7 @@ Deno.serve(async () => {
       }
     }
     try {
-      await sendOne(row, cred.igUserId, cred.token);
+      await sendOne(row, cred);
       await supabase.from("ig_queue").update({ status: "sent", sent_at: new Date().toISOString() }).eq("id", row.id);
       sent++; budget--;
     } catch (err: any) {
@@ -106,5 +133,5 @@ Deno.serve(async () => {
     }
     await sleep(GAP_MS);
   }
-  return out({ ok: true, claimed: rows.length, sent, failed, skipped });
+  return out({ ok: true, modo: cred.mode, claimed: rows.length, sent, failed, skipped });
 });

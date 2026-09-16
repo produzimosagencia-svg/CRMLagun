@@ -149,18 +149,20 @@ function ConnectionCard({ onChanged }: { onChanged: () => void }) {
   const expira = conn?.token_expires_at ? new Date(conn.token_expires_at) : null;
   const diasRestantes = expira ? Math.round((expira.getTime() - Date.now()) / 86400000) : null;
   return (
-    <div className={`rounded-xl border p-4 flex flex-wrap items-center gap-4 ${conn?.connected ? 'border-border bg-card' : 'border-amber-500/40 bg-amber-500/5'}`}>
+    <div className={`rounded-xl border p-4 flex flex-wrap items-center gap-4 ${conn?.connected ? 'border-border bg-card' : 'border-sky-500/40 bg-sky-500/5'}`}>
       {conn?.profile_pic_url ? <img src={conn.profile_pic_url} alt="" className="h-11 w-11 rounded-full object-cover" /> : <div className="h-11 w-11 rounded-full bg-[#E4405F]/15 flex items-center justify-center text-[#E4405F]"><Instagram size={20} /></div>}
       <div className="min-w-0 flex-1">
         {conn?.connected ? (
           <>
-            <p className="font-semibold">@{conn.username} conectado</p>
-            <p className="text-xs text-muted-foreground">Token renovado automaticamente toda semana · válido por mais {diasRestantes} dias</p>
+            <p className="font-semibold">@{conn.username} conectado (Instagram Login)</p>
+            <p className="text-xs text-muted-foreground">Tudo disponível: comentários, DMs e nome/@/foto de quem escreve · token renovado toda semana, válido por mais {diasRestantes} dias</p>
           </>
         ) : (
           <>
-            <p className="font-semibold text-amber-700 dark:text-amber-400">Instagram não conectado — as automações não vão disparar</p>
-            <p className="text-xs text-muted-foreground">O token do @lagunvix expirou em 24/07. Conecte de novo pelo botão ou cole um token gerado no painel da Meta.</p>
+            {/* Sem o token do Instagram Login o motor cai no System User do app
+                Lagun — suficiente para comentário → DM, mas sem perfil de terceiros. */}
+            <p className="font-semibold">Rodando com o token do app Lagun (System User)</p>
+            <p className="text-xs text-muted-foreground">As automações disparam normalmente. O que falta é só o <strong>nome, @ e foto</strong> de quem manda DM (aparece o número no Chat) — conecte pelo Instagram Login para completar.</p>
           </>
         )}
       </div>
