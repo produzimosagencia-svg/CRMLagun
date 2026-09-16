@@ -1,22 +1,21 @@
 import { useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import loginPhoto from '@/assets/DSC_9565.jpg';
 import palavraGold from '@/assets/palavra-lagun.png';
 import { toast } from 'sonner';
-import { Loader2 } from 'lucide-react';
+import { ArrowLeft, Eye, EyeOff, Loader2 } from 'lucide-react';
 
 export default function InternoLogin() {
   const { user, loading, isPartner, signInByUsername } = useAuth();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [mostrarSenha, setMostrarSenha] = useState(false);
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#0f0a05' }}>
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#000' }}>
         <Loader2 className="h-7 w-7 animate-spin" style={{ color: '#F5D470' }} />
       </div>
     );
@@ -26,7 +25,7 @@ export default function InternoLogin() {
 
   if (user && !isPartner) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4" style={{ backgroundColor: '#0f0a05' }}>
+      <div className="min-h-screen flex items-center justify-center p-4" style={{ backgroundColor: '#000' }}>
         <div className="text-center">
           <img src={palavraGold} alt="Lagun" className="h-8 mx-auto mb-6" />
           <h2 className="text-xl font-bold text-white mb-2">Acesso Restrito</h2>
@@ -51,108 +50,59 @@ export default function InternoLogin() {
     setSubmitting(false);
   };
 
-  return (
-    <div className="min-h-screen flex" style={{ backgroundColor: '#0f0a05' }}>
+  const campo = 'h-11 w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 text-sm text-white placeholder:text-white/30 outline-none transition focus:border-[#FFE14D]/70 focus:bg-white/[0.06]';
 
-      {/* ── LEFT: full photo ── */}
-      <div className="hidden lg:block lg:w-[55%] xl:w-[60%] relative overflow-hidden">
-        <img
-          src={loginPhoto}
-          alt="Lagun"
-          className="absolute inset-0 w-full h-full object-cover object-center"
-        />
-        {/* gradient overlay bottom */}
-        <div
-          className="absolute inset-0 pointer-events-none"
-          style={{
-            background: 'linear-gradient(to right, transparent 60%, #0f0a05 100%), linear-gradient(to top, rgba(15,10,5,0.5) 0%, transparent 40%)',
-          }}
-        />
-        {/* logo + tagline bottom-left */}
-        <div className="absolute bottom-10 left-10">
-          <img src={palavraGold} alt="Lagun" className="h-7 w-auto mb-3" />
-          <p className="text-xs tracking-[0.3em] uppercase" style={{ color: 'rgba(245,212,112,0.6)' }}>
-            Sistema Interno
-          </p>
-        </div>
+  return (
+    <div className="flex min-h-screen bg-black p-3 sm:p-4">
+      {/* Foto: painel arredondado à esquerda, como um quadro dentro da página */}
+      <div className="relative hidden overflow-hidden rounded-[22px] lg:block lg:w-1/2">
+        <img src={loginPhoto} alt="Lagun" className="absolute inset-0 h-full w-full object-cover" />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/20" />
+        <a href="/" aria-label="Voltar ao site"
+          className="absolute left-5 top-5 grid h-9 w-9 place-items-center rounded-full bg-black/40 text-white backdrop-blur-sm transition hover:bg-black/60">
+          <ArrowLeft size={17} />
+        </a>
+        <img src={palavraGold} alt="Lagun" className="absolute bottom-8 left-8 h-7 w-auto" />
       </div>
 
-      {/* ── RIGHT: login form ── */}
-      <div className="flex-1 flex flex-col justify-center items-center px-6 sm:px-12 lg:px-14 xl:px-20">
+      {/* Login */}
+      <div className="flex flex-1 items-center justify-center px-4 py-10 sm:px-10">
+        <div className="w-full max-w-[380px]">
+          <img src={palavraGold} alt="Lagun" className="mb-10 h-7 w-auto lg:hidden" />
 
-        {/* Mobile logo */}
-        <div className="lg:hidden mb-10 text-center">
-          <img src={palavraGold} alt="Lagun" className="h-7 mx-auto" />
-        </div>
+          <h1 className="text-[28px] font-bold tracking-tight text-white">Bem-vindo de volta</h1>
+          <p className="mt-1.5 text-sm text-white/45">Acesso exclusivo para o time Lagun.</p>
 
-        <div className="w-full max-w-[340px]">
-          <h2 className="text-2xl font-bold text-white mb-1">Entrar</h2>
-          <p className="text-sm mb-8" style={{ color: 'rgba(255,255,255,0.35)' }}>
-            Acesso exclusivo para o time Lagun
-          </p>
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Usuário */}
-            <div className="space-y-1.5">
-              <Label htmlFor="username" className="text-sm font-medium" style={{ color: 'rgba(255,255,255,0.6)' }}>
-                Usuário
-              </Label>
-              <Input
-                id="username"
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                required
-                autoComplete="username"
-                placeholder="Digite seu usuário"
-                className="h-12 rounded-xl border text-white placeholder:text-gray-600 focus-visible:ring-0 focus-visible:border-[#F5D470]"
-                style={{
-                  backgroundColor: 'rgba(255,255,255,0.05)',
-                  borderColor: 'rgba(255,255,255,0.1)',
-                }}
-              />
+          <form onSubmit={handleSubmit} className="mt-9 space-y-5">
+            <div>
+              <label htmlFor="username" className="mb-2 block text-[13px] font-medium text-white/80">Usuário</label>
+              <input id="username" type="text" value={username} onChange={(e) => setUsername(e.target.value)}
+                required autoComplete="username" autoCapitalize="none" placeholder="seu.usuario" className={campo} />
             </div>
 
-            {/* Senha */}
-            <div className="space-y-1.5">
-              <Label htmlFor="password" className="text-sm font-medium" style={{ color: 'rgba(255,255,255,0.6)' }}>
-                Senha
-              </Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                autoComplete="current-password"
-                placeholder="••••••••"
-                className="h-12 rounded-xl border text-white placeholder:text-gray-600 focus-visible:ring-0 focus-visible:border-[#F5D470]"
-                style={{
-                  backgroundColor: 'rgba(255,255,255,0.05)',
-                  borderColor: 'rgba(255,255,255,0.1)',
-                }}
-              />
+            <div>
+              <label htmlFor="password" className="mb-2 block text-[13px] font-medium text-white/80">Senha</label>
+              <div className="relative">
+                <input id="password" type={mostrarSenha ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)}
+                  required autoComplete="current-password" placeholder="Sua senha" className={`${campo} pr-11`} />
+                <button type="button" onClick={() => setMostrarSenha((v) => !v)} aria-label={mostrarSenha ? 'Ocultar senha' : 'Mostrar senha'}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 transition hover:text-white/80">
+                  {mostrarSenha ? <EyeOff size={17} /> : <Eye size={17} />}
+                </button>
+              </div>
             </div>
 
-            {/* Submit */}
-            <button
-              type="submit"
-              disabled={submitting}
-              className="w-full h-12 rounded-xl font-bold text-sm tracking-wide transition-all duration-200 active:scale-[0.98] disabled:opacity-60 flex items-center justify-center mt-2"
-              style={{
-                background: 'linear-gradient(135deg, #F5D470 0%, #e8b830 50%, #F5D470 100%)',
-                color: '#1A0800',
-                boxShadow: '0 0 24px rgba(245,212,112,0.4), 0 4px 14px rgba(245,212,112,0.2)',
-                border: '1px solid rgba(255,235,130,0.5)',
-              }}
-            >
-              {submitting ? <Loader2 className="h-5 w-5 animate-spin" style={{ color: '#1A0800' }} /> : 'Entrar'}
+            <button type="submit" disabled={submitting}
+              className="mt-2 flex h-11 w-full items-center justify-center rounded-xl bg-[#FFE14D] text-sm font-bold text-black shadow-[0_0_28px_rgba(255,225,77,.55),0_0_2px_rgba(255,225,77,.9)] transition hover:bg-[#FFEC8A] hover:shadow-[0_0_40px_rgba(255,225,77,.75),0_0_2px_rgba(255,225,77,1)] active:scale-[0.99] disabled:opacity-60">
+              {submitting ? <Loader2 className="h-5 w-5 animate-spin" /> : 'Entrar'}
             </button>
           </form>
 
-          <p className="text-center text-[11px] mt-10" style={{ color: 'rgba(255,255,255,0.18)' }}>
-            Lagun ® — Sistema Interno
-          </p>
+          <div className="mt-10 flex items-center gap-3 text-[11px] text-white/25">
+            <span className="h-px flex-1 bg-white/10" />
+            Lagun ® Sistema Interno
+            <span className="h-px flex-1 bg-white/10" />
+          </div>
         </div>
       </div>
     </div>
