@@ -253,7 +253,11 @@ export default function InternoLayout() {
 
   return (
     <TooltipProvider delayDuration={80}>
-      <div className="interno-noturno min-h-screen flex bg-background">
+      {/* Altura fixa e sem rolagem aqui: o único container que rola é o <main>.
+          Com min-h-screen quem rolava era a janela, e a barra lateral (altura
+          cheia, sticky e com transform) era repintada a cada quadro — era daí
+          que vinha o rastro preto. */}
+      <div className="interno-noturno flex h-screen overflow-hidden bg-background">
         {splashOverlay}
         {sidebarOpen && !isHome && (
           <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40 lg:hidden" onClick={() => setSidebarOpen(false)} />
@@ -261,7 +265,8 @@ export default function InternoLayout() {
 
         {/* Sidebar 1 + Sidebar 2 (no mobile viram uma gaveta só) */}
         <aside
-          className={`fixed lg:sticky lg:top-0 inset-y-0 left-0 z-50 flex h-screen transition-transform duration-300 lg:translate-x-0
+          className={`fixed inset-y-0 left-0 z-50 flex h-full transition-transform duration-300
+            lg:static lg:z-auto lg:translate-x-0 lg:transition-none
             ${isHome ? '-translate-x-full lg:hidden' : sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
         >
           {/* ── Trilho de ícones ── */}
@@ -352,7 +357,7 @@ export default function InternoLayout() {
         </aside>
 
         {/* Main content */}
-        <div className="flex-1 flex flex-col min-w-0">
+        <div className="flex min-h-0 flex-1 flex-col min-w-0">
           {/* A faixa do topo saiu para ganhar altura: o nome da página já está no
               trilho e no painel lateral. No celular ela continua, porque é de lá
               que se abre o menu. */}
