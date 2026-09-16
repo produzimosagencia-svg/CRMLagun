@@ -280,6 +280,9 @@ export default function InternoWhatsAppChat() {
   const [igAccounts, setIgAccounts] = useState<{ id: string; username: string; profile_picture_url?: string; name?: string }[]>([]);
   const [selectedIgAccount, setSelectedIgAccount] = useState<{ id: string; username: string; profile_picture_url?: string; name?: string } | null>(null);
   const [igAutoReply, setIgAutoReply] = useState(false);
+  // Sem o token do Instagram Login a Meta não devolve nome/@/foto de quem
+  // manda DM — o aviso abaixo some sozinho quando a conta é conectada.
+  const [igConectado, setIgConectado] = useState<boolean | null>(null);
   const [togglingIgAi, setTogglingIgAi] = useState(false);
 
   // Recurso próprio do Lagun: gestão dos lounges dos eventos publicados.
@@ -287,6 +290,12 @@ export default function InternoWhatsAppChat() {
   const [loungesData, setLoungesData] = useState<Record<string, number[]>>({});
   const [loadingLounges, setLoadingLounges] = useState(false);
   const [togglingLounge, setTogglingLounge] = useState<string | null>(null);
+
+  useEffect(() => {
+    (supabase as any).rpc('ig_connection_status').then(({ data }: any) => {
+      setIgConectado(Boolean(data?.[0]?.connected));
+    }).catch(() => setIgConectado(null));
+  }, []);
 
   const getAccountScope = (channel: 'whatsapp' | 'instagram' = activeChannel) =>
     channel === 'whatsapp' ? (selectedApiPhone || 'default') : (selectedIgAccount?.id || 'default');
@@ -1095,6 +1104,20 @@ export default function InternoWhatsAppChat() {
               </div>
             </button>
           </div>
+          {activeChannel === 'instagram' && igConectado === false && (
+            <div className="px-3 py-2.5 border-b bg-[#FFE14D]/[0.07] space-y-1.5">
+              <p className="text-[11px] leading-snug text-muted-foreground">
+                <span className="font-semibold text-foreground">Nomes e fotos indisponíveis.</span>{' '}
+                A Meta só libera o perfil de quem manda DM com a conta conectada pelo Instagram Login.
+              </p>
+              <a
+                href={`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ig-oauth`}
+                className="inline-flex h-7 items-center gap-1.5 rounded-md bg-[#FFE14D] px-2.5 text-[11px] font-semibold text-black hover:brightness-95"
+              >
+                <Instagram className="w-3 h-3" /> Conectar Instagram
+              </a>
+            </div>
+          )}
           {activeChannel === 'instagram' && selectedIgAccount && (
             <div className="px-3 py-2 border-b flex items-center gap-2">
               <ContactAvatar src={selectedIgAccount.profile_picture_url} name={selectedIgAccount.username} id={selectedIgAccount.id} channel="instagram" size={24} />
@@ -1186,7 +1209,17 @@ export default function InternoWhatsAppChat() {
                 <div className="flex-1 min-w-0 overflow-hidden">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                      <p className={`${conv.unread_count > 0 ? 'font-extrabold text-foreground' : 'font-semibold'} text-sm truncate`}>{contactLabel(activeChannel, conv.contact_name, conv.contact_username, conv.phone)}</p>
+                      {(() => {
+                        // Quando não há @ nem nome, o rótulo é um id: mostra em
+                        // fonte mono e apagada, para não parecer um nome quebrado.
+                        const rotulo = contactLabel(activeChannel, conv.contact_name, conv.contact_username, conv.phone);
+                        const soId = activeChannel === 'instagram' && /^\d+$/.test(rotulo);
+                        return (
+                          <p className={`truncate text-sm ${conv.unread_count > 0 ? 'font-extrabold text-foreground' : 'font-semibold'} ${soId ? 'font-mono text-xs font-normal text-muted-foreground' : ''}`}>
+                            {soId ? <><span className="mr-1 not-italic">Sem nome</span><span className="opacity-50">#{rotulo.slice(-6)}</span></> : rotulo}
+                          </p>
+                        );
+                      })()}
                       {conv.needs_support && (
                         <span className="w-2.5 h-2.5 rounded-full bg-red-500 shrink-0 animate-pulse" title="Precisa de suporte humano" />
                       )}
@@ -1332,8 +1365,12 @@ export default function InternoWhatsAppChat() {
               </Button>
               <ContactAvatar src={selectedConv?.contact_avatar} name={selectedConv?.contact_name} id={selectedPhone || ''} channel={activeChannel} />
               <div className="flex-1 min-w-0">
-                <p className="font-bold text-sm truncate">{contactLabel(activeChannel, selectedConv?.contact_name, selectedConv?.contact_username, selectedPhone)}</p>
-                <p className="text-xs text-muted-foreground truncate">{activeChannel === 'instagram' ? (selectedConv?.contact_username ? `@${selectedConv.contact_username}` : 'sem @ — a pessoa ainda não comentou em nenhum post') : formatPhone(selectedPhone)}</p>
+                {(() => {
+                  const rotulo = contactLabel(activeChannel, selectedConv?.contact_name, selectedConv?.contact_username, selectedPhone);
+                  const soId = activeChannel === 'instagram' && /^\d+$/.test(rotulo);
+                  return <p className="truncate text-sm font-bold">{soId ? 'Sem nome' : rotulo}</p>;
+                })()}
+                <p className="text-xs text-muted-foreground truncate">{activeChannel === 'instagram' ? (selectedConv?.contact_username ? `@${selectedConv.contact_username}` : `#${selectedPhone}`) : formatPhone(selectedPhone)}</p>
               </div>
               {activeChannel === 'whatsapp' && (
                 <Button
