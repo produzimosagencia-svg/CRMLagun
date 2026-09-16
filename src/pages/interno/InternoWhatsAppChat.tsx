@@ -1075,7 +1075,7 @@ export default function InternoWhatsAppChat() {
     : false;
 
   return (
-    <div className="flex h-[calc(100vh-120px)] bg-background rounded-xl border overflow-hidden">
+    <div className="flex h-[calc(100vh-120px)] overflow-hidden rounded-xl border bg-background lg:h-[calc(100vh-60px)]">
       <div className={`w-full md:w-80 border-r flex flex-col shrink-0 ${selectedPhone ? 'hidden md:flex' : 'flex'}`}>
         <div className="border-b">
           <div className="flex">

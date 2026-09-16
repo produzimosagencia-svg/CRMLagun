@@ -2,7 +2,6 @@ import { useState, useEffect, type ReactNode } from 'react';
 import { Navigate, Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useSidebarSettings, type SidebarKey } from '@/hooks/useSidebarSettings';
-import { NotificationBell } from '@/components/NotificationBell';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   LogOut, Menu, X, ChevronRight, Ticket, MessageCircle, Send, Settings, User, Sparkles, HelpCircle,
@@ -294,9 +293,6 @@ export default function InternoLayout() {
                   </RailItem>
                 );
               })}
-              <div className="hidden h-10 w-10 items-center justify-center text-[#8B8A9B] lg:flex [&_button]:h-10 [&_button]:w-10">
-                <NotificationBell lado="esquerda" />
-              </div>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <a href="https://wa.me/5527996528524" target="_blank" rel="noopener noreferrer" aria-label="Suporte"
@@ -366,10 +362,9 @@ export default function InternoLayout() {
                 <Menu size={20} />
               </button>
               <h1 className="font-display text-[15px] font-medium tracking-tight text-foreground">{getPageTitle()}</h1>
-              <NotificationBell />
             </header>
           )}
-          <main className="flex-1 p-4 lg:p-6 overflow-auto">
+          <main className="flex-1 overflow-auto bg-background p-4 lg:p-6">
             {/* key por rota: a animação de entrada roda a cada troca de página */}
             <div key={path} className="n-entra">
               <Outlet />
