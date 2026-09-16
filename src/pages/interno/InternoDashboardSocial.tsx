@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Heart, Instagram, Loader2, MessageCircle, MessagesSquare, MousePointerClick,
+  Heart, Instagram, MessageCircle, MessagesSquare, MousePointerClick,
   TrendingUp, Users, Zap, ExternalLink,
 } from 'lucide-react';
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
@@ -77,9 +77,26 @@ function Kpi({ icon: Icon, label, valor, sub, cor = AMARELO, destaque = false }:
   );
 }
 
-function CaixaGrafico({ titulo, sub, children, acao }: { titulo: string; sub?: string; children: React.ReactNode; acao?: React.ReactNode }) {
+/**
+ * Caixa dos painéis. `corpo` reserva a altura do conteúdo desde o primeiro
+ * quadro: sem isso a página nasce curta e cresce quando os dados chegam, e
+ * quem rola nesse meio-tempo passa do fim do conteúdo e enxerga o fundo
+ * escuro do container.
+ */
+/** Blocos cinza no lugar do conteúdo: ocupam o mesmo espaço do resultado. */
+function Esqueleto({ linhas, altura }: { linhas: number; altura: number }) {
   return (
-    <div className="rounded-xl border border-border bg-card p-4">
+    <div className="space-y-2">
+      {Array.from({ length: linhas }).map((_, i) => (
+        <div key={i} className="animate-pulse rounded-lg bg-muted/60" style={{ height: altura }} />
+      ))}
+    </div>
+  );
+}
+
+function CaixaGrafico({ titulo, sub, children, acao, corpo = 244 }: { titulo: string; sub?: string; children: React.ReactNode; acao?: React.ReactNode; corpo?: number }) {
+  return (
+    <div className="flex flex-col rounded-xl border border-border bg-card p-4" style={{ minHeight: corpo + 58 }}>
       <div className="mb-3 flex items-start justify-between gap-3">
         <div>
           <h2 className="font-display text-sm font-semibold">{titulo}</h2>
@@ -87,7 +104,7 @@ function CaixaGrafico({ titulo, sub, children, acao }: { titulo: string; sub?: s
         </div>
         {acao}
       </div>
-      {children}
+      <div className="flex min-h-0 flex-1 flex-col justify-center" style={{ minHeight: corpo }}>{children}</div>
     </div>
   );
 }
@@ -103,8 +120,8 @@ const tooltipStyle = {
 
 /** Lista de comentários/directs recentes, no mesmo formato nos dois painéis. */
 function ListaInteracoes({ itens, vazio, carregando }: { itens: Interacao[]; vazio: string; carregando: boolean }) {
-  if (carregando) return <div className="flex h-40 items-center justify-center"><Loader2 className="animate-spin text-muted-foreground" size={18} /></div>;
-  if (!itens.length) return <p className="py-10 text-center text-sm text-muted-foreground">{vazio}</p>;
+  if (carregando) return <Esqueleto linhas={5} altura={44} />;
+  if (!itens.length) return <p className="text-center text-sm text-muted-foreground">{vazio}</p>;
   const quando = (iso: string) => {
     const min = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
     if (min < 60) return `${Math.max(min, 1)} min`;
@@ -268,7 +285,7 @@ export default function InternoDashboardSocial() {
         {/* Movimento diário */}
         <CaixaGrafico titulo="Movimento diário" sub="Cliques no link da landing (eixo à esquerda) e DMs recebidas no Instagram (à direita)">
           {carregando ? (
-            <div className="flex h-56 items-center justify-center"><Loader2 className="animate-spin text-muted-foreground" /></div>
+            <Esqueleto linhas={1} altura={220} />
           ) : (
             <ResponsiveContainer width="100%" height={220}>
               <AreaChart data={serie} margin={{ top: 4, right: 0, left: -22, bottom: 0 }}>
@@ -297,7 +314,7 @@ export default function InternoDashboardSocial() {
         {/* Top publicações */}
         <CaixaGrafico titulo="Publicações que mais engajaram" sub="Curtidas + comentários, entre as últimas 50">
           {topPosts.length === 0 ? (
-            <p className="py-10 text-center text-sm text-muted-foreground">{carregando ? 'Carregando…' : 'Nenhuma publicação encontrada.'}</p>
+            carregando ? <Esqueleto linhas={5} altura={44} /> : <p className="text-center text-sm text-muted-foreground">Nenhuma publicação encontrada.</p>
           ) : (
             <div className="space-y-2">
               {topPosts.map((p, i) => {
@@ -332,7 +349,7 @@ export default function InternoDashboardSocial() {
         {/* Engajamento por publicação ao longo do tempo */}
         <CaixaGrafico titulo="Engajamento por publicação" sub="Últimas 12 publicações, em ordem de postagem">
           {serieEngajamento.length === 0 ? (
-            <p className="py-10 text-center text-sm text-muted-foreground">{carregando ? 'Carregando…' : 'Sem dados de engajamento.'}</p>
+            carregando ? <Esqueleto linhas={1} altura={220} /> : <p className="text-center text-sm text-muted-foreground">Sem dados de engajamento.</p>
           ) : (
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={serieEngajamento} margin={{ top: 4, right: 4, left: -22, bottom: 0 }}>
@@ -370,7 +387,7 @@ export default function InternoDashboardSocial() {
         {/* Cliques por evento */}
         <CaixaGrafico titulo="Para onde o público clica" sub={`Cliques no link por evento · últimos ${dias} dias`}>
           {porEvento.length === 0 ? (
-            <p className="py-10 text-center text-sm text-muted-foreground">{carregando ? 'Carregando…' : 'Nenhum clique no período.'}</p>
+            carregando ? <Esqueleto linhas={6} altura={22} /> : <p className="text-center text-sm text-muted-foreground">Nenhum clique no período.</p>
           ) : (
             <ResponsiveContainer width="100%" height={Math.max(160, porEvento.length * 34)}>
               <BarChart data={porEvento} layout="vertical" margin={{ top: 0, right: 12, left: 8, bottom: 0 }}>
