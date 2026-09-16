@@ -42,10 +42,10 @@ export default function WhatsappAttributionKpis({ campaignKey }: { campaignKey: 
 
   const ctr = stats.links_created ? Math.round((stats.unique_clicks / stats.links_created) * 100) : 0;
   const cards = [
-    { label: 'Links enviados', value: stats.links_created.toLocaleString('pt-BR'), detail: 'destinatários rastreáveis', icon: Link2, color: 'text-[#E8C766]' },
+    { label: 'Links enviados', value: stats.links_created.toLocaleString('pt-BR'), detail: 'destinatários rastreáveis', icon: Link2, color: 'text-[#FFE14D]' },
     { label: 'Cliques únicos', value: stats.unique_clicks.toLocaleString('pt-BR'), detail: `CTR ${ctr}%`, icon: MousePointerClick, color: 'text-sky-400' },
     { label: 'Conversões', value: stats.direct_conversions.toLocaleString('pt-BR'), detail: 'compras em até 7 dias', icon: CheckCircle2, color: 'text-emerald-400' },
-    { label: 'Receita rastreada', value: money(stats.direct_revenue), detail: 'base de compras Lagun', icon: BadgeDollarSign, color: 'text-[#E8C766]' },
+    { label: 'Receita rastreada', value: money(stats.direct_revenue), detail: 'base de compras Lagun', icon: BadgeDollarSign, color: 'text-[#FFE14D]' },
   ];
 
   return <section className="space-y-3">
@@ -55,7 +55,7 @@ export default function WhatsappAttributionKpis({ campaignKey }: { campaignKey: 
         <Input value={destination} onChange={(event) => setDestination(event.target.value)} placeholder="https://..." className="border-white/10 bg-white/5 text-white" />
         <p className="mt-1 text-[10px] text-[#8F8A7C]">O template deve usar o botão dinâmico: https://lagun-gamma.vercel.app/r/&#123;&#123;1&#125;&#125;</p>
       </div>
-      <Button onClick={() => void save()} disabled={saving} className="bg-[#E8C766] text-[#17160f] hover:bg-[#f1d77f]">{saving ? 'Salvando…' : 'Salvar destino'}</Button>
+      <Button onClick={() => void save()} disabled={saving} className="bg-[#FFE14D] text-[#17160f] hover:bg-[#f1d77f]">{saving ? 'Salvando…' : 'Salvar destino'}</Button>
     </div>
     <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
       {cards.map((card) => <div key={card.label} className="rounded-xl border border-[#2A2822] bg-[#1A1916] p-4">

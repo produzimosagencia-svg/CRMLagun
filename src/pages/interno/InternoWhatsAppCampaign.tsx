@@ -39,8 +39,8 @@ export default function InternoWhatsAppCampaign({ campaignKey }: { campaignKey: 
 
   return <div className="space-y-6">
     <header className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-      <div><div className="flex items-center gap-2"><Icon size={20} className="text-[#E8C766]" /><h1 className="text-xl font-bold text-foreground">{item.title}</h1></div><p className="mt-1 text-sm text-muted-foreground">{item.description}</p></div>
-      <div className="flex gap-2"><button onClick={() => void load()} className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs font-semibold"><RefreshCw size={14} /> Atualizar</button><Link to="/interno/whatsapp" className="rounded-lg bg-[#E8C766] px-3 py-2 text-xs font-bold text-[#17160f]">Novo disparo</Link></div>
+      <div><div className="flex items-center gap-2"><Icon size={20} className="text-[#FFE14D]" /><h1 className="text-xl font-bold text-foreground">{item.title}</h1></div><p className="mt-1 text-sm text-muted-foreground">{item.description}</p></div>
+      <div className="flex gap-2"><button onClick={() => void load()} className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs font-semibold"><RefreshCw size={14} /> Atualizar</button><Link to="/interno/whatsapp" className="rounded-lg bg-[#FFE14D] px-3 py-2 text-xs font-bold text-[#17160f]">Novo disparo</Link></div>
     </header>
 
     <WhatsappAttributionKpis campaignKey={campaignKey} />

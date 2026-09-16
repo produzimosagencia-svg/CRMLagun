@@ -117,7 +117,7 @@ function waStatusInfo(s: string | null | undefined) {
     case 'read': return { label: 'Lido', cls: 'bg-blue-500/10 text-blue-400' };
     case 'delivered': return { label: 'Entregue', cls: 'bg-emerald-500/10 text-emerald-400' };
     case 'failed': case 'error': case 'undelivered': return { label: 'Falhou', cls: 'bg-red-500/10 text-red-400' };
-    case 'sent': return { label: 'Enviado', cls: 'bg-[#E8C766]/10 text-[#E8C766]' };
+    case 'sent': return { label: 'Enviado', cls: 'bg-[#FFE14D]/10 text-[#FFE14D]' };
     default: return { label: s || 'Enviado', cls: 'bg-white/5 text-[#8F8A7C]' };
   }
 }
@@ -653,7 +653,7 @@ export default function InternoWhatsApp() {
         case 'read': return { label: 'Lido', cls: 'bg-blue-500/10 text-blue-400' };
         case 'delivered': return { label: 'Entregue', cls: 'bg-emerald-500/10 text-emerald-400' };
         case 'failed': case 'error': case 'undelivered': return { label: 'Falhou', cls: 'bg-red-500/10 text-red-400' };
-        case 'sent': return { label: 'Enviado', cls: 'bg-[#E8C766]/10 text-[#E8C766]' };
+        case 'sent': return { label: 'Enviado', cls: 'bg-[#FFE14D]/10 text-[#FFE14D]' };
         default: return { label: s || 'Enviado', cls: 'bg-white/5 text-[#8F8A7C]' };
       }
     };
@@ -670,7 +670,7 @@ export default function InternoWhatsApp() {
       <div className="w-full min-w-0 max-w-full space-y-6 overflow-x-hidden pb-10">
         <div className="flex items-center justify-between">
           <div>
-            <div className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-[#25D366]" /><h1 className="text-lg font-bold text-[#E8C766]">Status dos Disparos</h1></div>
+            <div className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-[#25D366]" /><h1 className="text-lg font-bold text-[#FFE14D]">Status dos Disparos</h1></div>
             <p className="mt-1 text-sm text-[#8F8A7C]">Acompanhe o percurso de cada envio e identifique falhas.</p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -691,8 +691,8 @@ export default function InternoWhatsApp() {
         )}
 
         {sending && (
-          <section className="flex items-center gap-3 rounded-xl border border-[#E8C766]/25 bg-[#E8C766]/[0.06] p-4">
-            <RefreshCw className="h-5 w-5 shrink-0 animate-spin text-[#E8C766]" />
+          <section className="flex items-center gap-3 rounded-xl border border-[#FFE14D]/25 bg-[#FFE14D]/[0.06] p-4">
+            <RefreshCw className="h-5 w-5 shrink-0 animate-spin text-[#FFE14D]" />
             <div>
               <p className="text-sm font-semibold text-white">Disparo em andamento: {sendResults?.total ?? 0} de {sendingTotal} processados</p>
               <p className="mt-0.5 text-xs text-[#8F8A7C]">Os registros aparecem abaixo conforme a Meta aceita e atualiza cada mensagem.</p>
@@ -727,7 +727,7 @@ export default function InternoWhatsApp() {
         )}
 
         <section className="rounded-xl border border-[#2A2822] bg-[#1A1916] p-4">
-          <div className="mb-3 flex items-center justify-between"><h2 className="text-sm font-bold text-white">Histórico de envios</h2><BarChart3 size={17} className="text-[#E8C766]" /></div>
+          <div className="mb-3 flex items-center justify-between"><h2 className="text-sm font-bold text-white">Histórico de envios</h2><BarChart3 size={17} className="text-[#FFE14D]" /></div>
           {dashboardLoading ? <div className="py-10 text-center text-sm text-[#8F8A7C]">Carregando...</div> : recentDispatches.length === 0 ? <div className="py-10 text-center text-sm text-[#8F8A7C]">Nenhum disparo registrado ainda.</div> : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -768,18 +768,18 @@ export default function InternoWhatsApp() {
     const estimatedSpend = (marketingDispatches * 0.36) + (utilityDispatches * 0.06);
     const kpis = [
       { label: 'Disparos enviados', value: apiStatusCounts?.total ?? recentDispatches.length, subtitle: 'histórico da API', icon: Send, color: 'text-emerald-400 bg-emerald-500/10' },
-      { label: 'Enviados hoje', value: sentToday, subtitle: 'templates disparados', icon: Zap, color: 'text-[#E8C766] bg-[#E8C766]/10' },
+      { label: 'Enviados hoje', value: sentToday, subtitle: 'templates disparados', icon: Zap, color: 'text-[#FFE14D] bg-[#FFE14D]/10' },
       { label: 'Entregues', value: delivered, subtitle: 'status confirmado', icon: CheckCircle2, color: 'text-blue-400 bg-blue-500/10' },
       { label: 'Carrinhos abandonados', value: cartStats.abandoned, subtitle: 'há mais de 30 minutos', icon: ShoppingCart, color: 'text-orange-400 bg-orange-500/10' },
       { label: 'Carrinhos recuperados', value: cartStats.recovered, subtitle: 'compra identificada depois', icon: CheckCircle2, color: 'text-emerald-400 bg-emerald-500/10' },
-      { label: 'Automações ativas', value: activeCampaigns, subtitle: 'campanhas recorrentes', icon: CalendarClock, color: 'text-[#E8C766] bg-[#E8C766]/10' },
+      { label: 'Automações ativas', value: activeCampaigns, subtitle: 'campanhas recorrentes', icon: CalendarClock, color: 'text-[#FFE14D] bg-[#FFE14D]/10' },
       { label: 'Gasto estimado', value: estimatedSpend.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }), subtitle: `${marketingDispatches} marketing · ${utilityDispatches} utilidade`, icon: DollarSign, color: 'text-cyan-400 bg-cyan-500/10' },
     ];
     return (
       <div className="space-y-6 pb-10">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <div className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-[#25D366]" /><h1 className="text-lg font-bold text-[#E8C766]">Disparos WhatsApp</h1></div>
+            <div className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-[#25D366]" /><h1 className="text-lg font-bold text-[#FFE14D]">Disparos WhatsApp</h1></div>
             <p className="mt-1 text-sm text-[#8F8A7C]">Acompanhe os envios e mantenha campanhas automáticas ativas.</p>
           </div>
           <div className="flex gap-2">
@@ -822,7 +822,7 @@ export default function InternoWhatsApp() {
                     : 'Envios por template registrados no WhatsApp'}
                 </p>
               </div>
-              <BarChart3 size={17} className="text-[#E8C766]" />
+              <BarChart3 size={17} className="text-[#FFE14D]" />
             </div>
             {dashboardLoading ? <div className="py-10 text-center text-sm text-[#8F8A7C]">Carregando histórico...</div> : recentDispatches.length === 0 ? <div className="py-10 text-center text-sm text-[#8F8A7C]">Nenhum disparo registrado ainda.</div> : <div className="divide-y divide-white/5">
               {recentDispatches.slice(0, 8).map((item) => { const si = waStatusInfo(item.status); return <div key={item.id} className="flex min-w-0 items-center justify-between gap-3 py-3">
@@ -840,9 +840,9 @@ export default function InternoWhatsApp() {
                 { name: 'Aniversário', description: 'Desconto especial para quem faz aniversário', path: '/interno/whatsapp/aniversario', icon: CalendarClock, active: birthdayCampaignActive },
                 { name: 'Rastreamento', description: 'Cliques e compras atribuídas aos links do WhatsApp', path: '/interno/whatsapp/rastreamento', icon: BarChart3, active: true },
               ].map((campaign) => (
-                <Link key={campaign.name} to={campaign.path} className="flex items-center justify-between gap-3 rounded-lg border border-white/5 bg-white/[0.03] p-3 transition-colors hover:border-[#E8C766]/30 hover:bg-white/[0.06]">
+                <Link key={campaign.name} to={campaign.path} className="flex items-center justify-between gap-3 rounded-lg border border-white/5 bg-white/[0.03] p-3 transition-colors hover:border-[#FFE14D]/30 hover:bg-white/[0.06]">
                   <div className="flex min-w-0 items-center gap-3">
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#E8C766]/10 text-[#E8C766]"><campaign.icon size={15} /></div>
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#FFE14D]/10 text-[#FFE14D]"><campaign.icon size={15} /></div>
                     <div className="min-w-0"><p className="text-xs font-semibold text-white">{campaign.name}</p><p className="line-clamp-2 text-[11px] leading-4 text-[#8F8A7C]">{campaign.description}</p></div>
                   </div>
                   <span className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-medium ${campaign.active ? 'bg-emerald-500/10 text-emerald-400' : 'bg-white/5 text-[#8F8A7C]'}`}>{campaign.active ? 'Ativa' : 'Configurar'}</span>
@@ -1273,7 +1273,7 @@ export default function InternoWhatsApp() {
             </Card>
             <Card className="border-border bg-card">
               <div className="p-4">
-                <Users className="w-6 h-6 text-[#E8C766] mb-2" />
+                <Users className="w-6 h-6 text-[#FFE14D] mb-2" />
                 <p className="text-muted-foreground text-xs">Contatos</p>
                 <p className="text-foreground font-semibold text-sm mt-1">{effectiveContacts.length} destinatários</p>
               </div>
@@ -1305,7 +1305,7 @@ export default function InternoWhatsApp() {
           <Card className="border-border bg-card">
             <div className="p-4">
               <div className="flex items-start gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#E8C766]/10 text-[#E8C766]">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#FFE14D]/10 text-[#FFE14D]">
                   <ImageIcon className="h-5 w-5" />
                 </div>
                 <div className="min-w-0 flex-1">

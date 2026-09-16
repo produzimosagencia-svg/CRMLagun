@@ -13,7 +13,7 @@ export default function InternoOrcamentoSite() {
           className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full"
           style={{ backgroundColor: 'rgba(232,199,102,0.14)' }}
         >
-          <Globe size={30} style={{ color: '#E8C766' }} />
+          <Globe size={30} style={{ color: '#FFE14D' }} />
         </div>
         <h1 className="text-2xl font-bold text-foreground mb-3">🌐 Orçamento de Site</h1>
         <p className="text-muted-foreground leading-relaxed mb-8 max-w-md mx-auto">

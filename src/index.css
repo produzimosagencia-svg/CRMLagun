@@ -99,29 +99,30 @@
   --card-foreground: #F2F1F7;
   --popover: #12121A;
   --popover-foreground: #F2F1F7;
-  --primary: #A78BFA;
+  --primary: #FFE14D;
   --primary-foreground: #0A0A0F;
   --secondary: #16161F;
   --secondary-foreground: #F2F1F7;
   --muted: #14141C;
   --muted-foreground: #8B8A9B;
   --accent: #1A1A24;
-  --accent-foreground: #C4B5FD;
-  --brand: #A78BFA;
+  --accent-foreground: #FFEC8A;
+  --brand: #FFE14D;
   --destructive: #E11D48;
   --destructive-foreground: #FFFFFF;
   --border: #1E1E29;
   --input: #16161F;
   --input-background: #0F0F16;
   --switch-background: #2A2A38;
-  --ring: #A78BFA;
+  --ring: #FFE14D;
 
-  /* Paleta de acentos — usada nos gráficos, tags e estados */
+  /* Acento do painel: amarelo sol neon. Verde/vermelho/azul continuam
+     com significado (dinheiro, erro, informação) e não viram amarelo. */
   --n-barra: #0A0A0F;
   --n-card-grad: linear-gradient(180deg, #111119, #0B0B10);
   --n-linha-grad: linear-gradient(180deg, #12121A, #0D0D12);
-  --n-roxo: #A78BFA;
-  --n-lilas: #C4B5FD;
+  --n-amarelo: #FFE14D;
+  --n-amarelo-suave: #FFEC8A;
   --n-verde: #34D399;
   --n-ambar: #FBBF24;
   --n-azul: #60A5FA;
@@ -159,8 +160,8 @@
   to   { opacity: 1; transform: none; }
 }
 @keyframes n-pulso {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(167,139,250,.5); }
-  50%      { box-shadow: 0 0 0 5px rgba(167,139,250,0); }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255,225,77,.5); }
+  50%      { box-shadow: 0 0 0 5px rgba(255,225,77,0); }
 }
 
 /* Troca de página */

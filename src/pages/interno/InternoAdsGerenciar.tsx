@@ -142,7 +142,7 @@ export default function InternoAdsGerenciar() {
     <div className="space-y-5 pb-8">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <div className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#E8C766]">
+          <div className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#FFE14D]">
             <ShieldCheck size={14} /> Central oficial Meta Ads
           </div>
           <h1 className="text-2xl font-black text-white">Gerenciar campanhas</h1>
@@ -152,7 +152,7 @@ export default function InternoAdsGerenciar() {
           <Button variant="outline" onClick={loadCampaigns} disabled={loading} className="border-white/10 bg-white/[0.03] text-white hover:bg-white/[0.08]">
             <RefreshCw size={15} className={loading ? 'mr-2 animate-spin' : 'mr-2'} /> Atualizar
           </Button>
-          <Button onClick={() => navigate('/interno/ads/criar')} className="bg-[#E8C766] font-bold text-[#191813] hover:bg-[#F0D77E]">
+          <Button onClick={() => navigate('/interno/ads/criar')} className="bg-[#FFE14D] font-bold text-[#191813] hover:bg-[#F0D77E]">
             <Plus size={16} className="mr-2" /> Nova campanha
           </Button>
         </div>
@@ -163,7 +163,7 @@ export default function InternoAdsGerenciar() {
           { label: 'Gasto · 30 dias', value: totals.spend.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }), icon: WalletCards, color: 'text-rose-300' },
           { label: 'Alcance · 30 dias', value: formatMetric(totals.reach), icon: Eye, color: 'text-purple-300' },
           { label: 'Impressões · 30 dias', value: formatMetric(totals.impressions), icon: BarChart3, color: 'text-blue-300' },
-          { label: 'Cliques · 30 dias', value: formatMetric(totals.clicks), icon: MousePointerClick, color: 'text-[#E8C766]' },
+          { label: 'Cliques · 30 dias', value: formatMetric(totals.clicks), icon: MousePointerClick, color: 'text-[#FFE14D]' },
         ].map((item) => <div key={item.label} className="rounded-2xl border border-white/10 bg-white/[0.035] p-4">
           <div className="mb-5 flex items-center justify-between"><item.icon size={18} className={item.color} /><span className="h-2 w-2 rounded-full bg-white/10" /></div>
           <p className="text-2xl font-black text-white">{item.value}</p><p className="mt-1 text-xs text-white/40">{item.label}</p>
@@ -177,7 +177,7 @@ export default function InternoAdsGerenciar() {
             <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar campanha..." className="border-white/10 bg-white/[0.04] pl-9 text-white placeholder:text-white/25" />
           </div>
           <div className="flex rounded-lg border border-white/10 bg-black/10 p-1">
-            {[['all', 'Todas'], ['ACTIVE', 'Ativas'], ['PAUSED', 'Pausadas']].map(([value, label]) => <button key={value} onClick={() => setStatus(value)} className={`rounded-md px-3 py-1.5 text-xs font-semibold transition ${status === value ? 'bg-[#E8C766] text-[#191813]' : 'text-white/45 hover:text-white'}`}>{label}</button>)}
+            {[['all', 'Todas'], ['ACTIVE', 'Ativas'], ['PAUSED', 'Pausadas']].map(([value, label]) => <button key={value} onClick={() => setStatus(value)} className={`rounded-md px-3 py-1.5 text-xs font-semibold transition ${status === value ? 'bg-[#FFE14D] text-[#191813]' : 'text-white/45 hover:text-white'}`}>{label}</button>)}
           </div>
         </div>
 
@@ -204,8 +204,8 @@ export default function InternoAdsGerenciar() {
           </div>}
       </div>
 
-      <div className="rounded-xl border border-[#E8C766]/20 bg-[#E8C766]/[0.06] px-4 py-3 text-xs leading-relaxed text-yellow-100/65">
-        <strong className="text-[#E8C766]">Modo seguro:</strong> criação gera campanha e conjunto pausados. Editar orçamento, ativar e pausar serão habilitados depois da validação do acesso avançado <code className="text-yellow-200">ads_management</code> e das regras internas de autorização.
+      <div className="rounded-xl border border-[#FFE14D]/20 bg-[#FFE14D]/[0.06] px-4 py-3 text-xs leading-relaxed text-yellow-100/65">
+        <strong className="text-[#FFE14D]">Modo seguro:</strong> criação gera campanha e conjunto pausados. Editar orçamento, ativar e pausar serão habilitados depois da validação do acesso avançado <code className="text-yellow-200">ads_management</code> e das regras internas de autorização.
       </div>
     </div>
   );

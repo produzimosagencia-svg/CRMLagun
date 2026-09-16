@@ -33,7 +33,7 @@ interface IGMedia {
 }
 
 const KPI_CARDS = [
-  { key: "followers", label: "Seguidores", icon: Users, color: "#E8C766" },
+  { key: "followers", label: "Seguidores", icon: Users, color: "#FFE14D" },
   { key: "reach", label: "Alcance (30d)", icon: TrendingUp, color: "#22C55E" },
   { key: "impressions", label: "Impressões (30d)", icon: Eye, color: "#3B82F6" },
   { key: "profile_views", label: "Visitas ao Perfil (30d)", icon: UserCheck, color: "#A855F7" },
@@ -57,7 +57,7 @@ function PostCard({ post }: { post: IGMedia }) {
       href={post.permalink}
       target="_blank"
       rel="noopener noreferrer"
-      className="group block rounded-xl overflow-hidden bg-[#191813] border border-white/5 hover:border-[#E8C766]/30 transition-all"
+      className="group block rounded-xl overflow-hidden bg-[#191813] border border-white/5 hover:border-[#FFE14D]/30 transition-all"
     >
       <div className="relative aspect-square overflow-hidden">
         <img
@@ -203,7 +203,7 @@ export default function InternoSocialMedia() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <div className="h-6 w-6 border-2 border-[#E8C766] border-t-transparent rounded-full animate-spin" />
+        <div className="h-6 w-6 border-2 border-[#FFE14D] border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -212,35 +212,13 @@ export default function InternoSocialMedia() {
     <div className="space-y-6 pb-10">
       {/* Header */}
       <div className="flex items-center gap-2">
-        <div className="w-2 h-2 rounded-full bg-[#E8C766]" />
-        <h1 className="text-lg font-bold text-[#E8C766]">Social Media</h1>
+        <div className="w-2 h-2 rounded-full bg-[#FFE14D]" />
+        <h1 className="text-lg font-bold text-[#FFE14D]">Social Media</h1>
+        {selectedAccount && <span className="text-sm text-muted-foreground">@{selectedAccount.username}</span>}
       </div>
 
-      {/* Account selector */}
-      {accounts.length > 0 && (
-        <div className="flex items-center gap-3 overflow-x-auto pb-1">
-          {accounts.map((acc) => (
-            <button
-              key={acc.id}
-              onClick={() => setSelectedAccount(acc)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all shrink-0 ${
-                selectedAccount?.id === acc.id
-                  ? "bg-[#E1306C] text-white"
-                  : "bg-white/5 text-[#8F8A7C] hover:bg-white/10 hover:text-white"
-              }`}
-            >
-              {acc.profile_picture_url && (
-                <img
-                  src={acc.profile_picture_url}
-                  alt=""
-                  className="w-6 h-6 rounded-full"
-                />
-              )}
-              @{acc.username}
-            </button>
-          ))}
-        </div>
-      )}
+      {/* Uma conta só (@lagunvix): o seletor de contas foi removido — o @ aparece
+          no cabeçalho acima. */}
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
@@ -275,7 +253,7 @@ export default function InternoSocialMedia() {
             <span className="text-xs text-[#8F8A7C]">Top 10 por engajamento</span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-xs text-[#E8C766] font-medium">
+            <span className="text-xs text-[#FFE14D] font-medium">
               {viralPosts.length} posts
             </span>
             {viralOpen ? (
@@ -311,7 +289,7 @@ export default function InternoSocialMedia() {
               onClick={(e) => e.stopPropagation()}
               value={mediaLimit}
               onChange={(e) => setMediaLimit(Number(e.target.value))}
-              className="text-xs bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-[#E8C766] font-medium"
+              className="text-xs bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-[#FFE14D] font-medium"
             >
               <option value={20}>20 posts</option>
               <option value={50}>50 posts</option>
@@ -330,7 +308,7 @@ export default function InternoSocialMedia() {
           <div className="px-4 pb-4">
             {loadingMedia ? (
               <div className="flex justify-center py-10">
-                <div className="h-6 w-6 border-2 border-[#E8C766] border-t-transparent rounded-full animate-spin" />
+                <div className="h-6 w-6 border-2 border-[#FFE14D] border-t-transparent rounded-full animate-spin" />
               </div>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">

@@ -204,50 +204,44 @@ export default function InternoComentarios() {
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <div className="flex items-center gap-2">
-            <MessageCircle className="text-[#E8C766]" size={22} />
+            <MessageCircle className="text-[#FFE14D]" size={22} />
             <h1 className="text-xl font-bold text-foreground">Comentários</h1>
           </div>
-          <p className="mt-1 text-sm text-muted-foreground">Acompanhe os comentários organizados por publicação do Instagram.</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Comentários por publicação{selectedAccount ? <> de <span className="font-medium text-foreground">@{selectedAccount.username}</span></> : null}.
+          </p>
         </div>
         <Button variant="outline" onClick={() => selectedAccountId ? void loadMedia(selectedAccountId) : void loadAccounts()} disabled={loading}>
           <RefreshCw className={loading ? 'animate-spin' : ''} size={15} /> Atualizar
         </Button>
       </div>
 
-      <div className="grid gap-3 rounded-xl border bg-card p-4 md:grid-cols-[240px_1fr]">
-        <label className="space-y-1.5 text-xs font-medium text-muted-foreground">
-          Conta do Instagram
-          <select
-            value={selectedAccountId}
-            onChange={event => setSelectedAccountId(event.target.value)}
-            className="h-10 w-full rounded-md border bg-background px-3 text-sm text-foreground"
-          >
-            {accounts.map(account => <option key={account.id} value={account.id}>@{account.username}</option>)}
-          </select>
-        </label>
+      <div className="grid gap-3 rounded-xl border bg-card p-4">
+        {/* Só existe uma conta conectada (@lagunvix); o seletor virava um menu de
+            um item só, então a conta agora aparece junto do título. */}
         <label className="space-y-1.5 text-xs font-medium text-muted-foreground">
           Buscar palavra
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
             <Input value={search} onChange={event => setSearch(event.target.value)} placeholder="Buscar palavra nos comentários…" className="pl-9 pr-10" />
-            {loadingSearch && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-[#E8C766]" size={16} />}
+            {loadingSearch && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-[#FFE14D]" size={16} />}
           </div>
         </label>
       </div>
 
       {normalizedSearch && commentsIndexed && !loadingSearch && (
-        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-[#E8C766]/25 bg-[#E8C766]/10 px-4 py-3 text-sm">
-          <span className="font-bold text-[#E8C766]">{matchingCommentsCount.toLocaleString('pt-BR')}</span>
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-[#FFE14D]/25 bg-[#FFE14D]/10 px-4 py-3 text-sm">
+          <span className="font-bold text-[#FFE14D]">{matchingCommentsCount.toLocaleString('pt-BR')}</span>
           <span className="text-foreground/85">{matchingCommentsCount === 1 ? 'comentário encontrado' : 'comentários encontrados'} com “{search.trim()}” em {filteredMedia.length} {filteredMedia.length === 1 ? 'publicação' : 'publicações'}.</span>
         </div>
       )}
 
       {loading ? (
-        <div className="flex min-h-64 items-center justify-center rounded-xl border bg-card"><Loader2 className="animate-spin text-[#E8C766]" /></div>
+        <div className="flex min-h-64 items-center justify-center rounded-xl border bg-card"><Loader2 className="animate-spin text-[#FFE14D]" /></div>
       ) : accounts.length === 0 ? (
         <div className="rounded-xl border bg-card p-14 text-center text-sm text-muted-foreground">Nenhuma conta do Instagram conectada.</div>
       ) : loadingSearch ? (
-        <div className="flex min-h-64 items-center justify-center gap-2 rounded-xl border bg-card text-sm text-muted-foreground"><Loader2 className="animate-spin text-[#E8C766]" size={18} /> Pesquisando nos comentários…</div>
+        <div className="flex min-h-64 items-center justify-center gap-2 rounded-xl border bg-card text-sm text-muted-foreground"><Loader2 className="animate-spin text-[#FFE14D]" size={18} /> Pesquisando nos comentários…</div>
       ) : filteredMedia.length === 0 ? (
         <div className="rounded-xl border bg-card p-14 text-center text-sm text-muted-foreground">{normalizedSearch ? `Nenhum comentário contém “${search.trim()}”.` : 'Nenhuma publicação encontrada.'}</div>
       ) : (
@@ -276,7 +270,7 @@ export default function InternoComentarios() {
                     </div>
                     <p className="mt-2 line-clamp-3 whitespace-pre-wrap text-sm text-foreground">{post.caption || 'Publicação sem legenda.'}</p>
                     <div className="mt-3 flex flex-wrap gap-2">
-                      {isSearching && <span className="inline-flex h-8 items-center rounded-md bg-[#E8C766]/10 px-3 text-xs font-semibold text-[#E8C766]">{postMatches} {postMatches === 1 ? 'comentário encontrado' : 'comentários encontrados'}</span>}
+                      {isSearching && <span className="inline-flex h-8 items-center rounded-md bg-[#FFE14D]/10 px-3 text-xs font-semibold text-[#FFE14D]">{postMatches} {postMatches === 1 ? 'comentário encontrado' : 'comentários encontrados'}</span>}
                       {!isSearching && <Button size="sm" variant={isOpen ? 'secondary' : 'outline'} onClick={() => void toggleComments(post)}>
                         {loadingCommentsId === post.id ? <Loader2 className="animate-spin" size={14} /> : <MessageCircle size={14} />}
                         {isOpen ? 'Ocultar comentários' : `Ver comentários (${post.comments_count || 0})`}

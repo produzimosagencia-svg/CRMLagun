@@ -233,7 +233,7 @@ export default function InternoLayout() {
 
   const railButtonClass = (active: boolean) =>
     `relative flex h-10 w-10 items-center justify-center rounded-lg transition-colors duration-150 ${
-      active ? 'text-[#A78BFA] bg-[#A78BFA]/[0.10]' : 'text-[#8B8A9B] hover:bg-white/[0.06] hover:text-[#F2F1F7]'
+      active ? 'text-[#FFE14D] bg-[#FFE14D]/[0.10]' : 'text-[#8B8A9B] hover:bg-white/[0.06] hover:text-[#F2F1F7]'
     }`;
 
   // Item do trilho: ícone + balão com o nome ao passar o mouse.
@@ -241,7 +241,7 @@ export default function InternoLayout() {
     <Tooltip>
       <TooltipTrigger asChild>
         <button type="button" onClick={onClick} aria-label={label} aria-current={active ? 'page' : undefined} className={railButtonClass(active)}>
-          {active && <span className="n-ativo absolute left-0 top-2 bottom-2 w-0.5 rounded-r bg-[#A78BFA]" />}
+          {active && <span className="n-ativo absolute left-0 top-2 bottom-2 w-0.5 rounded-r bg-[#FFE14D]" />}
           {children}
         </button>
       </TooltipTrigger>
@@ -298,7 +298,7 @@ export default function InternoLayout() {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <a href="https://wa.me/5527996528524" target="_blank" rel="noopener noreferrer" aria-label="Suporte"
-                    className="flex h-10 w-10 items-center justify-center rounded-lg text-[#C4B5FD] hover:bg-[#A78BFA]/15 transition-colors">
+                    className="flex h-10 w-10 items-center justify-center rounded-lg text-[#FFEC8A] hover:bg-[#FFE14D]/15 transition-colors">
                     <MessageCircle size={18} />
                   </a>
                 </TooltipTrigger>
@@ -339,7 +339,7 @@ export default function InternoLayout() {
                       style={{ animationDelay: `${i * 28}ms` }}
                       className={({ isActive }) =>
                         `n-item flex h-9 items-center gap-2.5 rounded-md px-3 text-[13px] transition-colors duration-150 ${
-                          isActive ? 'text-[#A78BFA] font-medium bg-[#A78BFA]/[0.08]' : 'text-[#8B8A9B] hover:text-[#F2F1F7] hover:bg-white/[0.04]'
+                          isActive ? 'text-[#FFE14D] font-medium bg-[#FFE14D]/[0.08]' : 'text-[#8B8A9B] hover:text-[#F2F1F7] hover:bg-white/[0.04]'
                         }`
                       }
                     >

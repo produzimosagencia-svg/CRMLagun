@@ -303,6 +303,19 @@ Deno.serve(async (req) => {
 
       const auto = automations.find((a) => a.trigger_comment && (!a.media_id || a.media_id === mediaId) && matches(text, a.keywords, a.match_type));
       await supabase.from("ig_events").insert({ event_type: "comment", igsid: fromId, automation_id: auto?.id ?? null, raw: change });
+
+      // O @ vem no payload do comentário e o id é o mesmo das DMs — aproveita
+      // para nomear a pessoa no Chat, mesmo sem o token do Instagram Login.
+      if (fromUser) {
+        await supabase.from("ig_contacts").upsert(
+          { igsid: fromId, username: fromUser, updated_at: new Date().toISOString() },
+          { onConflict: "igsid" },
+        );
+        await supabase.from("whatsapp_messages")
+          .update({ contact_name: fromUser, contact_username: fromUser })
+          .eq("phone", fromId).eq("channel", "instagram").is("contact_username", null);
+      }
+
       if (!auto) continue;
 
       await upsertContact(supabase, fromId, fromUser, auto.id);
@@ -369,10 +382,15 @@ Deno.serve(async (req) => {
 
       // Perfil do remetente (nome, @, foto) — cai no ID se o token não permitir.
       const profile = await fetchIgProfile(senderId, token);
-      const contactName = profile?.name ?? profile?.username ?? event.sender?.username ?? senderId;
+      // Sem Instagram Login a Meta não devolve perfil de terceiros; nesse caso
+      // vale o @ que já tenhamos visto em um comentário dessa mesma pessoa.
+      const { data: conhecido } = profile ? { data: null } : await supabase
+        .from("ig_contacts").select("username").eq("igsid", senderId).maybeSingle();
+      const username = profile?.username ?? event.sender?.username ?? conhecido?.username ?? null;
+      const contactName = profile?.name ?? username ?? senderId;
       await supabase.from("whatsapp_messages").insert({
         phone: senderId, contact_name: contactName,
-        contact_username: profile?.username ?? event.sender?.username ?? null,
+        contact_username: username,
         contact_avatar: profile?.profile_pic || null,
         direction: "incoming",
         message_type: isStoryMention ? "story_mention" : isStoryReaction ? "story_reaction" : isStoryReply ? "story_reply" : (msgText ? "text" : (msg.attachments?.[0]?.type ?? "attachment")),

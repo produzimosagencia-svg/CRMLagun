@@ -230,12 +230,19 @@ function ContactAvatar({ src, name, id, channel, size = 40 }: { src?: string | n
     </span>
   );
 }
-/** Rótulo de quem está falando: @ quando conhecido, senão os últimos dígitos do id. */
+/**
+ * Rótulo de quem está falando.
+ *
+ * No Instagram o @ só existe quando a pessoa já comentou em algum post (o
+ * webhook de comentário traz o username) ou quando o Instagram Login está
+ * conectado. Sem isso mostramos o id cru — do mesmo jeito que o WhatsApp
+ * mostra o número quando não há contato salvo. Nada de rótulo inventado.
+ */
 function contactLabel(channel: 'whatsapp' | 'instagram', name?: string | null, username?: string | null, id?: string | null) {
   if (channel === 'whatsapp') return name || formatPhone(id || '');
   if (username) return `@${username}`;
   if (name && !/^\d+$/.test(name)) return name;
-  return `Instagram · ····${(id || '').slice(-4)}`;
+  return id || '';
 }
 
 export default function InternoWhatsAppChat() {
@@ -1326,7 +1333,7 @@ export default function InternoWhatsAppChat() {
               <ContactAvatar src={selectedConv?.contact_avatar} name={selectedConv?.contact_name} id={selectedPhone || ''} channel={activeChannel} />
               <div className="flex-1 min-w-0">
                 <p className="font-bold text-sm truncate">{contactLabel(activeChannel, selectedConv?.contact_name, selectedConv?.contact_username, selectedPhone)}</p>
-                <p className="text-xs text-muted-foreground truncate">{activeChannel === 'instagram' ? (selectedConv?.contact_username ? `@${selectedConv.contact_username}` : 'perfil indisponível — conecte o Instagram Login') : formatPhone(selectedPhone)}</p>
+                <p className="text-xs text-muted-foreground truncate">{activeChannel === 'instagram' ? (selectedConv?.contact_username ? `@${selectedConv.contact_username}` : 'sem @ — a pessoa ainda não comentou em nenhum post') : formatPhone(selectedPhone)}</p>
               </div>
               {activeChannel === 'whatsapp' && (
                 <Button

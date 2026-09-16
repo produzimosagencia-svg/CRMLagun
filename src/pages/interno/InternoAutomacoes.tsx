@@ -70,7 +70,7 @@ export function TemplatesDialog({ open, onClose, onPick }: { open: boolean; onCl
     (!objective || t.objective === objective) && (!trigger || t.triggers.includes(trigger)) &&
     (!query || `${t.name} ${t.description}`.toLowerCase().includes(query.toLowerCase()))), [query, objective, trigger]);
   const Side = ({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) => (
-    <button onClick={onClick} className={`rounded-lg px-3 py-1.5 text-left text-sm ${active ? 'bg-[#E8C766]/15 font-semibold text-foreground' : 'text-muted-foreground hover:bg-muted'}`}>{label}</button>
+    <button onClick={onClick} className={`rounded-lg px-3 py-1.5 text-left text-sm ${active ? 'bg-[#FFE14D]/15 font-semibold text-foreground' : 'text-muted-foreground hover:bg-muted'}`}>{label}</button>
   );
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
@@ -93,13 +93,13 @@ export function TemplatesDialog({ open, onClose, onPick }: { open: boolean; onCl
           <div className="min-h-0 overflow-y-auto pr-1">
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
               {list.map((t) => (
-                <button key={t.key} onClick={() => onPick(t)} className="flex min-h-[190px] flex-col rounded-xl border border-border bg-card p-4 text-left transition-all hover:border-[#E8C766] hover:shadow-sm">
-                  <span className="mb-2 w-fit rounded-full bg-[#E8C766]/15 px-2 py-0.5 text-[11px] font-semibold text-foreground">{OBJECTIVE_LABELS[t.objective]}</span>
+                <button key={t.key} onClick={() => onPick(t)} className="flex min-h-[190px] flex-col rounded-xl border border-border bg-card p-4 text-left transition-all hover:border-[#FFE14D] hover:shadow-sm">
+                  <span className="mb-2 w-fit rounded-full bg-[#FFE14D]/15 px-2 py-0.5 text-[11px] font-semibold text-foreground">{OBJECTIVE_LABELS[t.objective]}</span>
                   <strong className="text-[15px] leading-snug">{t.name}</strong>
                   <p className="mt-1 text-sm text-muted-foreground">{t.description}</p>
                   <div className="mt-auto pt-3 flex flex-wrap gap-1">{t.triggers.map((x) => <TriggerPill key={x} t={x} />)}</div>
                   {t.keywords?.length ? <p className="mt-2 text-[11px] text-muted-foreground">Palavras-chave: {t.keywords.join(', ')}</p> : null}
-                  {t.popular && <span className="mt-2 w-fit rounded bg-[#E8C766] px-1.5 py-0.5 text-[10px] font-bold uppercase text-black">Popular</span>}
+                  {t.popular && <span className="mt-2 w-fit rounded bg-[#FFE14D] px-1.5 py-0.5 text-[10px] font-bold uppercase text-black">Popular</span>}
                 </button>
               ))}
               {!list.length && <p className="col-span-3 py-16 text-center text-sm text-muted-foreground">Nenhum modelo encontrado.</p>}
@@ -261,7 +261,7 @@ export default function InternoAutomacoes() {
           <h2 className="text-lg font-semibold">Automações do Instagram</h2>
           <p className="text-sm text-muted-foreground">Respostas automáticas a comentários, directs e stories do @lagunvix — no estilo ManyChat, rodando aqui dentro.</p>
         </div>
-        <Button onClick={() => setModal(true)} className="bg-[#E8C766] text-black hover:bg-[#d9b854]"><Plus size={16} className="mr-1.5" /> Nova automação</Button>
+        <Button onClick={() => setModal(true)} className="bg-[#FFE14D] text-black hover:bg-[#E5C62E]"><Plus size={16} className="mr-1.5" /> Nova automação</Button>
       </div>
 
       <ConnectionCard onChanged={load} />
@@ -295,8 +295,8 @@ export default function InternoAutomacoes() {
               <div className="grid grid-cols-[2.2fr_1.4fr_.7fr_.7fr_.7fr_1fr_150px] items-center gap-4 border-b border-border px-5 py-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"><span>Automação</span><span>Gatilho</span><span>Disparos</span><span>DMs</span><span>Cliques</span><span>Atualizada</span><span /></div>
               {lista.map((a) => { const st = STATUS[a.status]; const d = a.definition; const s = stats[a.id]; const kws = d?.trigger?.keywords || []; return (
                 <div key={a.id} role="button" tabIndex={0} onClick={() => navigate(`/interno/automacoes/${a.id}`)} onKeyDown={(e) => { if (e.key === 'Enter') navigate(`/interno/automacoes/${a.id}`); }} className="grid cursor-pointer grid-cols-[2.2fr_1.4fr_.7fr_.7fr_.7fr_1fr_150px] items-center gap-4 border-b border-border px-5 py-4 transition-colors last:border-0 hover:bg-muted/40">
-                  <div className="flex min-w-0 items-center gap-3"><span className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg ${a.status === 'active' ? 'bg-[#E8C766]/20 text-[#b8952f]' : 'bg-muted text-muted-foreground'}`}><Zap size={16} /></span><div className="min-w-0"><div className="flex items-center gap-2"><span className="truncate text-sm font-semibold">{a.name}</span><span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${st.cls}`}>{st.label}</span></div><div className="mt-0.5 truncate text-xs text-muted-foreground">{a.description || `${d?.nodes?.length || 0} etapas · ${d?.trigger?.match === 'exact' ? 'correspondência exata' : d?.trigger?.match === 'any' ? 'qualquer mensagem' : 'contém a palavra'}`}</div></div></div>
-                  <div className="flex min-w-0 flex-col gap-1"><span className="truncate text-xs font-medium">{(d?.trigger?.types || []).map((x) => TRIGGER_LABELS[x]).join(' · ') || '—'}</span>{kws.length > 0 && <div className="flex flex-wrap gap-1">{kws.slice(0, 3).map((k) => <span key={k} className="rounded-full bg-[#E8C766]/15 px-2 py-0.5 text-[10px] font-medium">{k}</span>)}{kws.length > 3 && <span className="text-[10px] text-muted-foreground">+{kws.length - 3}</span>}</div>}</div>
+                  <div className="flex min-w-0 items-center gap-3"><span className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg ${a.status === 'active' ? 'bg-[#FFE14D]/20 text-[#E5C62E]' : 'bg-muted text-muted-foreground'}`}><Zap size={16} /></span><div className="min-w-0"><div className="flex items-center gap-2"><span className="truncate text-sm font-semibold">{a.name}</span><span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${st.cls}`}>{st.label}</span></div><div className="mt-0.5 truncate text-xs text-muted-foreground">{a.description || `${d?.nodes?.length || 0} etapas · ${d?.trigger?.match === 'exact' ? 'correspondência exata' : d?.trigger?.match === 'any' ? 'qualquer mensagem' : 'contém a palavra'}`}</div></div></div>
+                  <div className="flex min-w-0 flex-col gap-1"><span className="truncate text-xs font-medium">{(d?.trigger?.types || []).map((x) => TRIGGER_LABELS[x]).join(' · ') || '—'}</span>{kws.length > 0 && <div className="flex flex-wrap gap-1">{kws.slice(0, 3).map((k) => <span key={k} className="rounded-full bg-[#FFE14D]/15 px-2 py-0.5 text-[10px] font-medium">{k}</span>)}{kws.length > 3 && <span className="text-[10px] text-muted-foreground">+{kws.length - 3}</span>}</div>}</div>
                   <div className="text-base font-bold">{dash(s?.triggers || 0)}</div>
                   <div className="text-base font-bold">{dash(s?.dms || 0)}</div>
                   <div className="text-base font-bold">{dash(s?.clicks || 0)}</div>
