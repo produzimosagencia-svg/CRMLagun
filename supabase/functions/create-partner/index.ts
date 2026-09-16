@@ -71,7 +71,8 @@ Deno.serve(async (req) => {
     // mesmo sem trigger de auto-criação no banco
     const { error: profileError } = await supabaseAdmin
       .from("profiles")
-      .upsert({ id: userId, username: username || null, full_name });
+      // Conta nasce com a senha geral: a pessoa cadastra a própria no 1º login.
+      .upsert({ id: userId, username: username || null, full_name, precisa_definir_senha: true });
 
     if (profileError) throw profileError;
 

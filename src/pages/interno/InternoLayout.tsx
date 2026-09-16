@@ -10,6 +10,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import SplashScreen from '@/components/SplashScreen';
+import { DefinirSenha } from '@/components/interno/DefinirSenha';
 import { supabase } from '@/integrations/supabase/client';
 import flamingoLagun from '@/assets/flamingo-solo.png';
 import logoPrive from '@/assets/logo-prive-preto.png';
@@ -58,6 +59,8 @@ export default function InternoLayout() {
   // Splash pós-login: flag gravado pelo InternoLogin apenas em autenticação
   // bem-sucedida; consumido uma única vez aqui (não dispara em rotas internas).
   const [splash, setSplash] = useState(() => sessionStorage.getItem('interno-splash') === '1');
+  // Primeiro acesso com a senha geral: null = ainda verificando.
+  const [precisaDefinirSenha, setPrecisaDefinirSenha] = useState<boolean | null>(null);
   const location = useLocation();
   const navigate = useNavigate();
   const path = location.pathname;
@@ -84,11 +87,22 @@ export default function InternoLayout() {
     });
   }, []);
 
+  useEffect(() => {
+    if (!user?.id) { setPrecisaDefinirSenha(null); return; }
+    let vivo = true;
+    (supabase as any).from('profiles').select('precisa_definir_senha').eq('id', user.id).maybeSingle()
+      .then(({ data }: { data: { precisa_definir_senha?: boolean } | null }) => {
+        if (vivo) setPrecisaDefinirSenha(Boolean(data?.precisa_definir_senha));
+      });
+    return () => { vivo = false; };
+  }, [user?.id]);
+
   // Overlay da splash: fica ACIMA de tudo (z-100) enquanto o app carrega por
   // baixo — inclusive sobre o spinner de loading, evitando qualquer piscada.
   const splashOverlay = splash ? <SplashScreen onComplete={() => setSplash(false)} /> : null;
 
-  if (loading) {
+  // Espera também a checagem da senha, senão o painel pisca antes da tela de cadastro.
+  if (loading || (user && precisaDefinirSenha === null)) {
     return (
       <>
         {splashOverlay}
@@ -100,6 +114,12 @@ export default function InternoLayout() {
   }
 
   if (!user || !isPartner) return <Navigate to="/interno/login" replace />;
+
+  // Bloqueia o painel até a pessoa trocar a senha geral por uma própria.
+  if (precisaDefinirSenha) {
+    const primeiroNome = (user.user_metadata?.full_name as string | undefined)?.split(' ')[0] ?? '';
+    return <DefinirSenha nome={primeiroNome} onConcluido={() => setPrecisaDefinirSenha(false)} onSair={signOut} />;
+  }
 
   const userName = user.user_metadata?.full_name
     ? (user.user_metadata.full_name as string).split(' ')[0]

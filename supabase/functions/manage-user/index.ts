@@ -72,6 +72,8 @@ Deno.serve(async (req) => {
       const profileFields: Record<string, unknown> = { id: user_id };
       if (full_name !== undefined) profileFields.full_name = full_name;
       if (username !== undefined) profileFields.username = username;
+      // Admin redefiniu a senha: a pessoa volta a cadastrar a própria no próximo login.
+      if (password) profileFields.precisa_definir_senha = true;
       const { error: profileError } = await supabaseAdmin.from("profiles").upsert(profileFields);
       if (profileError) throw profileError;
       return json({ success: true });
