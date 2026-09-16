@@ -17,6 +17,7 @@ import fotoLounge2 from '@/assets/DSC_9565.jpg';
 import fotoLounge3 from '@/assets/DSC_8794.jpg';
 import fotoLounge4 from '@/assets/DSC_9422.jpg';
 import fotoAniversario from '@/assets/foto-aniversario.jpg';
+import fotoCapaFotos from '@/assets/DSC_8794.jpg';
 
 interface LandingEvento {
   id: string;
@@ -64,10 +65,45 @@ function trackClick(eventId: string) {
   }
 }
 
+interface AlbumFotos { title: string; url: string; cover_url: string | null }
+
+// Cartão único de fotos — mesmo visual dos álbuns da página /fotos, mas já
+// abrindo o Drive do álbum em destaque (o primeiro visível no painel).
+function CartaoFotos({ album, className = '' }: { album: AlbumFotos | null; className?: string }) {
+  return (
+    <a
+      href={album?.url ?? '/fotos'}
+      target={album ? '_blank' : undefined}
+      rel="noopener noreferrer"
+      className={`group relative flex min-h-44 flex-col justify-end overflow-hidden p-5 text-left transition-transform duration-300 hover:-translate-y-1 active:scale-[0.99] ${className}`}
+      style={{ borderRadius: '18px', border: '1px solid rgba(245,212,112,0.18)', backgroundColor: '#2B0E00' }}
+    >
+      <img src={album?.cover_url || fotoCapaFotos} alt="" className="absolute inset-0 h-full w-full object-cover opacity-70 transition-transform duration-500 group-hover:scale-105" />
+      <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(18,5,0,0.94), rgba(18,5,0,0.08))' }} />
+      <div className="relative">
+        <p className="mb-1.5 text-[10px] uppercase tracking-[0.22em]" style={{ color: '#F5D470' }}>Memórias da noite</p>
+        <h3 className="text-2xl font-light leading-tight text-white" style={{ fontFamily: "'Crimson Pro', serif" }}>Fotos da noite</h3>
+        <span className="mt-3 inline-flex text-[10px] font-bold uppercase tracking-[0.17em]" style={{ color: 'rgba(255,255,255,0.78)' }}>Abrir fotos →</span>
+      </div>
+    </a>
+  );
+}
+
 export default function LandingPage() {
   const revealRef = useRef<HTMLDivElement>(null);
   const [carouselIndex, setCarouselIndex] = useState(0);
   const [eventos, setEventos] = useState<LandingEvento[]>([]);
+  const [albumFotos, setAlbumFotos] = useState<AlbumFotos | null>(null);
+
+  useEffect(() => {
+    (supabase as any)
+      .from('landing_photo_links')
+      .select('title, url, cover_url')
+      .eq('is_visible', true)
+      .order('display_order', { ascending: true })
+      .limit(1)
+      .then(({ data }: { data: AlbumFotos[] | null }) => setAlbumFotos(data?.[0] ?? null));
+  }, []);
 
   useEffect(() => {
     (supabase as any)
@@ -340,24 +376,7 @@ export default function LandingPage() {
               Comemore seu aniversário!
             </span>
           </a>
-          <a
-            href="/fotos"
-            className="w-full flex items-center justify-center gap-2 py-3 transition-all active:scale-95"
-            style={{
-              borderRadius: '14px',
-              border: '1px solid rgba(245,212,112,0.15)',
-              backgroundColor: 'transparent',
-            }}
-          >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="rgba(245,212,112,0.5)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-              <polyline points="7 10 12 15 17 10" />
-              <line x1="12" y1="15" x2="12" y2="3" />
-            </svg>
-            <span className="text-xs tracking-widest uppercase" style={{ color: 'rgba(245,212,112,0.45)', letterSpacing: '0.15em' }}>
-              Fotos da noite
-            </span>
-          </a>
+          <CartaoFotos album={albumFotos} />
         </div>
 
         {/* Rodapé mobile */}
@@ -544,6 +563,8 @@ export default function LandingPage() {
               >
                 AGENDAR ANIVERSÁRIO
               </a>
+
+              <CartaoFotos album={albumFotos} className="mt-6 max-w-md" />
             </div>
 
             <div
@@ -557,49 +578,6 @@ export default function LandingPage() {
               <img src={fotoAniversario} alt="Aniversário na Lagun" className="absolute inset-0 w-full h-full object-cover" />
               <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(26,8,0,0.5) 0%, transparent 60%)' }} />
             </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ── SEÇÃO · FOTOS ───────────────────────────────────────────────────── */}
-      <section
-        className="reveal hidden md:block px-4 md:px-10 py-20"
-        id="fotos"
-        style={{ borderTop: '1px solid rgba(245,212,112,0.08)' }}
-      >
-        <div className="max-w-6xl mx-auto">
-          <div className="flex flex-col items-center text-center gap-6">
-            <span className="text-xs tracking-[0.35em] uppercase" style={{ color: '#F5D470' }}>
-              Memórias da noite
-            </span>
-            <h2
-              className="text-4xl md:text-5xl font-light leading-tight"
-              style={{ fontFamily: "'Crimson Pro', serif", color: 'white' }}
-            >
-              Você estava lá? <em style={{ color: '#F5D470' }}>Confira as fotos.</em>
-            </h2>
-            <a
-              href="/fotos"
-              className="inline-flex items-center gap-3 px-10 py-4 text-xs tracking-widest font-semibold transition-all hover:opacity-90 active:scale-95"
-              style={{
-                background: 'linear-gradient(135deg, #F5D470 0%, #e8b830 50%, #F5D470 100%)',
-                color: '#1A0800',
-                borderRadius: '12px',
-                boxShadow: '0 0 24px rgba(245,212,112,0.5), 0 4px 16px rgba(245,212,112,0.3)',
-                border: '1px solid rgba(255,235,130,0.6)',
-              }}
-            >
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                <polyline points="7 10 12 15 17 10" />
-                <line x1="12" y1="15" x2="12" y2="3" />
-              </svg>
-              CONFIRA AS FOTOS
-            </a>
-
-            <p className="text-[11px]" style={{ color: 'rgba(255,255,255,0.2)' }}>
-              Google Drive · acesso gratuito · sem necessidade de login
-            </p>
           </div>
         </div>
       </section>
