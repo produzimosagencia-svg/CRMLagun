@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Heart, Instagram, Loader2, MessageCircle, MessagesSquare, MousePointerClick,
-  RefreshCw, TrendingUp, Users, Zap, ExternalLink,
+  TrendingUp, Users, Zap, ExternalLink,
 } from 'lucide-react';
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { supabase } from '@/integrations/supabase/client';
@@ -226,24 +226,10 @@ export default function InternoDashboardSocial() {
 
   return (
     <div className="space-y-4">
-      {/* Cabeçalho */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          {perfil?.profile_picture_url
-            ? <img src={perfil.profile_picture_url} alt="" className="h-10 w-10 rounded-full object-cover" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
-            : <span className="grid h-10 w-10 place-items-center rounded-full bg-[#FFE14D]/15 text-[#FFE14D]"><Instagram size={18} /></span>}
-          <div>
-            <h1 className="font-display text-lg font-semibold leading-tight">Redes sociais</h1>
-            <p className="text-xs text-muted-foreground">{perfil ? `@${perfil.username} · ${nf.format(perfil.media_count)} publicações` : 'Carregando perfil…'}</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="flex gap-0.5 rounded-full border border-border bg-card p-1">
-            <Periodo v={7} label="7 dias" /><Periodo v={30} label="30 dias" /><Periodo v={90} label="90 dias" />
-          </div>
-          <Button variant="outline" size="sm" onClick={() => void carregar()} disabled={carregando}>
-            <RefreshCw size={14} className={carregando ? 'animate-spin' : ''} />
-          </Button>
+      {/* Só o seletor de período: identidade e perfil vivem na barra abaixo. */}
+      <div className="flex justify-end">
+        <div className="flex gap-0.5 rounded-full border border-border bg-card p-1">
+          <Periodo v={7} label="7 dias" /><Periodo v={30} label="30 dias" /><Periodo v={90} label="90 dias" />
         </div>
       </div>
 
@@ -259,6 +245,10 @@ export default function InternoDashboardSocial() {
         titulo="Instagram conectado"
         subtitulo={perfil ? <>@{perfil.username} · {nf.format(perfil.media_count)} publicações</> : 'carregando…'}
         carregando={carregando && !perfil}
+        avatar={perfil?.profile_picture_url
+          ? <img src={perfil.profile_picture_url} alt="" className="h-11 w-11 shrink-0 rounded-full object-cover ring-2 ring-white/15"
+              onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+          : <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white/10 text-white/70"><Instagram size={18} /></span>}
         itens={[
           { label: 'Seguidores', valor: perfil ? nf.format(perfil.followers_count) : '—', sub: 'conta profissional', cor: CORES.ouro, barra: 100 },
           { label: 'Engajamento', valor: engajamento.taxa ? pct(engajamento.taxa) : '—', sub: engajamento.posts ? `média de ${engajamento.posts} ${engajamento.posts === 1 ? 'post' : 'posts'}` : undefined, cor: CORES.verde, barra: Math.min(100, engajamento.taxa * 20) },

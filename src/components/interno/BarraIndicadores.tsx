@@ -56,28 +56,33 @@ function Metrica({ label, valor, sub, cor = CORES.ouro, barra }: Indicador) {
   );
 }
 
-export function BarraIndicadores({ titulo, subtitulo, itens, carregando = false }: {
+export function BarraIndicadores({ titulo, subtitulo, itens, carregando = false, avatar }: {
   titulo: string;
   subtitulo?: ReactNode;
   itens: Indicador[];
   carregando?: boolean;
+  /** Foto opcional ao lado do bloco de contexto (ex.: perfil conectado). */
+  avatar?: ReactNode;
 }) {
   return (
     <section
       className={`grid items-center gap-4 rounded-[22px] p-5 text-white shadow-[0_16px_40px_rgba(0,0,0,.35)] sm:p-6 md:grid-cols-2 ${
-        { 2: 'xl:grid-cols-[minmax(140px,.9fr)_repeat(2,minmax(0,1fr))]',
-          3: 'xl:grid-cols-[minmax(140px,.9fr)_repeat(3,minmax(0,1fr))]',
-          4: 'xl:grid-cols-[minmax(140px,.9fr)_repeat(4,minmax(0,1fr))]',
-          5: 'xl:grid-cols-[minmax(140px,.9fr)_repeat(5,minmax(0,1fr))]',
-        }[Math.min(Math.max(itens.length, 2), 5)] ?? 'xl:grid-cols-[minmax(140px,.9fr)_repeat(4,minmax(0,1fr))]'
+        { 2: 'xl:grid-cols-[minmax(190px,1.05fr)_repeat(2,minmax(0,1fr))]',
+          3: 'xl:grid-cols-[minmax(190px,1.05fr)_repeat(3,minmax(0,1fr))]',
+          4: 'xl:grid-cols-[minmax(190px,1.05fr)_repeat(4,minmax(0,1fr))]',
+          5: 'xl:grid-cols-[minmax(190px,1.05fr)_repeat(5,minmax(0,1fr))]',
+        }[Math.min(Math.max(itens.length, 2), 5)] ?? 'xl:grid-cols-[minmax(190px,1.05fr)_repeat(4,minmax(0,1fr))]'
       }`}
       // Degradê do marrom (esquerda) ao ouro (direita), puxado para o marrom:
       // ele domina até 65% e o ouro entra contido no fim.
       style={{ background: 'linear-gradient(90deg, #1C1206 0%, #4A360C 65%, #A8811A 100%)' }}
     >
-      <div className="min-w-0 pr-2">
-        <strong className="block font-display text-sm font-semibold">{titulo}</strong>
-        {subtitulo && <span className="mt-1 block text-xs text-white/60">{subtitulo}</span>}
+      <div className="flex min-w-0 items-center gap-3 pr-2">
+        <div className="min-w-0 flex-1">
+          <strong className="block truncate font-display text-sm font-semibold">{titulo}</strong>
+          {subtitulo && <span className="mt-1 block truncate text-xs text-white/60">{subtitulo}</span>}
+        </div>
+        {avatar}
       </div>
       {carregando
         ? Array.from({ length: Math.max(itens.length, 3) }).map((_, i) => (
