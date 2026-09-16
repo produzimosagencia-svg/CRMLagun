@@ -144,7 +144,6 @@ export default function InternoLayout() {
         children: [
           { label: 'Campanhas', to: '/interno/ads/campanhas', icon: BarChart3 },
           { label: 'Criativos Campeões', to: '/interno/ads/criativos', icon: Trophy },
-          { label: 'Gerenciar', to: '/interno/ads/gerenciar', icon: Settings },
         ],
       },
     ],

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   ArrowLeft,
+  Check,
   ChevronDown,
   DollarSign,
   Eye,
@@ -17,9 +18,10 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { BarraIndicadores, CORES } from '@/components/interno/BarraIndicadores';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { generateAdsReport } from '@/lib/generateAdsReport';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { baixarRelatorioPdf } from '@/lib/relatorioPdf';
+import { RelatorioCampanhas, type LinhaCampanha } from '@/components/interno/RelatorioCampanhas';
 import { toast } from 'sonner';
-import flamingoSrc from '@/assets/simbolo-lagun.png';
 
 const ADS_ACCOUNT_ID = (import.meta.env.VITE_META_AD_ACCOUNT_ID || '').replace(/^act_/, '');
 
@@ -213,6 +215,9 @@ export default function InternoRelatorios() {
   const [error, setError] = useState<string | null>(null);
   const [selectedAccount, setSelectedAccount] = useState<string | null>(null);
   const [datePreset, setDatePreset] = useState('last_30d');
+  const [pdfOpen, setPdfOpen] = useState(false);
+  const [pdfSel, setPdfSel] = useState<Set<string>>(new Set());
+  const [statusPorCampanha, setStatusPorCampanha] = useState<Map<string, boolean>>(new Map());
   const [insights, setInsights] = useState<CampaignInsight[]>([]);
   const [loadingInsights, setLoadingInsights] = useState(false);
   const [generatingPDF, setGeneratingPDF] = useState(false);
@@ -447,52 +452,6 @@ export default function InternoRelatorios() {
       .sort((a, b) => b.totalSpend - a.totalSpend);
   }, [insights, dailyBudgetByCampaign]);
 
-  const pdfGroups = useMemo(() => {
-    const grouped: Record<
-      string,
-      {
-        label: string;
-        icon: string;
-        type: 'sales' | 'engagement' | 'traffic' | 'other';
-        totalSpend: number;
-        campaigns: Array<{
-          name: string;
-          objective: string;
-          spend: number;
-          impressions: number;
-          clicks: number;
-          returnValue: number;
-        }>;
-      }
-    > = {};
-
-    for (const event of groupedByEvent) {
-      for (const row of event.rows) {
-        const key = row.objective;
-        if (!grouped[key]) {
-          grouped[key] = {
-            label: row.objLabel,
-            icon: row.objIcon,
-            type: row.objType,
-            totalSpend: 0,
-            campaigns: [],
-          };
-        }
-
-        grouped[key].totalSpend += row.spend;
-        grouped[key].campaigns.push({
-          name: event.eventName,
-          objective: row.objective,
-          spend: row.spend,
-          impressions: row.impressions,
-          clicks: row.clicks,
-          returnValue: row.returnValue,
-        });
-      }
-    }
-
-    return Object.values(grouped);
-  }, [groupedByEvent]);
 
   const toggleEventCollapse = (eventName: string) => {
     setCollapsedEvents((current) => ({
@@ -501,78 +460,73 @@ export default function InternoRelatorios() {
     }));
   };
 
-  const handleDownloadPDF = async () => {
-    const filename = `relatorio-ads-${datePreset}.pdf`;
-    const isEmbeddedPreview = window.self !== window.top;
-    const fallbackWindow = isEmbeddedPreview ? window.open('', '_blank', 'noopener,noreferrer') : null;
-
-    if (fallbackWindow) {
-      fallbackWindow.document.write(`
-        <html>
-          <head><title>Gerando PDF...</title></head>
-          <body style="font-family: Arial, sans-serif; padding: 24px; color: #111827;">
-            <h2 style="margin: 0 0 8px;">Gerando PDF...</h2>
-            <p style="margin: 0; color: #6b7280;">Se o download não iniciar automaticamente, o arquivo será aberto nesta aba.</p>
-          </body>
-        </html>
-      `);
-      fallbackWindow.document.close();
+  // ── Relatório em PDF ──────────────────────────────────────────────────────
+  // Abre o seletor de campanhas; o PDF sai no mesmo template usado na
+  // Produzimos (A4, destaque de investimento, faixa de métricas, tabela e
+  // grade de criativos), com a identidade do Lagun.
+  const campanhasDisponiveis = useMemo(() => {
+    const porId = new Map<string, LinhaCampanha>();
+    for (const row of insights) {
+      const id = row.campaign_id || row.campaign_name;
+      const atual = porId.get(id) ?? {
+        id, name: row.campaign_name || 'Campanha sem nome', objective: row.objective,
+        active: statusPorCampanha.get(id) !== false,
+        spend: 0, impressions: 0, reach: 0, clicks: 0, results: 0, revenue: 0, purchases: 0,
+      };
+      atual.spend += parseFloat(row.spend || '0');
+      atual.impressions += parseInt(row.impressions || '0', 10);
+      atual.reach += parseInt(row.reach || '0', 10);
+      atual.clicks += parseInt(row.clicks || '0', 10);
+      atual.revenue += getPurchaseValue(row);
+      atual.purchases += getPurchaseCount(row);
+      // "Resultados" segue o objetivo: compras em vendas, e a ação principal nos demais.
+      const principal = row.actions?.find((a) => ['purchase', 'omni_purchase', 'lead', 'onsite_conversion.messaging_first_reply', 'link_click'].includes(a.action_type));
+      atual.results += principal ? parseInt(principal.value, 10) : 0;
+      atual.active = statusPorCampanha.get(id) !== false;
+      porId.set(id, atual);
     }
+    return [...porId.values()].sort((a, b) => b.spend - a.spend);
+  }, [insights, statusPorCampanha]);
 
+  const abrirSeletorPdf = async () => {
+    // Seleciona todas por padrão e busca o status real (ativa/pausada).
+    setPdfSel(new Set(campanhasDisponiveis.map((c) => c.id)));
+    setPdfOpen(true);
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID
+        || (import.meta.env.VITE_SUPABASE_URL || '').match(/https?:\/\/([^.]+)\./)?.[1];
+      const r = await fetch(`https://${projectId}.supabase.co/functions/v1/meta-ads-api?action=campaigns&account_id=${selectedAccount}`,
+        { headers: { Authorization: `Bearer ${session?.session?.access_token}` } });
+      const j = await r.json();
+      if (!j.error) {
+        setStatusPorCampanha(new Map((j.data || []).map((c: { id: string; effective_status?: string }) => [c.id, c.effective_status === 'ACTIVE'])));
+      }
+    } catch { /* sem status: todas entram como ativas */ }
+  };
+
+  const gerarPdf = async () => {
+    const escolhidas = campanhasDisponiveis.filter((c) => pdfSel.has(c.id));
+    if (!escolhidas.length) return;
     setGeneratingPDF(true);
     try {
+      const nomes = new Set(escolhidas.map((c) => c.name));
+      const criativosDasEscolhidas = creatives
+        .filter((x) => nomes.has(x.campaign_name))
+        .map((x) => ({
+          ad_id: x.ad_id, ad_name: x.ad_name, campaign_name: x.campaign_name,
+          spend: x.spend, impressions: x.impressions, clicks: x.clicks, ctr: x.ctr,
+          thumbnail: x.thumbnail_url || x.image_url || null,
+        }));
       const dateLabel = DATE_PRESETS.find((preset) => preset.value === datePreset)?.label || datePreset;
-
-      // Convert flamingo to base64 for PDF
-      const logoBase64 = await new Promise<string>((resolve, reject) => {
-        const img = new Image();
-        img.crossOrigin = 'anonymous';
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          canvas.width = img.width;
-          canvas.height = img.height;
-          canvas.getContext('2d')!.drawImage(img, 0, 0);
-          resolve(canvas.toDataURL('image/png'));
-        };
-        img.onerror = reject;
-        img.src = flamingoSrc;
-      });
-
-      const doc = generateAdsReport({
-        summary,
-        groups: pdfGroups,
-        dateLabel: `Período: ${dateLabel}`,
-        logoBase64,
-      });
-
-      const pdfBlob = doc.output('blob');
-      const blobUrl = URL.createObjectURL(pdfBlob);
-
-      const link = document.createElement('a');
-      link.href = blobUrl;
-      link.download = filename;
-      link.rel = 'noopener';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-
-      if (fallbackWindow && !fallbackWindow.closed) {
-        fallbackWindow.location.href = blobUrl;
-      }
-
-      toast.success(
-        isEmbeddedPreview
-          ? 'PDF pronto. Se não baixar automaticamente, ele foi aberto em uma nova aba.'
-          : 'PDF gerado com sucesso!'
+      const dias = { today: 1, yesterday: 1, last_7d: 7, last_14d: 14, last_30d: 30, last_90d: 90 }[datePreset] ?? 30;
+      await baixarRelatorioPdf(
+        <RelatorioCampanhas cliente="Lagun" periodo={dateLabel} dias={dias} campanhas={escolhidas} criativos={criativosDasEscolhidas} />,
+        'relatorio-campanhas-lagun',
       );
-
-      window.setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
-    } catch (e: any) {
-      if (fallbackWindow && !fallbackWindow.closed) {
-        fallbackWindow.close();
-      }
-      console.error('PDF generation error:', e);
-      toast.error(`Erro ao gerar PDF: ${e?.message || 'Erro desconhecido'}`);
+      setPdfOpen(false);
+    } catch (e) {
+      console.error('[Relatórios] Falha ao gerar PDF', e);
     } finally {
       setGeneratingPDF(false);
     }
@@ -634,9 +588,9 @@ export default function InternoRelatorios() {
         <div className="flex items-center gap-2">
           <Button
             size="sm"
-            className="h-9 text-xs gap-1.5 bg-pink-500 hover:bg-pink-600 text-white"
+            className="h-9 gap-1.5 text-xs font-semibold text-black bg-[#FFE14D] hover:bg-[#FFEC8A] shadow-[0_0_20px_rgba(255,225,77,.45)]"
             disabled={loadingInsights || insights.length === 0 || generatingPDF}
-            onClick={handleDownloadPDF}
+            onClick={() => void abrirSeletorPdf()}
           >
             {generatingPDF ? <Loader2 size={14} className="animate-spin" /> : <FileDown size={14} />}
             {generatingPDF ? 'Gerando...' : 'Gerar PDF'}
@@ -830,6 +784,76 @@ export default function InternoRelatorios() {
           Nenhuma campanha encontrada para o período selecionado.
         </div>
       )}
+
+      {/* Seletor de campanhas do relatório */}
+      <Dialog open={pdfOpen} onOpenChange={setPdfOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Campanhas no relatório</DialogTitle>
+          </DialogHeader>
+          <p className="-mt-2 text-xs text-muted-foreground">
+            {DATE_PRESETS.find((x) => x.value === datePreset)?.label} · escolha o que entra no PDF.
+          </p>
+
+          <div className="flex items-center justify-between border-b border-border pb-2 text-xs">
+            <span className="text-muted-foreground">
+              {pdfSel.size} de {campanhasDisponiveis.length} selecionadas
+            </span>
+            <div className="flex gap-1">
+              <button onClick={() => setPdfSel(new Set(campanhasDisponiveis.map((c) => c.id)))} className="rounded-md px-2 py-1 font-medium hover:bg-muted">Todas</button>
+              <button onClick={() => setPdfSel(new Set())} className="rounded-md px-2 py-1 font-medium hover:bg-muted">Nenhuma</button>
+            </div>
+          </div>
+
+          <div className="max-h-[46vh] space-y-1 overflow-y-auto pr-1">
+            {campanhasDisponiveis.map((c) => {
+              const marcada = pdfSel.has(c.id);
+              return (
+                <button
+                  key={c.id}
+                  onClick={() => setPdfSel((prev) => {
+                    const n = new Set(prev);
+                    if (n.has(c.id)) n.delete(c.id); else n.add(c.id);
+                    return n;
+                  })}
+                  className={`flex w-full items-center gap-3 rounded-lg border px-3 py-2 text-left transition-colors ${
+                    marcada ? 'border-[#FFE14D]/60 bg-[#FFE14D]/[0.08]' : 'border-border hover:bg-muted/50'
+                  }`}
+                >
+                  <span className={`grid h-4 w-4 shrink-0 place-items-center rounded border ${marcada ? 'border-[#FFE14D] bg-[#FFE14D] text-black' : 'border-muted-foreground/40'}`}>
+                    {marcada && <Check size={11} strokeWidth={3} />}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-xs font-medium">{c.name}</span>
+                    <span className="block text-[11px] text-muted-foreground">
+                      {formatCurrency(c.spend)} · {formatNumber(c.impressions)} impressões
+                    </span>
+                  </span>
+                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${c.active ? 'bg-emerald-500/15 text-emerald-500' : 'bg-muted text-muted-foreground'}`}>
+                    {c.active ? 'Ativa' : 'Pausada'}
+                  </span>
+                </button>
+              );
+            })}
+            {!campanhasDisponiveis.length && (
+              <p className="py-8 text-center text-sm text-muted-foreground">Nenhuma campanha com entrega no período.</p>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setPdfOpen(false)}>Cancelar</Button>
+            <Button
+              size="sm"
+              disabled={!pdfSel.size || generatingPDF}
+              onClick={() => void gerarPdf()}
+              className="gap-1.5 font-semibold text-black bg-[#FFE14D] hover:bg-[#FFEC8A]"
+            >
+              {generatingPDF ? <Loader2 size={14} className="animate-spin" /> : <FileDown size={14} />}
+              {generatingPDF ? 'Gerando…' : `Gerar PDF (${pdfSel.size})`}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
