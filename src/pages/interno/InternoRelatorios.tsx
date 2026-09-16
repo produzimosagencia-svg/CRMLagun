@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { BarraIndicadores, CORES } from '@/components/interno/BarraIndicadores';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { generateAdsReport } from '@/lib/generateAdsReport';
 import { toast } from 'sonner';
@@ -612,42 +613,6 @@ export default function InternoRelatorios() {
     );
   }
 
-  const statCards = [
-    {
-      icon: DollarSign,
-      label: 'Gasto total',
-      value: formatCurrency(summary.spend),
-      color: 'text-red-500 bg-red-50 dark:bg-red-900/20',
-    },
-    {
-      icon: RotateCcw,
-      label: 'Retorno',
-      value: formatCurrency(summary.purchaseValue),
-      color: 'text-emerald-500 bg-emerald-50 dark:bg-emerald-900/20',
-      large: true,
-    },
-    {
-      icon: TrendingUp,
-      label: 'ROAS',
-      value: summary.roas > 0 ? `${summary.roas.toFixed(2)}x` : '—',
-      color: 'text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20',
-      large: true,
-    },
-    {
-      icon: Eye,
-      label: 'Impressões',
-      value: formatNumber(summary.impressions),
-      subtitle: `Alcance: ${formatNumber(summary.reach)}`,
-      color: 'text-purple-500 bg-purple-50 dark:bg-purple-900/20',
-    },
-    {
-      icon: MousePointerClick,
-      label: 'Cliques',
-      value: formatNumber(summary.clicks),
-      subtitle: summary.purchases > 0 ? `${summary.purchases} compras` : undefined,
-      color: 'text-purple-500 bg-purple-50 dark:bg-purple-900/20',
-    },
-  ];
 
   return (
     <div className="space-y-6">
@@ -698,25 +663,18 @@ export default function InternoRelatorios() {
         </div>
       )}
 
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-        {statCards.map((card) => (
-          <div
-            key={card.label}
-            className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 transition-colors hover:border-gray-300 dark:hover:border-gray-700"
-          >
-            <div className={`w-8 h-8 rounded-lg flex items-center justify-center mb-3 ${card.color}`}>
-              <card.icon size={16} />
-            </div>
-            <p className="text-xs text-gray-500 dark:text-gray-400">{card.label}</p>
-            <p className={`font-bold text-gray-900 dark:text-gray-100 mt-0.5 ${card.large ? 'text-2xl' : 'text-lg'}`}>
-              {card.value}
-            </p>
-            {card.subtitle && (
-              <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{card.subtitle}</p>
-            )}
-          </div>
-        ))}
-      </div>
+      <BarraIndicadores
+        titulo="Meta Ads conectado"
+        subtitulo={`${groupedByEvent.length} ${groupedByEvent.length === 1 ? 'evento' : 'eventos'} no período`}
+        carregando={loading}
+        itens={[
+          { label: 'Gasto total', valor: formatCurrency(summary.spend), sub: 'no período', cor: CORES.ambar, barra: 100 },
+          { label: 'Retorno', valor: formatCurrency(summary.purchaseValue), sub: summary.purchases > 0 ? `${summary.purchases} compras` : 'sem compras', cor: CORES.verde, barra: summary.spend ? Math.min(100, (summary.purchaseValue / summary.spend) * 25) : 0 },
+          { label: 'ROAS', valor: summary.roas > 0 ? `${summary.roas.toFixed(2)}x` : '—', sub: summary.roas > 0 ? `R$ ${summary.roas.toFixed(2).replace('.', ',')} por real` : undefined, cor: CORES.ouro, barra: Math.min(100, summary.roas * 20) },
+          { label: 'Impressões', valor: formatNumber(summary.impressions), sub: `alcance ${formatNumber(summary.reach)}`, cor: CORES.azul, barra: 72 },
+          { label: 'Cliques', valor: formatNumber(summary.clicks), sub: summary.impressions ? `CTR ${((summary.clicks / summary.impressions) * 100).toFixed(1).replace('.', ',')}%` : undefined, cor: CORES.branco, barra: summary.impressions ? Math.min(100, (summary.clicks / summary.impressions) * 100 * 20) : 0 },
+        ]}
+      />
 
       {loadingInsights && (
         <div className="flex items-center justify-center py-8">

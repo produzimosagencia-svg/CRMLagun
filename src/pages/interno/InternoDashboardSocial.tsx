@@ -7,6 +7,7 @@ import {
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
+import { BarraIndicadores, CORES } from '@/components/interno/BarraIndicadores';
 
 const db = supabase as any;
 const LAGUN_IG_ID = '17841436376156784';
@@ -234,15 +235,19 @@ export default function InternoDashboardSocial() {
         </div>
       )}
 
-      {/* KPIs */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-        <Kpi icon={Users} label="Seguidores" valor={perfil ? nf.format(perfil.followers_count) : '—'} sub={perfil ? `${nf.format(perfil.media_count)} publicações` : undefined} destaque />
-        <Kpi icon={TrendingUp} label="Engajamento" valor={engajamento.taxa ? pct(engajamento.taxa) : '—'}
-          sub={engajamento.posts ? `média de ${engajamento.posts} ${engajamento.posts === 1 ? 'post' : 'posts'}${engajamento.usandoFallback ? ' (últimos)' : ''}` : undefined} cor={VERDE} />
-        <Kpi icon={MessageCircle} label="DMs recebidas" valor={nf.format(totais.dms)} sub={`últimos ${dias} dias`} cor={ROSA} />
-        <Kpi icon={MessagesSquare} label="Comentários" valor={nf.format(totais.comentarios)} sub="captados pelo webhook" cor={AZUL} />
-        <Kpi icon={MousePointerClick} label="Cliques no link" valor={nf.format(totais.cliques)} sub={`${Math.round(totais.cliques / Math.max(dias, 1))}/dia em média`} cor={AMARELO} />
-      </div>
+      {/* Indicadores */}
+      <BarraIndicadores
+        titulo="Instagram conectado"
+        subtitulo={perfil ? <>@{perfil.username} · {nf.format(perfil.media_count)} publicações</> : 'carregando…'}
+        carregando={carregando && !perfil}
+        itens={[
+          { label: 'Seguidores', valor: perfil ? nf.format(perfil.followers_count) : '—', sub: 'conta profissional', cor: CORES.ouro, barra: 100 },
+          { label: 'Engajamento', valor: engajamento.taxa ? pct(engajamento.taxa) : '—', sub: engajamento.posts ? `média de ${engajamento.posts} ${engajamento.posts === 1 ? 'post' : 'posts'}` : undefined, cor: CORES.verde, barra: Math.min(100, engajamento.taxa * 20) },
+          { label: 'DMs recebidas', valor: nf.format(totais.dms), sub: `últimos ${dias} dias`, cor: CORES.rosa, barra: 62 },
+          { label: 'Comentários', valor: nf.format(totais.comentarios), sub: 'captados pelo webhook', cor: CORES.azul, barra: 48 },
+          { label: 'Cliques no link', valor: nf.format(totais.cliques), sub: `${nf.format(Math.round(totais.cliques / Math.max(dias, 1)))}/dia em média`, cor: CORES.branco, barra: 80 },
+        ]}
+      />
 
       {/* Movimento diário */}
       <CaixaGrafico titulo="Movimento diário" sub="Cliques no link da landing (eixo à esquerda) e DMs recebidas no Instagram (à direita)">

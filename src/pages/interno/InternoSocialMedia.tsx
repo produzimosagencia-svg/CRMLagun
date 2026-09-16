@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { BarraIndicadores, CORES } from "@/components/interno/BarraIndicadores";
 import {
   Users, TrendingUp, Eye, UserCheck, Heart, BarChart3,
   ChevronDown, ChevronUp, MessageCircle, Bookmark, Play,
@@ -220,26 +221,25 @@ export default function InternoSocialMedia() {
       {/* Uma conta só (@lagunvix): o seletor de contas foi removido — o @ aparece
           no cabeçalho acima. */}
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-        {KPI_CARDS.map(({ key, label, icon: Icon, color }) => (
-          <div
-            key={key}
-            className="rounded-xl border border-white/5 bg-[#191813] p-4 space-y-2"
-          >
-            <div
-              className="w-8 h-8 rounded-lg flex items-center justify-center"
-              style={{ backgroundColor: `${color}15` }}
-            >
-              <Icon size={16} style={{ color }} />
-            </div>
-            <p className="text-xl font-bold text-white">
-              {formatNumber(kpis[key] || 0)}
-            </p>
-            <p className="text-[11px] text-[#8F8A7C]">{label}</p>
-          </div>
-        ))}
-      </div>
+      {/* Indicadores — só o que a API devolve de fato. Alcance, impressões e
+          visitas ao perfil vinham dos Insights, que respondem
+          "(#10) Application does not have permission" e ficavam zerados. */}
+      <BarraIndicadores
+        titulo="Instagram conectado"
+        subtitulo={selectedAccount ? `@${selectedAccount.username}` : 'carregando…'}
+        carregando={!selectedAccount}
+        itens={[
+          { label: 'Seguidores', valor: formatNumber(kpis.followers || 0), sub: 'conta profissional', cor: CORES.ouro, barra: 100 },
+          { label: 'Publicações', valor: formatNumber(media.length), sub: 'carregadas no período', cor: CORES.branco, barra: 70 },
+          { label: 'Curtidas', valor: formatNumber(kpis.likes || 0), sub: 'somadas nas publicações', cor: CORES.rosa, barra: 84 },
+          { label: 'Comentários', valor: formatNumber(media.reduce((t, m) => t + (m.comments_count || 0), 0)), sub: 'somados nas publicações', cor: CORES.azul, barra: 46 },
+          { label: 'Engajamento', valor: (() => {
+              const inter = media.reduce((t, m) => t + (m.like_count || 0) + (m.comments_count || 0), 0);
+              const taxa = media.length && kpis.followers ? (inter / media.length / kpis.followers) * 100 : 0;
+              return taxa ? `${taxa.toFixed(1).replace('.', ',')}%` : '—';
+            })(), sub: 'média por publicação', cor: CORES.verde, barra: 58 },
+        ]}
+      />
 
       {/* Viral Posts */}
       <div className="rounded-xl border border-white/5 bg-[#191813]">

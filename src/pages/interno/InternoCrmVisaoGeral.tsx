@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { BarraIndicadores, CORES } from '@/components/interno/BarraIndicadores';
 import {
   Search, Users, DollarSign, Trophy, ChevronLeft, ChevronRight,
   X, Download, Loader2, TrendingUp, Calendar, Repeat2,
@@ -294,13 +295,16 @@ export default function InternoCrmVisaoGeral() {
     <div className="p-4 md:p-6 space-y-4">
 
       {/* ── Stats row ── */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <StatCard icon={<Users size={16} />}      label="Clientes"       value={totalContacts.toLocaleString('pt-BR')}  color="blue" />
-        <StatCard icon={<Calendar size={16} />}   label="Eventos"        value={eventStats.length.toLocaleString('pt-BR')} color="purple" />
-        <StatCard icon={<Trophy size={16} />}     label="Superfãs (2+)"  value={superfans.toLocaleString('pt-BR')}      color="green" />
-        <StatCard icon={<TrendingUp size={16} />} label="Novos (30d)"    value={newCustomers30d.toLocaleString('pt-BR')} color="orange" />
-      </div>
-
+      <BarraIndicadores
+        titulo="Base de clientes"
+        subtitulo={`${eventStats.length} ${eventStats.length === 1 ? 'evento' : 'eventos'} com histórico`}
+        itens={[
+          { label: 'Clientes', valor: totalContacts.toLocaleString('pt-BR'), sub: 'na base', cor: CORES.ouro, barra: 100 },
+          { label: 'Eventos', valor: eventStats.length.toLocaleString('pt-BR'), sub: 'com vendas registradas', cor: CORES.branco, barra: 55 },
+          { label: 'Superfãs (2+)', valor: superfans.toLocaleString('pt-BR'), sub: totalContacts ? `${Math.round((superfans / totalContacts) * 100)}% da base` : undefined, cor: CORES.verde, barra: totalContacts ? (superfans / totalContacts) * 100 : 0 },
+          { label: 'Novos (30d)', valor: newCustomers30d.toLocaleString('pt-BR'), sub: 'entraram no último mês', cor: CORES.azul, barra: totalContacts ? Math.min(100, (newCustomers30d / totalContacts) * 300) : 0 },
+        ]}
+      />
       {/* ── Body ── */}
       <div className="flex gap-4 items-start">
 

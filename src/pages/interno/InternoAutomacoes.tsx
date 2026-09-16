@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useAuth } from '@/hooks/useAuth';
+import { BarraIndicadores, CORES } from '@/components/interno/BarraIndicadores';
 import {
   OBJECTIVE_LABELS, TEMPLATES, TRIGGER_LABELS, compileForEngine, fromEngine, fmtDateTime, fmtNumber,
   type Automation, type Objective, type Stat, type Template, type TriggerType,
@@ -266,11 +267,17 @@ export default function InternoAutomacoes() {
 
       <ConnectionCard onChanged={load} />
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {[['Ativas', String(ativas), `${rows.length} no total`], ['Disparos', dash(total.triggers), 'comentários e directs captados'], ['DMs enviadas', dash(total.dms), total.triggers ? `${Math.round((total.dms / total.triggers) * 100)}% dos disparos` : 'aguardando disparos'], ['Cliques no link', dash(total.clicks), total.dms ? `CTR de ${Math.round((total.clicks / total.dms) * 100)}%` : 'links rastreados']].map(([l, v, sub]) => (
-          <div key={l} className="rounded-xl border border-border bg-card p-4"><p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{l}</p><p className="mt-1 text-2xl font-bold">{v}</p><p className="text-xs text-muted-foreground">{sub}</p></div>
-        ))}
-      </div>
+      <BarraIndicadores
+        titulo="Automações"
+        subtitulo={`${ativas} ${ativas === 1 ? 'ativa' : 'ativas'} de ${rows.length}`}
+        carregando={loading}
+        itens={[
+          { label: 'Ativas', valor: String(ativas), sub: `${rows.length} no total`, cor: CORES.ouro, barra: rows.length ? (ativas / rows.length) * 100 : 0 },
+          { label: 'Disparos', valor: dash(total.triggers), sub: 'comentários e directs captados', cor: CORES.branco, barra: 100 },
+          { label: 'DMs enviadas', valor: dash(total.dms), sub: total.triggers ? `${Math.round((total.dms / total.triggers) * 100)}% dos disparos` : 'aguardando disparos', cor: CORES.verde, barra: total.triggers ? (total.dms / total.triggers) * 100 : 0 },
+          { label: 'Cliques no link', valor: dash(total.clicks), sub: total.dms ? `CTR de ${Math.round((total.clicks / total.dms) * 100)}%` : 'links rastreados', cor: CORES.azul, barra: total.dms ? (total.clicks / total.dms) * 100 : 0 },
+        ]}
+      />
 
       {loading ? <div className="flex justify-center py-16"><Loader2 className="animate-spin text-muted-foreground" /></div> : !rows.length ? (
         <div className="rounded-xl border border-dashed border-border py-16 text-center">
