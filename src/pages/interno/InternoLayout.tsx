@@ -5,7 +5,7 @@ import { useSidebarSettings, type SidebarKey } from '@/hooks/useSidebarSettings'
 import { NotificationBell } from '@/components/NotificationBell';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
-  LogOut, Menu, X, ChevronRight, Ticket, MessageCircle, Send, Settings, User, Moon, Sun, Sparkles,
+  LogOut, Menu, X, ChevronRight, Ticket, MessageCircle, Send, Settings, User, Sparkles,
   Megaphone, BarChart3, Trophy, Users, ClipboardList, Cake, Globe, CalendarRange, LayoutDashboard,
   TrendingUp, MessagesSquare, ShoppingCart, RotateCcw, MousePointerClick, Zap, Crown, Database,
   type LucideIcon,
@@ -39,9 +39,6 @@ export default function InternoLayout() {
   const { isEnabled: isEnabledSetting } = useSidebarSettings();
   const isEnabled = (key: SidebarKey) => !DISABLED_SIDEBAR_MODULES.has(key) && isEnabledSetting(key);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  // Chave nova ('interno-tema'): o painel passou a ser noturno por padrão, então
-  // quem tinha 'light' salvo na chave antiga começa do zero no tema novo.
-  const [isDark, setIsDark] = useState(() => localStorage.getItem('interno-tema') !== 'claro');
   const [zigEvents, setZigEvents] = useState<EventItem[]>([]);
   // Splash pós-login: flag gravado pelo InternoLogin apenas em autenticação
   // bem-sucedida; consumido uma única vez aqui (não dispara em rotas internas).
@@ -52,10 +49,13 @@ export default function InternoLayout() {
 
   useEffect(() => { if (splash) sessionStorage.removeItem('interno-splash'); }, [splash]);
 
+  // O painel tem um modo só (noturno). A classe `dark` continua ligada porque
+  // as telas usam variantes dark: do Tailwind; sem ela o texto sairia claro.
   useEffect(() => {
-    document.documentElement.classList.toggle('dark', isDark);
-    localStorage.setItem('interno-tema', isDark ? 'noturno' : 'claro');
-  }, [isDark]);
+    document.documentElement.classList.add('dark');
+    localStorage.removeItem('interno-tema');
+    localStorage.removeItem('interno-theme');
+  }, []);
 
   useEffect(() => {
     supabase.from('webhook_logs').select('payload, source').eq('source', 'zig_tickets').then(({ data }) => {
@@ -110,62 +110,82 @@ export default function InternoLayout() {
   const startsWith = (...prefixes: string[]) => (p: string) => prefixes.some((x) => p.startsWith(x));
   const exact = (...paths: string[]) => (p: string) => paths.includes(p);
 
-  const sections: Section[] = [
-    canSeeHome && isEnabled('dashboard') && { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, to: '/interno/dashboard', isActive: exact('/interno/dashboard') },
-    canSeeDesign && !canSeeHome && { key: 'referencias', label: 'Referências', icon: Sparkles, to: '/interno/marketing/referencias', isActive: startsWith('/interno/marketing/referencias') },
-    canSeeHome && isEnabled('landing') && { key: 'landing', label: 'Landing Page', icon: Globe, to: '/interno/landing', isActive: startsWith('/interno/landing') },
-    canSeeCRM && isEnabled('crm') && {
-      key: 'crm', label: 'CRM', icon: Users, to: '/interno/crm-visao-geral',
-      isActive: startsWith('/interno/crm-visao-geral', '/interno/eventos', '/interno/clientes', '/interno/aniversariantes', '/interno/divulgadores', '/interno/superclientes', '/interno/base'),
-      children: [
-        { label: 'Visão geral', to: '/interno/crm-visao-geral', end: true, icon: LayoutDashboard },
-        { label: 'Clientes', to: '/interno/clientes', icon: Users },
-        { label: 'Superclientes', to: '/interno/superclientes', icon: Crown },
-        { label: 'Aniversariantes', to: '/interno/aniversariantes', icon: Cake },
-        { label: 'Influenciadores', to: '/interno/divulgadores', icon: Megaphone },
-        ...(canSeeHome && isEnabled('base') ? [{ label: 'Base', to: '/interno/base', icon: Database }] : []),
-      ],
-    },
-    canSeeHome && isEnabled('blueticket') && {
-      key: 'blueticket', label: 'Blueticket', icon: Ticket, to: '/interno/blueticket', isActive: startsWith('/interno/blueticket', '/interno/lebai', '/interno/aura'),
-      children: [{ label: 'Painel', to: '/interno/blueticket', end: true }, { label: 'Le Bai', to: '/interno/lebai' }, { label: 'Aura', to: '/interno/aura' }],
-    },
-    canSeeHome && isEnabled('prive') && {
-      key: 'prive', label: 'Privê', to: '/interno/prive', isActive: startsWith('/interno/prive'),
-      render: (active) => <img src={logoPrive} alt="Privê" className={`h-3.5 w-auto invert transition-opacity ${active ? 'opacity-100' : 'opacity-60'}`} />,
-    },
-    canSeeZigTickets && isEnabled('zig_tickets') && {
-      key: 'zig_tickets', label: 'Zig Tickets', icon: Ticket, to: '/interno/zig-tickets/geral', isActive: startsWith('/interno/zig-tickets'),
-      children: [{ label: 'Geral', to: '/interno/zig-tickets/geral', end: true }, ...zigEvents.map((e) => ({ label: e.name, to: `/interno/zig-tickets/${e.id}` }))],
-    },
-    isEnabled('tarefas') && { key: 'tarefas', label: 'Tarefas', icon: ClipboardList, to: '/interno/tarefas', isActive: startsWith('/interno/tarefas') },
-    isEnabled('calendario') && { key: 'calendario', label: 'Calendário', icon: CalendarRange, to: '/interno/calendario', isActive: startsWith('/interno/calendario') },
-    canSeeWhatsApp && isEnabled('chat') && { key: 'chat', label: 'Chat', icon: MessageCircle, to: '/interno/whatsapp/chat', isActive: exact('/interno/whatsapp/chat') },
-    canSeeWhatsApp && isEnabled('whatsapp') && {
-      key: 'whatsapp', label: 'Disparo', icon: Send, to: '/interno/whatsapp',
-      isActive: (p) => p.startsWith('/interno/whatsapp') && p !== '/interno/whatsapp/chat',
-      children: [
-        { label: 'Dashboard', to: '/interno/whatsapp', end: true, icon: BarChart3 },
-        { label: 'Carrinho Abandonado', to: '/interno/whatsapp/carrinho-abandonado', icon: ShoppingCart },
-        { label: 'Aniversário', to: '/interno/whatsapp/aniversario', icon: Cake },
-        { label: 'Estornos', to: '/interno/whatsapp/estornos', icon: RotateCcw },
-        { label: 'Rastreamento', to: '/interno/whatsapp/rastreamento', icon: MousePointerClick },
-      ],
-    },
-    canSeeAds && isEnabled('ads') && {
-      key: 'ads', label: 'Performance', icon: TrendingUp, to: '/interno/ads/campanhas', isActive: startsWith('/interno/ads', '/interno/trafego-gpt'),
-      children: [
-        { label: 'Campanhas', to: '/interno/ads/campanhas', icon: BarChart3 },
-        { label: 'Criativos Campeões', to: '/interno/ads/criativos', icon: Trophy },
-        { label: 'Gerenciar', to: '/interno/ads/gerenciar', icon: Settings },
-      ],
-    },
-    canSeeHome && isEnabled('social_media') && { key: 'social_media', label: 'Social Media', icon: BarChart3, to: '/interno/marketing/social-media', isActive: startsWith('/interno/marketing/social-media') },
-    canSeeHome && isEnabled('comentarios') && { key: 'comentarios', label: 'Comentários', icon: MessagesSquare, to: '/interno/comentarios', isActive: startsWith('/interno/comentarios') },
-    canSeeHome && isEnabled('automacoes') && { key: 'automacoes', label: 'Automações', icon: Zap, to: '/interno/automacoes', isActive: startsWith('/interno/automacoes') },
+  // Navegação em grupos — cada grupo vira um bloco separado por uma linha fina
+  // no trilho. Ordem definida com o time.
+  const navGroups: Section[][] = [
+    // Visão geral
+    [
+      canSeeHome && isEnabled('dashboard') && { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, to: '/interno/dashboard', isActive: exact('/interno/dashboard') },
+      canSeeDesign && !canSeeHome && { key: 'referencias', label: 'Referências', icon: Sparkles, to: '/interno/marketing/referencias', isActive: startsWith('/interno/marketing/referencias') },
+      canSeeHome && isEnabled('landing') && { key: 'landing', label: 'Landing Page', icon: Globe, to: '/interno/landing', isActive: startsWith('/interno/landing') },
+    ],
+    // O que chega do público
+    [
+      canSeeWhatsApp && isEnabled('chat') && { key: 'chat', label: 'Chat', icon: MessageCircle, to: '/interno/whatsapp/chat', isActive: exact('/interno/whatsapp/chat') },
+      canSeeHome && isEnabled('social_media') && { key: 'social_media', label: 'Social Media', icon: BarChart3, to: '/interno/marketing/social-media', isActive: startsWith('/interno/marketing/social-media') },
+      canSeeHome && isEnabled('comentarios') && { key: 'comentarios', label: 'Comentários', icon: MessagesSquare, to: '/interno/comentarios', isActive: startsWith('/interno/comentarios') },
+    ],
+    // O que a gente dispara
+    [
+      canSeeHome && isEnabled('automacoes') && { key: 'automacoes', label: 'Automações', icon: Zap, to: '/interno/automacoes', isActive: startsWith('/interno/automacoes') },
+      canSeeWhatsApp && isEnabled('whatsapp') && {
+        key: 'whatsapp', label: 'Disparo', icon: Send, to: '/interno/whatsapp',
+        isActive: (p) => p.startsWith('/interno/whatsapp') && p !== '/interno/whatsapp/chat',
+        children: [
+          { label: 'Dashboard', to: '/interno/whatsapp', end: true, icon: BarChart3 },
+          { label: 'Carrinho Abandonado', to: '/interno/whatsapp/carrinho-abandonado', icon: ShoppingCart },
+          { label: 'Aniversário', to: '/interno/whatsapp/aniversario', icon: Cake },
+          { label: 'Estornos', to: '/interno/whatsapp/estornos', icon: RotateCcw },
+          { label: 'Rastreamento', to: '/interno/whatsapp/rastreamento', icon: MousePointerClick },
+        ],
+      },
+      canSeeAds && isEnabled('ads') && {
+        key: 'ads', label: 'Performance', icon: TrendingUp, to: '/interno/ads/campanhas', isActive: startsWith('/interno/ads', '/interno/trafego-gpt'),
+        children: [
+          { label: 'Campanhas', to: '/interno/ads/campanhas', icon: BarChart3 },
+          { label: 'Criativos Campeões', to: '/interno/ads/criativos', icon: Trophy },
+          { label: 'Gerenciar', to: '/interno/ads/gerenciar', icon: Settings },
+        ],
+      },
+    ],
+    // Dados e organização (bilheteria entra aqui quando reativada no Admin)
+    [
+      canSeeCRM && isEnabled('crm') && {
+        key: 'crm', label: 'CRM', icon: Users, to: '/interno/crm-visao-geral',
+        isActive: startsWith('/interno/crm-visao-geral', '/interno/eventos', '/interno/clientes', '/interno/aniversariantes', '/interno/divulgadores', '/interno/superclientes', '/interno/base'),
+        children: [
+          { label: 'Visão geral', to: '/interno/crm-visao-geral', end: true, icon: LayoutDashboard },
+          { label: 'Clientes', to: '/interno/clientes', icon: Users },
+          { label: 'Superclientes', to: '/interno/superclientes', icon: Crown },
+          { label: 'Aniversariantes', to: '/interno/aniversariantes', icon: Cake },
+          { label: 'Influenciadores', to: '/interno/divulgadores', icon: Megaphone },
+          ...(canSeeHome && isEnabled('base') ? [{ label: 'Base', to: '/interno/base', icon: Database }] : []),
+        ],
+      },
+      isEnabled('tarefas') && { key: 'tarefas', label: 'Tarefas', icon: ClipboardList, to: '/interno/tarefas', isActive: startsWith('/interno/tarefas') },
+      isEnabled('calendario') && { key: 'calendario', label: 'Calendário', icon: CalendarRange, to: '/interno/calendario', isActive: startsWith('/interno/calendario') },
+      canSeeHome && isEnabled('blueticket') && {
+        key: 'blueticket', label: 'Blueticket', icon: Ticket, to: '/interno/blueticket', isActive: startsWith('/interno/blueticket', '/interno/lebai', '/interno/aura'),
+        children: [{ label: 'Painel', to: '/interno/blueticket', end: true }, { label: 'Le Bai', to: '/interno/lebai' }, { label: 'Aura', to: '/interno/aura' }],
+      },
+      canSeeHome && isEnabled('prive') && {
+        key: 'prive', label: 'Privê', to: '/interno/prive', isActive: startsWith('/interno/prive'),
+        render: (active) => <img src={logoPrive} alt="Privê" className={`h-3.5 w-auto invert transition-opacity ${active ? 'opacity-100' : 'opacity-60'}`} />,
+      },
+      canSeeZigTickets && isEnabled('zig_tickets') && {
+        key: 'zig_tickets', label: 'Zig Tickets', icon: Ticket, to: '/interno/zig-tickets/geral', isActive: startsWith('/interno/zig-tickets'),
+        children: [{ label: 'Geral', to: '/interno/zig-tickets/geral', end: true }, ...zigEvents.map((e) => ({ label: e.name, to: `/interno/zig-tickets/${e.id}` }))],
+      },
+    ],
+  ].map((g) => g.filter(Boolean) as Section[]).filter((g) => g.length > 0);
+
+  // Conta e sessão ficam no rodapé do trilho, fora dos grupos.
+  const contaSections: Section[] = [
     isAdmin && { key: 'admin', label: 'Admin', icon: Settings, to: '/interno/admin', isActive: startsWith('/interno/admin') },
     { key: 'perfil', label: 'Perfil', icon: User, to: '/interno/perfil', isActive: startsWith('/interno/perfil') },
   ].filter(Boolean) as Section[];
+
+  const sections: Section[] = [...navGroups.flat(), ...contaSections];
 
   const activeSection = sections.find((s) => s.isActive(path));
   const panelItems = activeSection?.children ?? [];
@@ -210,7 +230,6 @@ export default function InternoLayout() {
   };
 
   const isHome = path === '/interno';
-  const roleLabel = isAdmin ? 'Admin' : hasDesignRole ? 'Design' : hasTrafegoRole ? 'Gestor de Tráfego' : 'Parceiro';
 
   const railButtonClass = (active: boolean) =>
     `relative flex h-10 w-10 items-center justify-center rounded-lg transition-colors duration-150 ${
@@ -236,7 +255,7 @@ export default function InternoLayout() {
 
   return (
     <TooltipProvider delayDuration={80}>
-      <div className={`min-h-screen flex bg-background ${isDark ? 'interno-noturno' : ''}`}>
+      <div className="interno-noturno min-h-screen flex bg-background">
         {splashOverlay}
         {sidebarOpen && !isHome && (
           <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40 lg:hidden" onClick={() => setSidebarOpen(false)} />
@@ -253,46 +272,47 @@ export default function InternoLayout() {
               <img src={flamingoLagun} alt="Lagun" className="h-6 w-auto" />
             </div>
             <div className="flex-1 w-full flex flex-col items-center gap-1 py-2 overflow-y-auto">
-              {sections.map((s) => {
-                const active = activeSection?.key === s.key;
-                const Icon = s.icon;
+              {navGroups.map((grupo, gi) => (
+                <div key={gi} className="flex w-full flex-col items-center gap-1">
+                  {gi > 0 && <span aria-hidden className="my-2 h-px w-8 bg-white/[0.16]" />}
+                  {grupo.map((s) => {
+                    const Icon = s.icon;
+                    return (
+                      <RailItem key={s.key} label={s.label} active={activeSection?.key === s.key} onClick={() => go(s.to)}>
+                        {s.render ? s.render(activeSection?.key === s.key) : Icon ? <Icon size={19} /> : null}
+                      </RailItem>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+            <div className="w-full flex flex-col items-center gap-1 py-2 border-t border-white/[0.06]">
+              {contaSections.map((s) => {
+                const Icon = s.icon!;
                 return (
-                  <RailItem key={s.key} label={s.label} active={active} onClick={() => go(s.to)}>
-                    {s.render ? s.render(active) : Icon ? <Icon size={19} /> : null}
+                  <RailItem key={s.key} label={s.label} active={activeSection?.key === s.key} onClick={() => go(s.to)}>
+                    <Icon size={18} />
                   </RailItem>
                 );
               })}
-            </div>
-            <div className="w-full flex flex-col items-center gap-1 py-2 border-t border-white/[0.06]">
-              <RailItem label={isDark ? 'Modo claro' : 'Modo noturno'} active={false} onClick={() => setIsDark(!isDark)}>
-                {isDark ? <Sun size={17} /> : <Moon size={17} />}
-              </RailItem>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <a href="https://wa.me/5527996528524" target="_blank" rel="noopener noreferrer" aria-label="Suporte"
                     className="flex h-10 w-10 items-center justify-center rounded-lg text-[#C4B5FD] hover:bg-[#A78BFA]/15 transition-colors">
-                    <MessageCircle size={17} />
+                    <MessageCircle size={18} />
                   </a>
                 </TooltipTrigger>
                 <TooltipContent side="right" sideOffset={10} className="bg-[#0A0A0F] text-[#F2F1F7] border-white/10 text-xs font-medium">Suporte</TooltipContent>
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <button type="button" onClick={signOut} aria-label="Sair" className="flex h-10 w-10 items-center justify-center rounded-lg text-[#8B8A9B] hover:bg-red-950/40 hover:text-red-400 transition-colors">
-                    <LogOut size={17} />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="right" sideOffset={10} className="bg-[#0A0A0F] text-[#F2F1F7] border-white/10 text-xs font-medium">Sair</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button type="button" onClick={() => go('/interno/perfil')} aria-label={`${userName} · ${roleLabel}`}
-                    className="mt-1 flex h-8 w-8 items-center justify-center rounded-full bg-[#A78BFA]/15 text-[#A78BFA] text-xs font-bold hover:bg-[#A78BFA]/25 transition-colors">
-                    {userName.charAt(0).toUpperCase()}
+                  <button type="button" onClick={signOut} aria-label={`Sair (${userName})`}
+                    className="flex h-10 w-10 items-center justify-center rounded-lg text-[#8B8A9B] hover:bg-red-950/40 hover:text-red-400 transition-colors">
+                    <LogOut size={18} />
                   </button>
                 </TooltipTrigger>
                 <TooltipContent side="right" sideOffset={10} className="bg-[#0A0A0F] text-[#F2F1F7] border-white/10 text-xs font-medium">
-                  {userName} · {roleLabel}
+                  Sair · {userName}
                 </TooltipContent>
               </Tooltip>
             </div>
