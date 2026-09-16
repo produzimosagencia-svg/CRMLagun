@@ -163,13 +163,8 @@ export default function InternoLayout() {
       ],
     },
     canSeeHome && isEnabled('social_media') && { key: 'social_media', label: 'Social Media', icon: BarChart3, to: '/interno/marketing/social-media', isActive: startsWith('/interno/marketing/social-media') },
-    canSeeHome && isEnabled('comentarios') && {
-      key: 'comentarios', label: 'Comentários', icon: MessagesSquare, to: '/interno/comentarios', isActive: startsWith('/interno/comentarios', '/interno/automacoes'),
-      children: [
-        { label: 'Comentários', to: '/interno/comentarios', end: true, icon: MessagesSquare },
-        ...(isEnabled('automacoes') ? [{ label: 'Automações', to: '/interno/automacoes', icon: Zap }] : []),
-      ],
-    },
+    canSeeHome && isEnabled('comentarios') && { key: 'comentarios', label: 'Comentários', icon: MessagesSquare, to: '/interno/comentarios', isActive: startsWith('/interno/comentarios') },
+    canSeeHome && isEnabled('automacoes') && { key: 'automacoes', label: 'Automações', icon: Zap, to: '/interno/automacoes', isActive: startsWith('/interno/automacoes') },
     isAdmin && { key: 'admin', label: 'Admin', icon: Settings, to: '/interno/admin', isActive: startsWith('/interno/admin') },
     { key: 'perfil', label: 'Perfil', icon: User, to: '/interno/perfil', isActive: startsWith('/interno/perfil') },
   ].filter(Boolean) as Section[];
