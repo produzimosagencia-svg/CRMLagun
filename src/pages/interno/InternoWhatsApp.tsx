@@ -519,6 +519,13 @@ export default function InternoWhatsApp() {
       : [...current, id]);
   };
 
+  // Seleção de público reflete na contagem imediatamente — o layout de tela
+  // única mostra contatos e custo no topo, sem um passo de "aplicar".
+  useEffect(() => {
+    if (!selectedAudiences.length) return;
+    setContacts(uniqueContacts(selectedAudiences.flatMap((id) => audienceContacts[id] || [])));
+  }, [selectedAudiences, audienceContacts]);
+
   const applySelectedAudiences = () => {
     if (selectedAudiences.length === 0) {
       toast.error('Selecione pelo menos um público');
@@ -855,589 +862,284 @@ export default function InternoWhatsApp() {
     );
   }
 
+  // ── Tela de criação do disparo ──────────────────────────────────────────
+  // Layout de tela única (número + template à esquerda, públicos à direita e
+  // prévia do celular ao lado), no formato usado no painel da Produzimos.
+  // A camada de dados e o envio continuam sendo os do Lagun.
+  const custoUnitario = selectedTemplateData?.category === 'UTILITY' ? 0.06 : 0.36;
+  const custoEstimado = effectiveContacts.length * custoUnitario;
+  // A API responde com os números quando está de pé; sem número conectado, offline.
+  const apiOnline = phoneNumbers.length > 0;
+  const totalDisparos = apiStatusCounts?.total ?? 0;
+  const entregues = (apiStatusCounts?.delivered ?? 0) + (apiStatusCounts?.read ?? 0);
+  const taxaEntrega = totalDisparos ? (entregues / totalDisparos) * 100 : 0;
+  const taxaLeitura = entregues ? ((apiStatusCounts?.read ?? 0) / entregues) * 100 : 0;
+  const nPct = (v: number) => `${v.toFixed(1).replace('.', ',')}%`;
+  const nBr = (v: number) => v.toLocaleString('pt-BR');
+  const reaisBr = (v: number) => `R$ ${v.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`;
+  const passoAtual = !selectedPhones.length ? 1 : !selectedTemplate ? 2 : !effectiveContacts.length ? 3 : 4;
+  const faltando = !selectedPhones.length ? { passo: 1, texto: 'Escolha um número' }
+    : !selectedTemplate ? { passo: 2, texto: 'Escolha um template' }
+    : templateRequiresImage && !templateImageUrl ? { passo: 2, texto: 'Envie a imagem do cabeçalho' }
+    : !effectiveContacts.length ? { passo: 3, texto: 'Escolha um público' } : null;
+  const corpoPrevia = previewTemplateText(templatePart(selectedTemplateData, 'BODY')?.text) || '';
+  const nomePrevia = effectiveContacts[0]?.name?.split(' ')[0] || 'Luana';
+  const botoesPrevia = selectedTemplateData?.components?.filter((c) => c.type?.toUpperCase() === 'BUTTONS').flatMap((c) => c.buttons || []) || [];
+
+  const MiniKpi = ({ valor, rotulo, dica, cor }: { valor: string; rotulo: string; dica: string; cor: string }) => (
+    <div className="flex min-w-0 items-center gap-3 rounded-xl border border-border bg-card px-4 py-3">
+      <strong className="shrink-0 font-display text-xl leading-none" style={{ color: cor }}>{valor}</strong>
+      <span className="min-w-0">
+        <span className="block truncate text-xs font-semibold leading-tight">{rotulo}</span>
+        <span className="block truncate text-[11px] text-muted-foreground">{dica}</span>
+      </span>
+    </div>
+  );
+
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+    <div className="space-y-4">
+      {/* Cabeçalho */}
+      <div className="text-xs text-muted-foreground">WhatsApp <span className="mx-1">›</span> Disparo</div>
+      <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h2 className="text-xl font-bold text-foreground">Plataforma de Disparos WhatsApp</h2>
-          <p className="text-sm text-muted-foreground mt-1">Envie mensagens em massa pela API oficial</p>
+          <h1 className="font-display text-2xl font-bold leading-none tracking-tight">
+            Disparo <span style={{ color: '#25D366' }}>WhatsApp</span>
+          </h1>
+          <p className="mt-1.5 text-sm text-muted-foreground">Envie templates aprovados para públicos do CRM e acompanhe a entrega em tempo real.</p>
         </div>
-        <div className="flex gap-2"><Button variant="outline" size="sm" onClick={() => setView('dashboard')}>← Painel</Button><Button variant="outline" size="sm" onClick={loadData} disabled={loading}><RefreshCw className={`w-4 h-4 mr-1 ${loading ? 'animate-spin' : ''}`} />Atualizar</Button></div>
-      </div>
-
-      {/* Steps */}
-      <div className="flex items-center gap-2">
-        {[
-          { n: 1, label: 'Número', icon: Phone },
-          { n: 2, label: 'Template', icon: FileText },
-          { n: 3, label: 'Contatos', icon: Users },
-          { n: 4, label: 'Enviar', icon: Send },
-        ].map(({ n, label, icon: Icon }) => (
-          <button
-            key={n}
-            onClick={() => setStep(n)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-              step === n
-                ? 'bg-[#25D366] text-white shadow-lg'
-                : n < step && canAdvance(n)
-                ? 'bg-[#25D366]/15 text-green-400'
-                : 'bg-muted text-muted-foreground hover:text-foreground'
-            }`}
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => setView('dashboard')}>← Painel</Button>
+          <Button variant="outline" size="sm" onClick={loadData} disabled={loading}>
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+          </Button>
+          <span
+            className="inline-flex h-9 items-center gap-2 rounded-full px-4 text-xs font-semibold text-white"
+            style={apiOnline
+              ? { background: 'linear-gradient(135deg,#25D366,#128C7E)', boxShadow: '0 0 0 3px rgba(37,211,102,.2)' }
+              : { background: 'linear-gradient(135deg,#EF4444,#B91C1C)', boxShadow: '0 0 0 3px rgba(239,68,68,.2)' }}
           >
-            <Icon className="w-4 h-4" />
-            {label}
-            {n < step && canAdvance(n) && <CheckCircle2 className="w-3.5 h-3.5" />}
-          </button>
-        ))}
+            <span className="h-2 w-2 rounded-full bg-white" />
+            {apiOnline ? 'API Online' : 'API Offline'}
+          </span>
+        </div>
       </div>
 
-      {/* Step 1: Select Phone Numbers */}
-      {step === 1 && (
-        <div className="space-y-4">
-          <h3 className="font-semibold text-foreground">Selecione o(s) número(s) de envio</h3>
-          {loading ? (
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <RefreshCw className="w-4 h-4 animate-spin" /> Carregando números...
-            </div>
-          ) : phoneNumbers.length === 0 ? (
-            <p className="text-muted-foreground text-sm">Nenhum número encontrado na conta.</p>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {phoneNumbers.map((phone) => (
-                <Card
-                  key={phone.id}
-                  className={`cursor-pointer border-border transition-transform hover:scale-[1.02] ${
-                    selectedPhones.includes(phone.id)
-                      ? 'ring-2 ring-[#25D366] bg-card'
-                      : 'bg-card hover:bg-muted/30'
-                  }`}
-                >
-                  <button onClick={() => togglePhone(phone.id)} className="w-full text-left p-3">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="font-semibold text-foreground">{phone.display_phone_number}</p>
-                        <p className="text-muted-foreground text-xs mt-1">{phone.verified_name}</p>
-                      </div>
-                      <div className="flex flex-col items-end gap-1">
-                        {selectedPhones.includes(phone.id) && (
-                          <CheckCircle2 className="w-5 h-5 text-[#25D366]" />
-                        )}
-                        <span className={`inline-flex items-center gap-1.5 text-xs px-2 py-0.5 rounded-full ${
-                          phone.quality_rating === 'GREEN'
-                            ? 'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-400'
-                            : 'bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-400'
-                        }`}>
-                          <span className={`w-2 h-2 rounded-full animate-pulse ${
-                            phone.quality_rating === 'GREEN' ? 'bg-green-500' : 'bg-red-500'
-                          }`} />
-                          {phone.quality_rating === 'GREEN' ? 'Online' : 'Offline'}
-                        </span>
-                      </div>
-                    </div>
-                  </button>
-                </Card>
-              ))}
-            </div>
-          )}
-          <div className="flex justify-end">
-            <Button
-              onClick={() => setStep(2)}
-              disabled={!canAdvance(1)}
-              className="bg-[#25D366] hover:bg-[#20BD5A] text-white"
-            >
-              Próximo →
-            </Button>
-          </div>
-        </div>
-      )}
+      {/* Indicadores */}
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
+        <MiniKpi valor={nBr(totalDisparos)} rotulo="Disparos registrados" dica="últimos 30 dias" cor="#34D399" />
+        <MiniKpi valor={nBr(entregues)} rotulo="Entregues" dica={`${nPct(taxaEntrega)} · ${nBr(apiStatusCounts?.read ?? 0)} lidas`} cor="#60A5FA" />
+        <MiniKpi valor={nPct(taxaLeitura)} rotulo="Taxa de leitura" dica={taxaLeitura >= 58 ? 'acima da média (58%)' : 'abaixo da média (58%)'} cor="#C4B5FD" />
+        <MiniKpi valor={nBr(apiStatusCounts?.failed ?? 0)} rotulo="Falhas" dica="números inválidos" cor="#F87171" />
+        <MiniKpi valor={reaisBr(custoEstimado)} rotulo="Custo estimado" dica={`${nBr(effectiveContacts.length)} × R$ ${custoUnitario.toFixed(2).replace('.', ',')}`} cor="#FFE14D" />
+      </div>
 
-      {/* Step 2: Select Template */}
-      {step === 2 && (
-        <div className="space-y-5">
-          <div>
-            <h3 className="font-semibold text-foreground">Escolha o template de mensagem</h3>
-            <p className="mt-1 text-sm text-muted-foreground">Veja o conteúdo antes de selecionar o modelo que será enviado.</p>
-          </div>
-          {templates.length === 0 ? (
-            <p className="text-muted-foreground text-sm">Nenhum template aprovado encontrado.</p>
-          ) : (
-            <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
-              <div className="grid content-start grid-cols-1 gap-3 md:grid-cols-2">
-                {templates.map((tpl) => {
-                  const selected = selectedTemplate === tpl.name;
-                  const body = previewTemplateText(templatePart(tpl, 'BODY')?.text);
-                  const hasImage = templatePart(tpl, 'HEADER')?.format?.toUpperCase() === 'IMAGE';
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
+        {/* Painel principal */}
+        <section className="flex min-h-0 flex-col overflow-hidden rounded-xl border border-border bg-card">
+          {/* Passos + totais */}
+          <header className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 border-b border-border px-5 py-3">
+            <div className="flex items-center gap-3">
+              {['Número', 'Template', 'Público', 'Revisão'].map((rotulo, i) => {
+                const n = i + 1;
+                const estado = passoAtual === n ? 'atual' : passoAtual > n ? 'feito' : 'pendente';
+                const alerta = faltando?.passo === n;
+                return (
+                  <div key={rotulo} className="flex items-center gap-3">
+                    <div className="flex items-center gap-2 text-[13px]" style={{ color: alerta ? '#F87171' : estado === 'pendente' ? 'hsl(var(--muted-foreground))' : 'hsl(var(--foreground))', fontWeight: estado === 'atual' || alerta ? 600 : 500 }}>
+                      <span className="grid h-7 w-7 place-items-center rounded-full text-xs font-bold"
+                        style={alerta ? { background: '#EF4444', color: '#fff' }
+                          : estado === 'feito' ? { background: '#25D366', color: '#fff' }
+                          : estado === 'atual' ? { background: '#FFE14D', color: '#111' }
+                          : { background: 'hsl(var(--muted))', color: 'hsl(var(--muted-foreground))' }}>
+                        {alerta ? '!' : estado === 'feito' ? <CheckCircle2 className="h-3.5 w-3.5" /> : n}
+                      </span>
+                      <span className="flex flex-col leading-tight">
+                        <span>{rotulo}</span>
+                        {alerta && <span className="text-[10px] font-semibold text-red-400">{faltando.texto}</span>}
+                      </span>
+                    </div>
+                    {i < 3 && <span className="hidden h-0.5 w-6 rounded-full xl:block" style={{ background: passoAtual > n ? '#25D366' : 'hsl(var(--border))' }} />}
+                  </div>
+                );
+              })}
+            </div>
+            <div className="ml-auto flex shrink-0 items-center gap-5 whitespace-nowrap text-right">
+              <div className="min-w-[80px]">
+                <span className="block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Contatos</span>
+                <strong className="block font-display text-lg leading-none">{nBr(effectiveContacts.length)}</strong>
+              </div>
+              <div className="min-w-[90px]">
+                <span className="block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Custo</span>
+                <strong className="block font-display text-lg leading-none" style={{ color: '#FFE14D' }}>{reaisBr(custoEstimado)}</strong>
+              </div>
+            </div>
+          </header>
+
+          <div className="grid min-h-0 flex-1 lg:grid-cols-2">
+            {/* Número + templates */}
+            <div className="flex min-h-0 flex-col border-border p-4 lg:border-r">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Número · {phoneNumbers.length}</p>
+              <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                {phoneNumbers.map((p) => {
+                  const ativo = selectedPhones[0] === p.id;
                   return (
-                    <Card
-                      key={tpl.id}
-                      className={`overflow-hidden border transition-all ${selected ? 'border-[#25D366] bg-[#25D366]/5 shadow-[0_0_0_1px_rgba(37,211,102,.35)]' : 'border-border bg-card hover:border-[#25D366]/40 hover:bg-muted/20'}`}
-                    >
-                      <button
-                        onClick={() => {
-                          setSelectedTemplate(tpl.name);
-                          setTemplateImageUrl('');
-                          setTemplateImageName('');
-                        }}
-                        className="flex h-full w-full flex-col p-4 text-left"
-                      >
-                        <div className="flex w-full items-start justify-between gap-3">
-                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#25D366]/10 text-[#25D366]">
-                            {hasImage ? <ImageIcon className="h-4 w-4" /> : <MessageSquare className="h-4 w-4" />}
-                          </div>
-                          {selected ? <span className="flex items-center gap-1 rounded-full bg-[#25D366] px-2 py-1 text-[10px] font-bold text-white"><CheckCircle2 className="h-3 w-3" /> Selecionado</span> : <span className="rounded-full bg-white/5 px-2 py-1 text-[10px] font-medium text-muted-foreground">{templateCategoryLabel(tpl.category)}</span>}
-                        </div>
-                        <p className="mt-3 break-words text-sm font-semibold text-foreground">{tpl.name.replaceAll('_', ' ')}</p>
-                        <p className="mt-2 line-clamp-3 min-h-[3.75rem] text-xs leading-5 text-muted-foreground">{body || 'Template sem texto de prévia disponível.'}</p>
-                        <div className="mt-3 flex w-full items-center gap-2 border-t border-border pt-3 text-[10px] text-muted-foreground">
-                          <span>{tpl.language?.toUpperCase() || 'PT_BR'}</span><span>•</span><span>{hasImage ? 'Com imagem' : 'Somente texto'}</span>
-                        </div>
-                      </button>
-                    </Card>
+                    <button key={p.id} onClick={() => setSelectedPhones([p.id])}
+                      className={`flex items-center gap-2.5 rounded-xl border-2 px-3 py-2 text-left transition-colors ${ativo ? 'border-[#25D366] bg-[#25D366]/10' : 'border-border hover:bg-muted/50'}`}>
+                      <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-full ${ativo ? 'bg-[#25D366] text-white' : 'bg-[#25D366]/15 text-[#25D366]'}`}>
+                        <MessageSquare className="h-4 w-4" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <strong className="block truncate text-[13px] leading-tight">{p.verified_name || 'WhatsApp Business'}</strong>
+                        <span className="block truncate text-[11px] text-muted-foreground">{p.display_phone_number}</span>
+                      </span>
+                    </button>
                   );
                 })}
+                {!phoneNumbers.length && <p className="text-sm text-muted-foreground">Nenhum número conectado.</p>}
               </div>
 
-              <div className="xl:sticky xl:top-4 xl:self-start">
-                <div className="overflow-hidden rounded-2xl border border-white/10 bg-[#0b141a] shadow-2xl">
-                  <div className="flex items-center gap-3 bg-[#202c33] px-4 py-3">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#25D366] text-sm font-bold text-white">LA</div>
-                    <div><p className="text-sm font-semibold text-white">Lagun</p><p className="text-[10px] text-[#aebac1]">conta comercial</p></div>
-                  </div>
-                  <div className="min-h-[360px] bg-[radial-gradient(circle_at_20%_20%,rgba(255,255,255,.035)_1px,transparent_1px)] bg-[length:18px_18px] p-4">
-                    {selectedTemplateData ? (() => {
-                      const header = templatePart(selectedTemplateData, 'HEADER');
-                      const body = previewTemplateText(templatePart(selectedTemplateData, 'BODY')?.text);
-                      const footer = previewTemplateText(templatePart(selectedTemplateData, 'FOOTER')?.text);
-                      const buttons = templatePart(selectedTemplateData, 'BUTTONS')?.buttons || [];
-                      const imageHeader = header?.format?.toUpperCase() === 'IMAGE';
-                      return <div className="ml-auto max-w-[305px] overflow-hidden rounded-lg rounded-tr-none bg-[#005c4b] shadow-lg">
-                        {imageHeader && <div className="flex aspect-[1.91/1] items-center justify-center bg-[#123f39] text-[#8fb9b1]"><div className="text-center"><ImageIcon className="mx-auto h-8 w-8" /><p className="mt-1 text-[10px]">Imagem do template</p></div></div>}
-                        <div className="px-3 pb-2 pt-2.5">
-                          {header?.text && <p className="mb-1 text-sm font-bold text-white">{previewTemplateText(header.text)}</p>}
-                          <p className="whitespace-pre-wrap text-[13px] leading-[1.35rem] text-white">{body || 'O conteúdo deste template não foi disponibilizado pela Meta.'}</p>
-                          <div className="mt-1 flex items-end justify-between gap-3">
-                            <span className="text-[10px] text-[#a7c8c2]">{footer}</span><span className="shrink-0 text-[9px] text-[#a7c8c2]">22:02 ✓✓</span>
-                          </div>
-                        </div>
-                        {buttons.map((button, index) => <div key={`${button.text}-${index}`} className="border-t border-white/10 px-3 py-2 text-center text-xs font-medium text-[#53bdeb]">{button.text || 'Botão'}</div>)}
-                      </div>;
-                    })() : <div className="flex min-h-[320px] flex-col items-center justify-center text-center text-[#8696a0]"><MessageSquare className="h-10 w-10" /><p className="mt-3 text-sm font-medium">Selecione um template</p><p className="mt-1 max-w-[220px] text-xs">A prévia da mensagem aparecerá aqui.</p></div>}
-                  </div>
-                  {selectedTemplateData && <div className="border-t border-white/10 bg-[#202c33] px-4 py-3"><p className="truncate text-xs font-medium text-white">{selectedTemplateData.name}</p><p className="mt-0.5 text-[10px] text-[#aebac1]">{templateCategoryLabel(selectedTemplateData.category)} · {selectedTemplateData.language?.toUpperCase()}</p></div>}
-                </div>
+              <p className="mt-4 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Templates aprovados · {templates.length}</p>
+              <div className="mt-2 max-h-[340px] min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
+                {templates.map((tpl) => {
+                  const ativo = selectedTemplate === tpl.name;
+                  const exigeImagem = tpl.components?.some((c) => c.type?.toUpperCase() === 'HEADER' && c.format?.toUpperCase() === 'IMAGE');
+                  const utilidade = tpl.category === 'UTILITY';
+                  return (
+                    <button key={tpl.id || tpl.name} onClick={() => setSelectedTemplate(tpl.name)}
+                      className={`flex w-full flex-col gap-1.5 rounded-xl border p-3 text-left transition-colors ${ativo ? 'border-[#25D366] bg-[#25D366]/10' : 'border-border hover:bg-muted/50'}`}>
+                      <span className="flex items-center justify-between gap-2">
+                        <strong className="truncate text-sm">{tpl.name}</strong>
+                        <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${utilidade ? 'bg-blue-500/15 text-blue-400' : 'bg-muted text-muted-foreground'}`}>
+                          {utilidade ? 'Utilidade · R$ 0,06' : 'Marketing · R$ 0,36'}
+                        </span>
+                      </span>
+                      <span className="truncate text-xs text-muted-foreground">
+                        {previewTemplateText(templatePart(tpl, 'BODY')?.text) || 'Sem corpo de texto'}
+                      </span>
+                      {exigeImagem && (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-medium text-[#FFE14D]">
+                          <ImageIcon className="h-3 w-3" /> exige imagem no cabeçalho
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+                {!templates.length && <p className="text-sm text-muted-foreground">Nenhum template aprovado na conta.</p>}
               </div>
             </div>
-          )}
-          <div className="flex justify-between">
-            <Button variant="outline" onClick={() => setStep(1)}>← Voltar</Button>
-            <Button
-              onClick={() => setStep(3)}
-              disabled={!canAdvance(2)}
-              className="bg-[#25D366] hover:bg-[#20BD5A] text-white"
-            >
-              Próximo →
-            </Button>
-          </div>
-        </div>
-      )}
 
-      {/* Step 3: Upload Contacts */}
-      {step === 3 && (
-        <div className="space-y-4">
-          <div>
-            <h3 className="font-semibold text-foreground">Escolha o público do disparo</h3>
-            <p className="mt-1 text-sm text-muted-foreground">Use os públicos vivos do CRM ou importe uma lista externa.</p>
-          </div>
-
-          <div className="inline-flex rounded-lg border border-border bg-muted/30 p-1">
-            <button
-              onClick={() => setContactMode('crm')}
-              className={`flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors ${contactMode === 'crm' ? 'bg-[#25D366] text-white' : 'text-muted-foreground hover:text-foreground'}`}
-            >
-              <Database className="h-4 w-4" /> Públicos do CRM
-            </button>
-            <button
-              onClick={() => setContactMode('csv')}
-              className={`flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors ${contactMode === 'csv' ? 'bg-[#25D366] text-white' : 'text-muted-foreground hover:text-foreground'}`}
-            >
-              <FileSpreadsheet className="h-4 w-4" /> Importar CSV
-            </button>
-            <button
-              onClick={() => setContactMode('exclusion')}
-              className={`flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors ${contactMode === 'exclusion' ? 'bg-red-500 text-white' : 'text-muted-foreground hover:text-foreground'}`}
-            >
-              <UserMinus className="h-4 w-4" /> Exclusão
-            </button>
-          </div>
-
-          {contactMode === 'crm' ? (
-            <div className="space-y-3">
-              <div className="flex flex-col gap-2 sm:flex-row">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <input
-                    value={audienceSearch}
-                    onChange={(event) => setAudienceSearch(event.target.value)}
-                    placeholder="Buscar evento ou público..."
-                    className="h-10 w-full rounded-lg border border-border bg-card pl-9 pr-3 text-sm text-foreground outline-none focus:border-[#25D366]"
-                  />
-                </div>
-                <Button variant="outline" onClick={() => void loadCrmAudiences(true)} disabled={audiencesLoading}>
-                  <RefreshCw className={`mr-1.5 h-4 w-4 ${audiencesLoading ? 'animate-spin' : ''}`} /> Atualizar públicos
-                </Button>
+            {/* Públicos + listas */}
+            <div className="flex min-h-0 flex-col overflow-y-auto p-4">
+              <div className="flex items-center justify-between">
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Públicos do CRM</p>
+                <span className="text-xs text-muted-foreground">
+                  {selectedAudiences.length ? `${selectedAudiences.length} selecionado${selectedAudiences.length > 1 ? 's' : ''}` : 'escolha um ou mais'}
+                </span>
               </div>
-
               {audiencesLoading ? (
-                <div className="flex items-center justify-center gap-2 rounded-xl border border-border bg-card py-12 text-sm text-muted-foreground">
-                  <RefreshCw className="h-4 w-4 animate-spin" /> Carregando públicos e removendo telefones inválidos...
-                </div>
+                <div className="grid min-h-40 place-items-center"><RefreshCw className="h-5 w-5 animate-spin text-[#25D366]" /></div>
+              ) : !audiences.length ? (
+                <p className="mt-4 text-sm text-muted-foreground">Nenhum público disponível. Importe um CSV abaixo.</p>
               ) : (
-                <div className="max-h-[430px] space-y-4 overflow-y-auto rounded-xl border border-border bg-card p-4">
-                  {([
-                    ['group', 'Bases e cadastros'],
-                    ['tag', 'Públicos por tag'],
-                    ['category', 'Categorias de eventos'],
-                    ['event', 'Eventos do CRM'],
-                  ] as const).map(([kind, label]) => {
-                    const visible = audiences.filter((audience) => audience.kind === kind && audience.name.toLowerCase().includes(audienceSearch.toLowerCase()));
-                    if (visible.length === 0) return null;
-                    return <div key={kind}>
-                      <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
-                      <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-                        {visible.map((audience) => {
-                          const selected = selectedAudiences.includes(audience.id);
-                          return <button
-                            key={audience.id}
-                            onClick={() => toggleAudience(audience.id)}
-                            className={`flex items-center justify-between gap-3 rounded-lg border p-3 text-left transition-colors ${selected ? 'border-[#25D366] bg-[#25D366]/10' : 'border-border bg-background/30 hover:border-[#25D366]/40'}`}
-                          >
-                            <div className="min-w-0">
-                              <p className="truncate text-sm font-medium text-foreground">{audience.name}</p>
-                              <p className="truncate text-xs text-muted-foreground">{audience.description}</p>
-                            </div>
-                            <div className="shrink-0 text-right">
-                              {selected && <CheckCircle2 className="mb-1 ml-auto h-4 w-4 text-[#25D366]" />}
-                              <span className="text-xs font-semibold text-foreground">{audience.count.toLocaleString('pt-BR')}</span>
-                            </div>
-                          </button>;
-                        })}
-                      </div>
-                    </div>;
+                <div className="mt-2 grid max-h-[300px] gap-2 overflow-y-auto pr-1">
+                  {audiences.map((a) => {
+                    const ativo = selectedAudiences.includes(a.id);
+                    return (
+                      <button key={a.id}
+                        onClick={() => setSelectedAudiences((atual) => (ativo ? atual.filter((x) => x !== a.id) : [...atual, a.id]))}
+                        className={`flex min-w-0 items-center gap-2.5 rounded-xl border-2 px-3 py-2 text-left transition-colors ${ativo ? 'border-[#FFE14D] bg-[#FFE14D]/10' : 'border-border hover:bg-muted/50'}`}>
+                        <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg ${ativo ? 'bg-[#FFE14D] text-black' : 'bg-muted text-muted-foreground'}`}>
+                          <Users className="h-4 w-4" />
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <strong className="block truncate text-[13px] leading-tight">{a.name}</strong>
+                          <span className="block truncate text-[11px] text-muted-foreground">{a.description}</span>
+                        </span>
+                        <strong className="shrink-0 font-display text-sm leading-none">{nBr(a.count)}</strong>
+                        <span className={`grid h-5 w-5 shrink-0 place-items-center rounded-full border-2 ${ativo ? 'border-[#FFE14D] bg-[#FFE14D] text-black' : 'border-muted-foreground/30'}`}>
+                          {ativo && <CheckCircle2 className="h-3 w-3" />}
+                        </span>
+                      </button>
+                    );
                   })}
                 </div>
               )}
 
-              <div className="flex flex-col gap-2 rounded-lg border border-[#25D366]/20 bg-[#25D366]/5 p-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <p className="text-sm font-medium text-foreground">{selectedAudiences.length} público(s) selecionado(s)</p>
-                  <p className="text-xs text-muted-foreground">Novos contatos e eventos adicionados ao CRM entram automaticamente nestas listas.</p>
-                </div>
-                <Button onClick={applySelectedAudiences} disabled={selectedAudiences.length === 0 || audiencesLoading} className="bg-[#25D366] text-white hover:bg-[#20BD5A]">
-                  <Users className="mr-1.5 h-4 w-4" /> Usar públicos selecionados
-                </Button>
-              </div>
-            </div>
-          ) : contactMode === 'csv' ? (
-            <div className="space-y-3">
-              <p className="text-sm text-muted-foreground">Arquivo CSV com duas colunas: <strong>Nome</strong> e <strong>Telefone</strong> (com DDD, ex: 27999999999)</p>
-              <div
-                onClick={() => fileRef.current?.click()}
-                className="cursor-pointer rounded-xl border-2 border-dashed border-border p-8 text-center transition-colors hover:border-[#25D366] hover:bg-[#25D366]/10"
-              >
-                <Upload className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />
-                <p className="font-medium text-foreground">Clique para selecionar o arquivo CSV</p>
-                <p className="mt-1 text-xs text-muted-foreground">ou arraste e solte aqui</p>
-                <input ref={fileRef} type="file" accept=".csv,.txt" onChange={handleFileUpload} className="hidden" />
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              <div className="flex items-start gap-3 rounded-xl border border-red-500/20 bg-red-500/5 p-4">
-                <ShieldX className="mt-0.5 h-5 w-5 shrink-0 text-red-400" />
-                <div>
-                  <p className="text-sm font-semibold text-foreground">Público que não receberá o disparo</p>
-                  <p className="mt-1 text-xs text-muted-foreground">A exclusão é aplicada pelo número de telefone, mesmo quando ele estiver com máscara ou sem o código +55.</p>
-                </div>
-              </div>
-
-              <div
-                onClick={() => exclusionFileRef.current?.click()}
-                className="cursor-pointer rounded-xl border-2 border-dashed border-border p-6 text-center transition-colors hover:border-red-500 hover:bg-red-500/5"
-              >
-                <Upload className="mx-auto mb-2 h-8 w-8 text-muted-foreground" />
-                <p className="text-sm font-medium text-foreground">Importar planilha de exclusão</p>
-                <p className="mt-1 text-xs text-muted-foreground">CSV ou TXT com coluna Telefone, WhatsApp, Celular ou Phone</p>
-                <input ref={exclusionFileRef} type="file" accept=".csv,.txt" onChange={handleExclusionFileUpload} className="hidden" />
-              </div>
-
-              {exclusionCsvContacts.length > 0 && (
-                <div className="flex items-center justify-between gap-3 rounded-lg border border-red-500/20 bg-red-500/5 p-3">
-                  <div>
-                    <p className="text-sm font-medium text-foreground">Planilha carregada</p>
-                    <p className="text-xs text-muted-foreground">{exclusionCsvContacts.length.toLocaleString('pt-BR')} contatos para excluir</p>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      setExclusionCsvContacts([]);
-                      if (exclusionFileRef.current) exclusionFileRef.current.value = '';
-                    }}
-                    className="text-muted-foreground hover:text-red-400"
-                  >
-                    Limpar
-                  </Button>
-                </div>
-              )}
-
-              <div className="rounded-lg border border-border bg-card p-3 text-sm">
-                <div className="flex justify-between gap-3"><span className="text-muted-foreground">Lista total de exclusão</span><strong className="text-foreground">{excludedContacts.length.toLocaleString('pt-BR')}</strong></div>
-                {contacts.length > 0 && <>
-                  <div className="mt-2 flex justify-between gap-3"><span className="text-muted-foreground">Removidos do público atual</span><strong className="text-red-400">{excludedFromCurrentAudience.toLocaleString('pt-BR')}</strong></div>
-                  <div className="mt-2 flex justify-between gap-3 border-t border-border pt-2"><span className="text-muted-foreground">Destinatários finais</span><strong className="text-[#25D366]">{effectiveContacts.length.toLocaleString('pt-BR')}</strong></div>
-                </>}
-              </div>
-            </div>
-          )}
-
-          {contacts.length > 0 && (
-            <Card className="border-border bg-card">
-              <div className="p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <h4 className="text-foreground font-semibold flex items-center gap-2">
-                    <Users className="w-4 h-4 text-[#25D366]" />
-                    {effectiveContacts.length} destinatários finais
-                  </h4>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => { setContacts([]); if (fileRef.current) fileRef.current.value = ''; }}
-                    className="text-muted-foreground hover:text-red-400"
-                  >
-                    Limpar
-                  </Button>
-                </div>
-                {excludedFromCurrentAudience > 0 && <p className="mb-3 text-xs text-red-400">{contacts.length.toLocaleString('pt-BR')} selecionados · {excludedFromCurrentAudience.toLocaleString('pt-BR')} removidos pela exclusão</p>}
-                <div className="max-h-48 overflow-auto space-y-1">
-                  {effectiveContacts.slice(0, 50).map((c, i) => (
-                    <div key={i} className="flex justify-between border-b border-border py-1 text-xs">
-                      <span className="text-foreground">{c.name}</span>
-                      <span className="font-mono text-muted-foreground">{c.phone}</span>
-                    </div>
-                  ))}
-                  {effectiveContacts.length > 50 && (
-                    <p className="pt-2 text-center text-xs text-muted-foreground">
-                      ... e mais {effectiveContacts.length - 50} contatos
-                    </p>
-                  )}
-                </div>
-              </div>
-            </Card>
-          )}
-
-          <div className="flex justify-between">
-            <Button variant="outline" onClick={() => setStep(2)}>← Voltar</Button>
-            <Button
-              onClick={() => setStep(4)}
-              disabled={!canAdvance(3)}
-              className="bg-[#25D366] hover:bg-[#20BD5A] text-white"
-            >
-              Próximo →
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {/* Step 4: Review & Send */}
-      {step === 4 && (
-        <div className="space-y-4">
-          <h3 className="font-semibold text-foreground">Revisar e Enviar</h3>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card className="border-border bg-card">
-              <div className="p-4">
-                <Phone className="w-6 h-6 text-[#25D366] mb-2" />
-                <p className="text-muted-foreground text-xs">Número de envio</p>
-                <p className="text-foreground font-semibold text-sm mt-1">
-                  {phoneNumbers.find(p => p.id === selectedPhones[0])?.display_phone_number || '-'}
-                </p>
-              </div>
-            </Card>
-            <Card className="border-border bg-card">
-              <div className="p-4">
-                <FileText className="w-6 h-6 text-orange-400 mb-2" />
-                <p className="text-muted-foreground text-xs">Template</p>
-                <p className="text-foreground font-semibold text-sm mt-1">{selectedTemplate}</p>
-              </div>
-            </Card>
-            <Card className="border-border bg-card">
-              <div className="p-4">
-                <Users className="w-6 h-6 text-[#FFE14D] mb-2" />
-                <p className="text-muted-foreground text-xs">Contatos</p>
-                <p className="text-foreground font-semibold text-sm mt-1">{effectiveContacts.length} destinatários</p>
-              </div>
-            </Card>
-            <Card className="border-border bg-card">
-              <div className="p-4">
-                <DollarSign className="w-6 h-6 text-blue-400 mb-2" />
-                <p className="text-muted-foreground text-xs">Estimativa de custo</p>
-                {(() => {
-                  const tpl = templates.find(t => t.name === selectedTemplate);
-                  const isMarketing = !tpl || tpl.category === 'MARKETING';
-                  const rate = isMarketing ? 0.36 : 0.06;
-                  const total = effectiveContacts.length * rate;
-                  return (
-                    <>
-                      <p className="text-foreground font-semibold text-sm mt-1">
-                        R$ {total.toFixed(2).replace('.', ',')}
-                      </p>
-                      <p className="text-muted-foreground text-xs mt-0.5">
-                        {effectiveContacts.length} × R$ {rate.toFixed(2).replace('.', ',')} ({isMarketing ? 'Marketing' : 'Utilidade'})
-                      </p>
-                    </>
-                  );
-                })()}
-              </div>
-            </Card>
-          </div>
-
-          <Card className="border-border bg-card">
-            <div className="p-4">
-              <div className="flex items-start gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#FFE14D]/10 text-[#FFE14D]">
-                  <ImageIcon className="h-5 w-5" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="font-semibold text-foreground">Imagem do template</p>
-                    {templateRequiresImage && (
-                      <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-300">
-                        Obrigatória neste template
-                      </span>
-                    )}
-                  </div>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Envie um JPG ou PNG de até 20 MB. Se necessário, o sistema reduz automaticamente para o limite da Meta e gera o link público.
-                  </p>
-
-                  <label className="mt-3 inline-flex cursor-pointer items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-white/10">
-                    {uploadingTemplateImage ? (
-                      <RefreshCw className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Upload className="h-4 w-4" />
-                    )}
-                    {uploadingTemplateImage ? 'Enviando imagem…' : 'Selecionar imagem'}
-                    <input
-                      type="file"
-                      accept="image/jpeg,image/png"
-                      className="hidden"
-                      disabled={uploadingTemplateImage}
-                      onChange={(event) => {
-                        void handleTemplateImageUpload(event.target.files?.[0]);
-                        event.target.value = '';
-                      }}
-                    />
-                  </label>
-
-                  {templateImageName && (
-                    <p className="mt-2 truncate text-xs text-muted-foreground">{templateImageName}</p>
-                  )}
-                  {templateImageUrl && (
-                    <div className="mt-3 flex items-center gap-3 rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3">
-                      <img
-                        src={templateImageUrl}
-                        alt="Prévia do cabeçalho do template"
-                        className="h-14 w-14 rounded-md object-cover"
-                      />
-                      <div className="min-w-0">
-                        <p className="flex items-center gap-1 text-xs font-medium text-emerald-400">
-                          <CheckCircle2 className="h-3.5 w-3.5" />
-                          Link gerado
-                        </p>
-                        <p className="mt-1 truncate text-[11px] text-muted-foreground">{templateImageUrl}</p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </Card>
-
-          {/* Warning */}
-          <div className="bg-amber-500/10 border border-amber-400/30 rounded-xl p-4 text-sm text-amber-200 flex items-start gap-3">
-            <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="font-medium">Atenção antes de disparar</p>
-              <p className="mt-1">
-                O envio será feito usando a API oficial do WhatsApp. Templates devem estar aprovados pela Meta.
-                Disparos em massa podem levar alguns minutos dependendo da quantidade de contatos.
-              </p>
-            </div>
-          </div>
-
-          {/* Send Button */}
-          <div className="flex justify-between items-center">
-            <Button variant="outline" onClick={() => setStep(3)}>← Voltar</Button>
-            <Button
-              onClick={handleSend}
-              disabled={sending || uploadingTemplateImage || (templateRequiresImage && !templateImageUrl)}
-              size="lg"
-              className="bg-[#25D366] hover:bg-[#20BD5A] text-white px-8 shadow-lg"
-            >
-              {sending ? (
-                <>
-                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                  Enviando...
-                </>
-              ) : (
-                <>
-                  <Send className="w-4 h-4 mr-2" />
-                  Disparar {effectiveContacts.length} mensagens
-                </>
-              )}
-            </Button>
-          </div>
-
-          {/* Results */}
-          {sendResults && (
-            <Card className="border-border bg-card">
-              <div className="p-4">
-                <h4 className="mb-3 flex items-center gap-2 font-semibold text-foreground">
-                  <MessageSquare className="w-5 h-5 text-[#25D366]" />
-                  Resultado do Disparo
-                </h4>
-                <div className="grid grid-cols-3 gap-4 mb-4">
-                  <div className="text-center">
-                    <p className="text-2xl font-bold text-foreground">{sendResults.total}</p>
-                    <p className="text-xs text-muted-foreground">Total</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-2xl font-bold text-green-400">{sendResults.sent}</p>
-                    <p className="text-xs text-muted-foreground">Aceitos pela Meta</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-2xl font-bold text-red-400">{sendResults.errors}</p>
-                    <p className="text-xs text-muted-foreground">Erros</p>
-                  </div>
-                </div>
-                {sendResults.errors > 0 && (
-                  <div className="max-h-40 overflow-auto space-y-1">
-                    {sendResults.details.filter(d => d.status === 'error').map((d, i) => (
-                      <div key={i} className="flex items-center gap-2 text-xs">
-                        <XCircle className="w-3.5 h-3.5 text-red-400 flex-shrink-0" />
-                        <span className="text-foreground">{d.name}</span>
-                        <span className="font-mono text-muted-foreground">{d.to}</span>
-                        <span className="text-red-400 ml-auto truncate max-w-[200px]">{d.error}</span>
-                      </div>
-                    ))}
-                  </div>
+              <input ref={fileRef} type="file" accept=".csv,.txt" onChange={handleFileUpload} className="hidden" />
+              <input ref={exclusionFileRef} type="file" accept=".csv,.txt" onChange={handleExclusionFileUpload} className="hidden" />
+              <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold">
+                <button onClick={() => fileRef.current?.click()} className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 hover:bg-muted/50">
+                  <FileSpreadsheet className="h-3.5 w-3.5" /> Importar CSV{contacts.length && !selectedAudiences.length ? ` · ${nBr(contacts.length)}` : ''}
+                </button>
+                <button onClick={() => exclusionFileRef.current?.click()} className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 hover:bg-muted/50">
+                  <UserMinus className="h-3.5 w-3.5" /> CSV de exclusão{exclusionCsvContacts.length ? ` · ${nBr(exclusionCsvContacts.length)}` : ''}
+                </button>
+                {exclusionCsvContacts.length > 0 && (
+                  <button onClick={() => setExclusionCsvContacts([])} className="inline-flex items-center gap-1 rounded-full px-2 py-1.5 text-muted-foreground">limpar</button>
                 )}
               </div>
-            </Card>
-          )}
-        </div>
-      )}
+              {excludedFromCurrentAudience > 0 && (
+                <p className="mt-2 text-[11px] text-red-400">−{nBr(excludedFromCurrentAudience)} contatos removidos pela lista de exclusão</p>
+              )}
+
+              {templateRequiresImage && (
+                <div className="mt-3 rounded-xl border border-[#FFE14D]/40 bg-[#FFE14D]/5 p-3">
+                  <p className="text-xs font-semibold">Este template exige imagem no cabeçalho</p>
+                  <input type="file" accept="image/*" onChange={(e) => void handleTemplateImageUpload(e.target.files?.[0])} className="mt-2 w-full text-xs" />
+                  {uploadingTemplateImage && <p className="mt-1 text-[11px] text-muted-foreground">Enviando imagem…</p>}
+                  {templateImageUrl && <p className="mt-1 text-[11px] text-emerald-400">Imagem pronta: {templateImageName}</p>}
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
+
+        {/* Prévia no celular */}
+        <aside className="flex flex-col items-center">
+          <div className="flex w-full max-w-[340px] flex-col rounded-[34px] border-4 border-[#0A0A0F] bg-[#0A0A0F] p-2 shadow-2xl">
+            <div className="flex items-center gap-2 rounded-t-[26px] bg-[#075E54] px-3 py-2.5">
+              <span className="grid h-8 w-8 place-items-center rounded-full bg-[#25D366] text-white"><MessageSquare className="h-4 w-4" /></span>
+              <span className="min-w-0">
+                <strong className="block truncate text-xs text-white">{phoneNumbers.find((p) => p.id === selectedPhones[0])?.verified_name || 'Lagun'}</strong>
+                <span className="block text-[10px] text-white/70">Conta comercial</span>
+              </span>
+            </div>
+            <div className="min-h-[360px] flex-1 space-y-2 rounded-b-[26px] p-3"
+              style={{ background: '#ECE5DD', backgroundImage: 'radial-gradient(rgba(0,0,0,.05) 1px, transparent 1px)', backgroundSize: '14px 14px' }}>
+              <p className="mx-auto w-fit rounded-md bg-[#FDF4C3] px-2 py-1 text-center text-[9px] text-[#5B5443]">
+                🔒 As mensagens são protegidas com criptografia de ponta a ponta.
+              </p>
+              {selectedTemplate ? (
+                <div className="ml-auto max-w-[85%] rounded-lg rounded-tr-none bg-[#DCF8C6] px-3 py-2 shadow-sm">
+                  {templateImageUrl && <img src={templateImageUrl} alt="" className="mb-2 w-full rounded" />}
+                  <p className="whitespace-pre-wrap text-[11px] leading-snug text-[#111]">
+                    {corpoPrevia.replace(/\{\{\s*1\s*\}\}/, nomePrevia).replace(/\{\{[^}]+\}\}/g, '—') || 'Template sem corpo de texto.'}
+                  </p>
+                  {botoesPrevia.map((b, i) => (
+                    <span key={i} className="mt-1.5 block rounded border-t border-black/10 pt-1.5 text-center text-[11px] font-medium text-[#0B84FF]">{b.text}</span>
+                  ))}
+                </div>
+              ) : (
+                <p className="mx-auto mt-6 w-fit rounded-lg bg-white px-3 py-2 text-[11px] text-muted-foreground shadow-sm">
+                  Selecione um template para ver a mensagem.
+                </p>
+              )}
+            </div>
+          </div>
+
+          <Button
+            onClick={handleSend}
+            disabled={sending || uploadingTemplateImage || Boolean(faltando)}
+            size="lg"
+            className="mt-3 w-full max-w-[340px] bg-[#25D366] text-white hover:bg-[#20BD5A]"
+          >
+            {sending
+              ? <><RefreshCw className="mr-2 h-4 w-4 animate-spin" />Enviando…</>
+              : <><Send className="mr-2 h-4 w-4" />Disparar {effectiveContacts.length ? nBr(effectiveContacts.length) : ''}</>}
+          </Button>
+          {faltando && <p className="mt-1.5 text-[11px] text-red-400">{faltando.texto}</p>}
+        </aside>
+      </div>
     </div>
   );
 }
