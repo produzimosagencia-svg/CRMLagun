@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useAuth, AppRole } from '@/hooks/useAuth';
 import { useSidebarSettings, SidebarKey } from '@/hooks/useSidebarSettings';
 import { supabase } from '@/integrations/supabase/client';
-import { Trash2, Plus, UserPlus, Settings2, Pencil, ChevronDown, ChevronUp } from 'lucide-react';
+import { Trash2, Plus, UserPlus, Settings2, Pencil, ChevronDown, ChevronUp, Users } from 'lucide-react';
 import { confirmDialog } from '@/components/ConfirmDialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -57,6 +57,13 @@ export default function InternoAdmin() {
   const [newFullName, setNewFullName] = useState('');
   const [newRole, setNewRole] = useState<AppRole>('design');
   const [creating, setCreating] = useState(false);
+  // Criação em lote: uma linha por pessoa ("Nome | usuário"), todas com a mesma senha geral.
+  const [showLote, setShowLote] = useState(false);
+  const [loteTexto, setLoteTexto] = useState('Lucas Dalla | lucas.lagun\nRoni | roni.lagun\nBruno | bruno.lagun\nSaulo | saulo.lagun\nTavares | tavares.lagun\nNatasha | natasha.lagun');
+  const [loteSenha, setLoteSenha] = useState('');
+  const [loteRole, setLoteRole] = useState<AppRole>('design');
+  const [loteCriando, setLoteCriando] = useState(false);
+  const [loteResultado, setLoteResultado] = useState<{ usuario: string; ok: boolean; erro?: string }[]>([]);
   const [savingKey, setSavingKey] = useState<string | null>(null);
   const [expandedUser, setExpandedUser] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({ full_name: '', username: '', password: '' });
@@ -64,6 +71,29 @@ export default function InternoAdmin() {
   const [savingUser, setSavingUser] = useState(false);
   const [deletingUser, setDeletingUser] = useState(false);
   const [togglingAccessKey, setTogglingAccessKey] = useState<string | null>(null);
+
+  const loteLinhas = loteTexto.split('\n').map((l) => l.split('|').map((p) => p.trim())).filter(([nome, usuario]) => nome && usuario);
+
+  const handleCreateLote = async () => {
+    if (!loteLinhas.length) { toast.error('Adicione pelo menos uma linha "Nome | usuário"'); return; }
+    if (loteSenha.length < 6) { toast.error('A senha geral precisa de pelo menos 6 caracteres'); return; }
+    setLoteCriando(true);
+    const resultado: { usuario: string; ok: boolean; erro?: string }[] = [];
+    // Sequencial: cada conta é independente, e uma falha não impede as outras.
+    for (const [nome, usuario] of loteLinhas) {
+      const res = await supabase.functions.invoke('create-partner', {
+        body: { email: `${usuario}@triade.internal`, password: loteSenha, full_name: nome, username: usuario, role: loteRole },
+      });
+      const erro = res.error ? (await res.error.context?.json?.().catch(() => null))?.error || res.error.message : undefined;
+      resultado.push({ usuario, ok: !res.error, erro });
+      setLoteResultado([...resultado]);
+    }
+    const criados = resultado.filter((r) => r.ok).length;
+    if (criados === resultado.length) toast.success(`${criados} usuários criados`);
+    else toast.error(`${criados} de ${resultado.length} criados — veja os erros abaixo`);
+    setLoteCriando(false);
+    fetchUsers();
+  };
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -260,12 +290,17 @@ export default function InternoAdmin() {
           <p className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground mt-1">Usuários e acessos do sistema</p>
         </div>
         {activeTab === 'usuarios' && (
+          <div className="flex gap-2">
+          <Button variant="outline" onClick={() => { setShowLote(!showLote); setShowCreate(false); }}>
+            <Users size={16} className="mr-2" /> Criar vários
+          </Button>
           <Button
             onClick={() => setShowCreate(!showCreate)}
             
           >
             <UserPlus size={16} className="mr-2" /> Novo Usuário
           </Button>
+          </div>
         )}
       </div>
 
@@ -319,6 +354,56 @@ export default function InternoAdmin() {
 
       {activeTab === 'usuarios' && (
       <>
+      {/* Criação em lote */}
+      {showLote && (
+        <div className="mb-6 p-5 rounded-md border border-border bg-card">
+          <h2 className="text-sm font-semibold text-foreground">Criar vários usuários</h2>
+          <p className="mt-1 mb-4 text-xs text-muted-foreground">Uma linha por pessoa no formato <code>Nome | usuário</code>. Todos entram com a senha geral e cadastram a própria no primeiro login.</p>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <label className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground mb-1 block">Pessoas ({loteLinhas.length})</label>
+              <textarea value={loteTexto} onChange={(e) => setLoteTexto(e.target.value)} rows={7}
+                className="w-full rounded-md border border-border bg-background px-3 py-2 font-mono text-sm text-foreground" />
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground mb-1 block">Senha geral</label>
+                <Input type="password" value={loteSenha} onChange={(e) => setLoteSenha(e.target.value)} placeholder="Mínimo 6 caracteres" />
+              </div>
+              <div>
+                <label className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground mb-1 block">Cargo</label>
+                <div className="flex gap-2">
+                  {ASSIGNABLE_ROLES.map((r) => (
+                    <button key={r} onClick={() => setLoteRole(r)}
+                      className={`inline-flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium border transition-colors ${
+                        loteRole === r ? 'bg-primary text-primary-foreground border-primary' : 'bg-transparent border-border text-muted-foreground hover:text-foreground'
+                      }`}>
+                      <span className={`h-1.5 w-1.5 rounded-full ${ROLE_LABELS[r].dot}`} />
+                      {ROLE_LABELS[r].label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {loteResultado.length > 0 && (
+                <ul className="space-y-1 text-xs">
+                  {loteResultado.map((r) => (
+                    <li key={r.usuario} className={r.ok ? 'text-emerald-400' : 'text-red-400'}>
+                      {r.ok ? '✓' : '✕'} {r.usuario}{r.erro ? ` — ${r.erro}` : ''}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+          <div className="mt-4 flex gap-2">
+            <Button onClick={handleCreateLote} disabled={loteCriando}>
+              {loteCriando ? `Criando ${loteResultado.length + 1} de ${loteLinhas.length}…` : `Criar ${loteLinhas.length} usuários`}
+            </Button>
+            <Button variant="outline" onClick={() => { setShowLote(false); setLoteResultado([]); }}>Fechar</Button>
+          </div>
+        </div>
+      )}
+
       {/* Create user form */}
       {showCreate && (
         <div className="mb-6 p-5 rounded-md border border-border bg-card">
