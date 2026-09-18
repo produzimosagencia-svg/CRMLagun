@@ -68,6 +68,17 @@ const InfluenciadorConectar = lazy(() => import("./pages/InfluenciadorConectar.t
 const InfluenciadorCallback = lazy(() => import("./pages/InfluenciadorCallback.tsx"));
 const InfluenciadorPortal   = lazy(() => import("./pages/InfluenciadorPortal.tsx"));
 
+// Aberto como app da tela inicial (iPhone/Android) e caiu na página principal:
+// vai direto pro login do painel. O Safari não deixa trocar o endereço na hora
+// de adicionar, então quem salva a partir da home também chega no painel.
+// No navegador normal nada muda.
+const abertoComoApp =
+  window.matchMedia('(display-mode: standalone)').matches ||
+  (navigator as Navigator & { standalone?: boolean }).standalone === true;
+if (abertoComoApp && window.location.pathname === '/') {
+  window.history.replaceState(null, '', '/interno/login');
+}
+
 const Fallback = () => (
   <div className="min-h-screen flex items-center justify-center bg-[#06060A]">
     <div className="h-8 w-8 border-2 border-[#FFE14D] border-t-transparent rounded-full animate-spin" />
