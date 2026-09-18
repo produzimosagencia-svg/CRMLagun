@@ -13,6 +13,7 @@ import SplashScreen from '@/components/SplashScreen';
 import { DefinirSenha } from '@/components/interno/DefinirSenha';
 import { supabase } from '@/integrations/supabase/client';
 import { useAppMobile } from '@/hooks/useAppMobile';
+import { useManifestInterno } from '@/hooks/useManifestInterno';
 import { AppMobile } from '@/components/interno/mobile/AppMobile';
 import flamingoLagun from '@/assets/flamingo-solo.png';
 import logoPrive from '@/assets/logo-prive-preto.png';
@@ -68,6 +69,7 @@ export default function InternoLayout() {
   const path = location.pathname;
   // Celular (abaixo de 768px): casca de aplicativo no lugar do trilho e da gaveta.
   const appMobile = useAppMobile();
+  useManifestInterno();
 
   useEffect(() => { if (splash) sessionStorage.removeItem('interno-splash'); }, [splash]);
 
