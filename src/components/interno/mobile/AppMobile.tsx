@@ -138,7 +138,7 @@ export function AppMobile({
       {/* pointer-events-none no envelope: só a pílula em si captura toque,
           as margens transparentes ao redor deixam passar pro conteúdo. */}
       <nav
-        className="pointer-events-none absolute inset-x-0 bottom-0 z-[60] px-3"
+        className="pointer-events-none absolute inset-x-0 bottom-0 z-40 px-3"
         style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 16px)', paddingTop: 4 }}
         aria-label="Ferramentas"
       >

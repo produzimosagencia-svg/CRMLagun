@@ -153,6 +153,13 @@ function formatCurrency(value: number) {
   return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
+// Celular: R$ 10,8K no lugar de R$ 10.852,09.
+function formatCurrencyShort(value: number) {
+  if (value >= 1_000_000) return `R$ ${(value / 1_000_000).toFixed(1).replace('.', ',')}M`;
+  if (value >= 1_000) return `R$ ${(value / 1_000).toFixed(1).replace('.', ',')}K`;
+  return formatCurrency(value);
+}
+
 function formatNumber(value: number) {
   if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
   if (value >= 1_000) return `${(value / 1_000).toFixed(1)}K`;
@@ -622,8 +629,8 @@ export default function InternoRelatorios() {
         subtitulo={`${groupedByEvent.length} ${groupedByEvent.length === 1 ? 'evento' : 'eventos'} no período`}
         carregando={loading}
         itens={[
-          { label: 'Gasto total', valor: formatCurrency(summary.spend), sub: 'no período', cor: CORES.ambar, barra: 100 },
-          { label: 'Retorno', valor: formatCurrency(summary.purchaseValue), sub: summary.purchases > 0 ? `${summary.purchases} compras` : 'sem compras', cor: CORES.verde, barra: summary.spend ? Math.min(100, (summary.purchaseValue / summary.spend) * 25) : 0 },
+          { label: 'Gasto total', valor: formatCurrency(summary.spend), valorCurto: formatCurrencyShort(summary.spend), sub: 'no período', cor: CORES.ambar, barra: 100 },
+          { label: 'Retorno', valor: formatCurrency(summary.purchaseValue), valorCurto: formatCurrencyShort(summary.purchaseValue), sub: summary.purchases > 0 ? `${summary.purchases} compras` : 'sem compras', cor: CORES.verde, barra: summary.spend ? Math.min(100, (summary.purchaseValue / summary.spend) * 25) : 0 },
           { label: 'ROAS', valor: summary.roas > 0 ? `${summary.roas.toFixed(2)}x` : '—', sub: summary.roas > 0 ? `R$ ${summary.roas.toFixed(2).replace('.', ',')} por real` : undefined, cor: CORES.ouro, barra: Math.min(100, summary.roas * 20) },
           { label: 'Impressões', valor: formatNumber(summary.impressions), sub: `alcance ${formatNumber(summary.reach)}`, cor: CORES.azul, barra: 72, soWeb: true },
           { label: 'Cliques', valor: formatNumber(summary.clicks), sub: summary.impressions ? `CTR ${((summary.clicks / summary.impressions) * 100).toFixed(1).replace('.', ',')}%` : undefined, cor: CORES.branco, barra: summary.impressions ? Math.min(100, (summary.clicks / summary.impressions) * 100 * 20) : 0, soWeb: true },

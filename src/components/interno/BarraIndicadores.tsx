@@ -30,6 +30,8 @@ export interface Indicador {
   barra?: number;
   /** Aparece só na web; some no celular. */
   soWeb?: boolean;
+  /** Versão abreviada do valor pro celular (ex.: R$ 10,8K). */
+  valorCurto?: string;
 }
 
 function Metrica({ label, valor, sub, cor = CORES.ouro, barra }: Indicador) {
@@ -68,7 +70,7 @@ export function BarraIndicadores({ titulo, subtitulo, itens, carregando = false,
 }) {
   const itensMobile = itens.filter((it) => !it.soWeb);
   const n = itensMobile.length;
-  const valorLongo = itensMobile.some((it) => it.valor.length > 8);
+  const valorLongo = itensMobile.some((it) => (it.valorCurto ?? it.valor).length > 8);
   const colunasMobile = valorLongo ? Math.min(2, Math.max(n, 1)) : n > 3 ? Math.ceil(n / 2) : Math.max(n, 1);
   return (
     <div>
@@ -120,7 +122,8 @@ export function BarraIndicadores({ titulo, subtitulo, itens, carregando = false,
   );
 }
 
-function MetricaMobile({ label, valor, sub, cor = CORES.ouro, barra }: Indicador) {
+function MetricaMobile({ label, valor: valorCheio, valorCurto, sub, cor = CORES.ouro, barra }: Indicador) {
+  const valor = valorCurto ?? valorCheio;
   const tamanho = valor.length > 10 ? 16 : valor.length > 7 ? 18 : 20;
   return (
     <div

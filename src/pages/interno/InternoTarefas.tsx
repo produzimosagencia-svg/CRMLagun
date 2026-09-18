@@ -370,9 +370,9 @@ export default function InternoTarefas() {
       subtitulo: `${tasks.length} tarefas · ${minhas} abertas com você`,
       itens: [
         { label: 'Em aberto', valor: String(abertas.length), sub: `${tasksByStatus('em andamento').length} em andamento`, cor: CORES.ouro, barra: pct(abertas.length) },
-        { label: 'Urgentes', valor: String(urgentes), sub: 'prioridade urgente', cor: CORES.rosa },
+        { label: 'Urgentes', valor: String(urgentes), sub: 'prioridade urgente', cor: CORES.rosa, soWeb: true },
         { label: 'Atrasadas', valor: String(atrasadas), sub: 'prazo vencido', cor: CORES.ambar },
-        { label: 'Vencem em 7 dias', valor: String(vencendo), sub: 'próxima semana', cor: CORES.azul },
+        { label: 'Vencem em 7 dias', valor: String(vencendo), sub: 'próxima semana', cor: CORES.azul, soWeb: true },
         { label: 'Concluídas', valor: String(concluidas), sub: `${pct(concluidas)}% do total`, cor: CORES.verde, barra: pct(concluidas) },
       ],
     };

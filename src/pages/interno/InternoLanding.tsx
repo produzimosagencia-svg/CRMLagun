@@ -430,7 +430,7 @@ export default function InternoLanding() {
             </div>
 
             {/* ── RIGHT: live preview ── */}
-            <div className="w-72 shrink-0 border-l border-gray-100 overflow-y-auto flex flex-col" style={{ backgroundColor: '#1A0800' }}>
+            <div className="w-72 shrink-0 border-l border-gray-100 overflow-y-auto flex flex-col max-md:hidden" style={{ backgroundColor: '#1A0800' }}>
               <p className="text-[10px] tracking-[0.3em] uppercase px-4 pt-4 pb-3" style={{ color: 'rgba(245,212,112,0.5)' }}>Preview</p>
 
               {/* Mobile card preview */}
