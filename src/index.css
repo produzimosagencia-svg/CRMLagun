@@ -186,9 +186,17 @@
   to   { opacity: 1; }
 }
 .app-folha { animation: app-folha .32s cubic-bezier(.2,.8,.2,1); }
+
+/* Login no celular: flamingo dourado com brilho pulsando devagar */
+@keyframes login-brilho {
+  0%, 100% { filter: drop-shadow(0 0 10px rgba(255,225,77,.55)) drop-shadow(0 0 26px rgba(255,200,60,.25)); }
+  50%      { filter: drop-shadow(0 0 16px rgba(255,225,77,.85)) drop-shadow(0 0 40px rgba(255,200,60,.45)); }
+}
+.login-flamingo { animation: login-brilho 3.2s ease-in-out infinite; }
 .app-fundo { animation: app-fundo .2s ease-out; }
 @media (prefers-reduced-motion: reduce) {
   .app-folha, .app-fundo { animation: none; }
+  .login-flamingo { animation: none; filter: drop-shadow(0 0 12px rgba(255,225,77,.6)); }
 }
 
 @layer base {

@@ -3,6 +3,7 @@ import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import loginPhoto from '@/assets/DSC_9565.jpg';
 import palavraGold from '@/assets/palavra-lagun.png';
+import flamingoLagun from '@/assets/flamingo-solo.png';
 import { toast } from 'sonner';
 import { ArrowLeft, Eye, EyeOff, Loader2 } from 'lucide-react';
 
@@ -53,7 +54,7 @@ export default function InternoLogin() {
   const campo = 'h-11 w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 text-sm text-white placeholder:text-white/30 outline-none transition focus:border-[#FFE14D]/70 focus:bg-white/[0.06]';
 
   return (
-    <div className="flex min-h-screen bg-black p-3 sm:p-4">
+    <div className="flex min-h-screen bg-black p-3 sm:p-4 max-md:min-h-[100dvh]">
       {/* Foto: painel arredondado à esquerda, como um quadro dentro da página */}
       <div className="relative hidden overflow-hidden rounded-[22px] lg:block lg:w-1/2">
         <img src={loginPhoto} alt="Lagun" className="absolute inset-0 h-full w-full object-cover" />
@@ -66,14 +67,17 @@ export default function InternoLogin() {
       </div>
 
       {/* Login */}
-      <div className="flex flex-1 items-center justify-center px-4 py-10 sm:px-10">
-        <div className="w-full max-w-[380px]">
-          <img src={palavraGold} alt="Lagun" className="mb-10 h-7 w-auto lg:hidden" />
+      <div className="flex flex-1 items-center justify-center px-4 py-10 sm:px-10 max-md:flex-col max-md:px-2 max-md:pb-24 max-md:pt-4">
+        {/* Celular: flamingo dourado brilhando fora do cartão */}
+        <img src={flamingoLagun} alt="" aria-hidden className="login-flamingo mb-7 hidden h-24 w-auto max-md:block" />
 
-          <h1 className="text-[28px] font-bold tracking-tight text-white">Bem-vindo de volta</h1>
-          <p className="mt-1.5 text-sm text-white/45">Acesso exclusivo para o time Lagun.</p>
+        <div className="w-full max-w-[380px] max-md:rounded-[28px] max-md:border max-md:border-[#FFE14D]/30 max-md:bg-white/[0.025] max-md:px-6 max-md:py-8 max-md:shadow-[0_0_40px_-12px_rgba(255,225,77,.35),inset_0_1px_0_rgba(255,255,255,.06)]">
+          <img src={palavraGold} alt="Lagun" className="mb-10 h-7 w-auto lg:hidden max-md:mx-auto max-md:mb-8 max-md:h-8" />
 
-          <form onSubmit={handleSubmit} className="mt-9 space-y-5">
+          <h1 className="text-[28px] font-bold tracking-tight text-white max-md:hidden">Bem-vindo de volta</h1>
+          <p className="mt-1.5 text-sm text-white/45 max-md:hidden">Acesso exclusivo para o time Lagun.</p>
+
+          <form onSubmit={handleSubmit} className="mt-9 space-y-5 max-md:mt-0">
             <div>
               <label htmlFor="username" className="mb-2 block text-[13px] font-medium text-white/80">Usuário</label>
               <input id="username" type="text" value={username} onChange={(e) => setUsername(e.target.value)}
@@ -98,7 +102,7 @@ export default function InternoLogin() {
             </button>
           </form>
 
-          <div className="mt-10 flex items-center gap-3 text-[11px] text-white/25">
+          <div className="mt-10 flex items-center gap-3 text-[11px] text-white/25 max-md:mt-8">
             <span className="h-px flex-1 bg-white/10" />
             Lagun ® Sistema Interno
             <span className="h-px flex-1 bg-white/10" />
