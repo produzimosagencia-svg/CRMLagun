@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useManifestInterno } from '@/hooks/useManifestInterno';
+import { useAppMobile } from '@/hooks/useAppMobile';
+import { useSemZoom } from '@/hooks/useSemZoom';
 import loginPhoto from '@/assets/DSC_9565.jpg';
 import palavraGold from '@/assets/palavra-lagun.png';
 import flamingoLagun from '@/assets/flamingo-solo.png';
@@ -15,6 +17,7 @@ export default function InternoLogin() {
   const [submitting, setSubmitting] = useState(false);
   const [mostrarSenha, setMostrarSenha] = useState(false);
   useManifestInterno();
+  useSemZoom(useAppMobile());
 
   if (loading) {
     return (

@@ -2,6 +2,7 @@ import { useEffect, type CSSProperties, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BarChart3, LogOut, Trophy, type LucideIcon } from 'lucide-react';
 import flamingoLagun from '@/assets/flamingo-solo.png';
+import { useSemZoom } from '@/hooks/useSemZoom';
 
 /**
  * Casca de aplicativo do painel interno no celular (abaixo de 768px).
@@ -58,6 +59,7 @@ export function AppMobile({
   children: ReactNode;
 }) {
   const navigate = useNavigate();
+  useSemZoom();
 
   // Deixa o app ocupar a tela inteira do iPhone (atrás da ilha e da barra de
   // gestos) e usar as margens seguras. Só enquanto o app está montado: o site
