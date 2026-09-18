@@ -244,13 +244,13 @@ export default function InternoSocialMedia() {
   }
 
   return (
-    <div className="space-y-6 pb-10">
+    <div className="space-y-6 pb-10 max-md:space-y-4 max-md:pb-2">
       {/* Header */}
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full bg-[#FFE14D]" />
-          <h1 className="text-lg font-bold text-[#FFE14D]">Social Media</h1>
-          {selectedAccount && <span className="text-sm text-muted-foreground">@{selectedAccount.username}</span>}
+          <div className="w-2 h-2 rounded-full bg-[#FFE14D] max-md:hidden" />
+          <h1 className="text-lg font-bold text-[#FFE14D] max-md:hidden">Social Media</h1>
+          {selectedAccount && <span className="text-sm text-muted-foreground max-md:hidden">@{selectedAccount.username}</span>}
         </div>
         <button onClick={() => void gerarPdf()} disabled={gerandoPdf || loadingMedia || !selectedAccount}
           className="flex h-9 items-center gap-1.5 rounded-lg bg-[#FFE14D] px-3.5 text-sm font-semibold text-black shadow-[0_0_20px_rgba(255,225,77,.45)] transition hover:bg-[#FFEC8A] disabled:opacity-50">
@@ -275,10 +275,10 @@ export default function InternoSocialMedia() {
           : <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white/10 text-white/70"><Instagram size={18} /></span>}
         itens={[
           { label: 'Seguidores', valor: formatNumber(kpis.followers || 0), sub: 'conta profissional', cor: CORES.ouro, barra: 100 },
-          { label: 'Publicações', valor: formatNumber(media.length), sub: 'carregadas no período', cor: CORES.branco, barra: 70 },
+          { label: 'Publicações', valor: formatNumber(media.length), sub: 'carregadas no período', cor: CORES.branco, barra: 70, soWeb: true },
           { label: 'Curtidas', valor: formatNumber(kpis.likes || 0), sub: 'somadas nas publicações', cor: CORES.rosa, barra: 84 },
           { label: 'Comentários', valor: formatNumber(totalComentarios), sub: 'somados nas publicações', cor: CORES.azul, barra: 46 },
-          { label: 'Engajamento', valor: taxaEngajamento, sub: 'média por publicação', cor: CORES.verde, barra: 58 },
+          { label: 'Engajamento', valor: taxaEngajamento, sub: 'média por publicação', cor: CORES.verde, barra: 58, soWeb: true },
         ]}
       />
 

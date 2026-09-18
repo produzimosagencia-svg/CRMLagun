@@ -569,9 +569,9 @@ export default function InternoRelatorios() {
 
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-md:space-y-4">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 max-md:hidden">
           <Button
             variant="ghost"
             size="sm"
@@ -585,7 +585,7 @@ export default function InternoRelatorios() {
           </h2>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 max-md:w-full">
           <Button
             size="sm"
             className="h-9 gap-1.5 text-xs font-semibold text-black bg-[#FFE14D] hover:bg-[#FFEC8A] shadow-[0_0_20px_rgba(255,225,77,.45)]"
@@ -597,7 +597,7 @@ export default function InternoRelatorios() {
           </Button>
 
           <Select value={datePreset} onValueChange={setDatePreset}>
-            <SelectTrigger className="w-[180px] h-9 text-xs rounded-lg border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
+            <SelectTrigger className="w-[180px] max-md:ml-auto max-md:h-8 max-md:w-[140px] max-md:text-[11px] h-9 text-xs rounded-lg border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -625,8 +625,8 @@ export default function InternoRelatorios() {
           { label: 'Gasto total', valor: formatCurrency(summary.spend), sub: 'no período', cor: CORES.ambar, barra: 100 },
           { label: 'Retorno', valor: formatCurrency(summary.purchaseValue), sub: summary.purchases > 0 ? `${summary.purchases} compras` : 'sem compras', cor: CORES.verde, barra: summary.spend ? Math.min(100, (summary.purchaseValue / summary.spend) * 25) : 0 },
           { label: 'ROAS', valor: summary.roas > 0 ? `${summary.roas.toFixed(2)}x` : '—', sub: summary.roas > 0 ? `R$ ${summary.roas.toFixed(2).replace('.', ',')} por real` : undefined, cor: CORES.ouro, barra: Math.min(100, summary.roas * 20) },
-          { label: 'Impressões', valor: formatNumber(summary.impressions), sub: `alcance ${formatNumber(summary.reach)}`, cor: CORES.azul, barra: 72 },
-          { label: 'Cliques', valor: formatNumber(summary.clicks), sub: summary.impressions ? `CTR ${((summary.clicks / summary.impressions) * 100).toFixed(1).replace('.', ',')}%` : undefined, cor: CORES.branco, barra: summary.impressions ? Math.min(100, (summary.clicks / summary.impressions) * 100 * 20) : 0 },
+          { label: 'Impressões', valor: formatNumber(summary.impressions), sub: `alcance ${formatNumber(summary.reach)}`, cor: CORES.azul, barra: 72, soWeb: true },
+          { label: 'Cliques', valor: formatNumber(summary.clicks), sub: summary.impressions ? `CTR ${((summary.clicks / summary.impressions) * 100).toFixed(1).replace('.', ',')}%` : undefined, cor: CORES.branco, barra: summary.impressions ? Math.min(100, (summary.clicks / summary.impressions) * 100 * 20) : 0, soWeb: true },
         ]}
       />
 
@@ -762,10 +762,10 @@ export default function InternoRelatorios() {
                         <span className="rounded-full border border-gray-200 px-2 py-1 text-[10px] font-semibold text-gray-500 dark:border-gray-700 dark:text-gray-400">{(creativesByEvent.get(eventGroup.eventName) || []).length} criativo{(creativesByEvent.get(eventGroup.eventName) || []).length === 1 ? '' : 's'}</span>
                       </div>
 
-                      {loadingCreatives ? <div className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-gray-200 py-8 text-xs text-gray-400 dark:border-gray-800"><Loader2 size={15} className="animate-spin" />Carregando criativos...</div> : (creativesByEvent.get(eventGroup.eventName) || []).length === 0 ? <div className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-gray-200 py-8 text-xs text-gray-400 dark:border-gray-800"><ImageOff size={15} />Nenhum criativo com entrega neste período.</div> : <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{(creativesByEvent.get(eventGroup.eventName) || []).map(creative => {
+                      {loadingCreatives ? <div className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-gray-200 py-8 text-xs text-gray-400 dark:border-gray-800"><Loader2 size={15} className="animate-spin" />Carregando criativos...</div> : (creativesByEvent.get(eventGroup.eventName) || []).length === 0 ? <div className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-gray-200 py-8 text-xs text-gray-400 dark:border-gray-800"><ImageOff size={15} />Nenhum criativo com entrega neste período.</div> : <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 max-md:flex max-md:snap-x max-md:snap-mandatory max-md:overflow-x-auto max-md:pb-1">{(creativesByEvent.get(eventGroup.eventName) || []).map(creative => {
                         const preview = creative.image_url || creative.thumbnail_url;
                         const isVideo = creative.creative_type === 'video';
-                        return <a key={creative.ad_id} href={creative.video_url || creative.image_url || creative.thumbnail_url || undefined} target="_blank" rel="noreferrer" onClick={event => { if (!preview && !creative.video_url) event.preventDefault(); }} className="group overflow-hidden rounded-xl border border-gray-200 bg-gray-50 transition hover:-translate-y-0.5 hover:border-purple-300 hover:shadow-lg dark:border-gray-800 dark:bg-[#160F20] dark:hover:border-purple-500/40">
+                        return <a key={creative.ad_id} href={creative.video_url || creative.image_url || creative.thumbnail_url || undefined} target="_blank" rel="noreferrer" onClick={event => { if (!preview && !creative.video_url) event.preventDefault(); }} className="group overflow-hidden rounded-xl border border-gray-200 bg-gray-50 transition hover:-translate-y-0.5 hover:border-purple-300 hover:shadow-lg dark:border-gray-800 dark:bg-[#160F20] dark:hover:border-purple-500/40 max-md:w-[78vw] max-md:max-w-[280px] max-md:shrink-0 max-md:snap-start">
                           <div className="relative aspect-video overflow-hidden bg-black/20">{isVideo && creative.video_url ? <video src={creative.video_url} poster={preview || undefined} preload="metadata" muted playsInline className="h-full w-full object-cover" /> : preview ? <img src={preview} alt={creative.ad_name || 'Criativo da campanha'} loading="lazy" decoding="async" className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.03]" /> : <div className="flex h-full items-center justify-center text-gray-500"><ImageOff size={22} /></div>}<span className="absolute left-2 top-2 flex items-center gap-1 rounded-full bg-black/70 px-2 py-1 text-[9px] font-bold uppercase tracking-wide text-white backdrop-blur">{isVideo ? <Video size={11} /> : null}{isVideo ? 'Vídeo' : 'Imagem'}</span></div>
                           <div className="space-y-2 p-3"><div><p className="truncate text-xs font-bold text-gray-900 dark:text-gray-100" title={creative.ad_name}>{creative.ad_name || 'Anúncio sem nome'}</p><p className="mt-0.5 truncate text-[10px] text-gray-400" title={creative.campaign_name}>{creative.campaign_name}</p></div><div className="grid grid-cols-3 gap-1.5 text-center"><div className="rounded-md bg-white px-1 py-1.5 dark:bg-white/[0.04]"><p className="text-[8px] uppercase text-gray-400">Gasto</p><p className="text-[10px] font-semibold text-gray-700 dark:text-gray-300">{formatCurrency(Number(creative.spend || 0))}</p></div><div className="rounded-md bg-white px-1 py-1.5 dark:bg-white/[0.04]"><p className="text-[8px] uppercase text-gray-400">Impressões</p><p className="text-[10px] font-semibold text-gray-700 dark:text-gray-300">{formatNumber(Number(creative.impressions || 0))}</p></div><div className="rounded-md bg-white px-1 py-1.5 dark:bg-white/[0.04]"><p className="text-[8px] uppercase text-gray-400">Cliques</p><p className="text-[10px] font-semibold text-gray-700 dark:text-gray-300">{formatNumber(Number(creative.clicks || 0))}</p></div></div></div>
                         </a>;

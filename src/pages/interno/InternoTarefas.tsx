@@ -456,8 +456,8 @@ export default function InternoTarefas() {
     <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Tarefas</h2>
-        <div className="flex items-center gap-2">
+        <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 max-md:hidden">Tarefas</h2>
+        <div className="flex items-center gap-2 max-md:w-full max-md:justify-between">
           <div className="flex bg-gray-100 dark:bg-gray-800 rounded-lg p-0.5">
             <button onClick={() => setViewMode('kanban')} className={`p-1.5 rounded-md transition-all ${viewMode === 'kanban' ? 'bg-white dark:bg-gray-700 shadow-sm text-gray-900 dark:text-gray-100' : 'text-gray-400 hover:text-gray-600'}`}>
               <LayoutGrid size={16} />

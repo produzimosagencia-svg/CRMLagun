@@ -1075,8 +1075,8 @@ export default function InternoWhatsAppChat() {
     : false;
 
   return (
-    <div className="flex h-[calc(100vh-120px)] overflow-hidden rounded-xl border bg-background lg:h-[calc(100vh-60px)]">
-      <div className={`w-full md:w-80 border-r flex flex-col shrink-0 ${selectedPhone ? 'hidden md:flex' : 'flex'}`}>
+    <div className="flex h-[calc(100vh-120px)] overflow-hidden rounded-xl border bg-background lg:h-[calc(100vh-60px)] max-md:-m-4 max-md:h-[var(--app-body)] max-md:rounded-none max-md:border-0">
+      <div className={`w-full md:w-80 border-r max-md:border-r-0 flex flex-col shrink-0 ${selectedPhone ? 'hidden md:flex' : 'flex'}`}>
         <div className="border-b">
           <div className="flex">
             <button
@@ -1167,7 +1167,7 @@ export default function InternoWhatsAppChat() {
             </div>
           )}
         </div>
-        <ScrollArea className="flex-1">
+        <ScrollArea className="flex-1 max-md:[&>[data-radix-scroll-area-viewport]>div]:!block">
           {loading ? (
             <div className="p-4 text-center text-muted-foreground text-sm">Carregando...</div>
           ) : visibleConversations.length === 0 ? (

@@ -12,6 +12,8 @@ import {
 import SplashScreen from '@/components/SplashScreen';
 import { DefinirSenha } from '@/components/interno/DefinirSenha';
 import { supabase } from '@/integrations/supabase/client';
+import { useAppMobile } from '@/hooks/useAppMobile';
+import { AppMobile } from '@/components/interno/mobile/AppMobile';
 import flamingoLagun from '@/assets/flamingo-solo.png';
 import logoPrive from '@/assets/logo-prive-preto.png';
 
@@ -64,6 +66,8 @@ export default function InternoLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const path = location.pathname;
+  // Celular (abaixo de 768px): casca de aplicativo no lugar do trilho e da gaveta.
+  const appMobile = useAppMobile();
 
   useEffect(() => { if (splash) sessionStorage.removeItem('interno-splash'); }, [splash]);
 
@@ -287,6 +291,27 @@ export default function InternoLayout() {
   );
 
   const go = (to: string) => { navigate(to); setSidebarOpen(false); };
+
+  const carregandoPagina = <div className="flex h-[60vh] items-center justify-center"><div className="h-7 w-7 animate-spin rounded-full border-2 border-[#FFE14D] border-t-transparent" /></div>;
+
+  if (appMobile) {
+    return (
+      <AppMobile
+        path={path}
+        secoes={sections}
+        conta={contaSections}
+        nomeUsuario={userName}
+        onSair={signOut}
+        sobreposicao={splashOverlay}
+      >
+        <TransicaoPagina key={path} chave={path}>
+          <Suspense fallback={carregandoPagina}>
+            <Outlet />
+          </Suspense>
+        </TransicaoPagina>
+      </AppMobile>
+    );
+  }
 
   return (
     <TooltipProvider delayDuration={80}>

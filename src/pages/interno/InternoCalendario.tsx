@@ -210,12 +210,12 @@ export default function InternoCalendario() {
     EVENT_COLORS.find(x => x.value === c)?.light ?? EVENT_COLORS[0].light;
 
   return (
-    <div className="flex flex-col h-[calc(100vh-64px)] bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+    <div className="flex flex-col h-[calc(100vh-64px)] max-md:h-[calc(var(--app-body)-32px)] bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
 
       {/* ── Header ── */}
-      <div className="flex items-center justify-between px-5 py-3 border-b border-gray-200 dark:border-gray-700 shrink-0">
-        <div className="flex items-center gap-3">
-          <h1 className="text-lg font-bold text-gray-900 dark:text-white">
+      <div className="flex items-center justify-between px-5 py-3 border-b border-gray-200 dark:border-gray-700 shrink-0 max-md:gap-2 max-md:px-3">
+        <div className="flex items-center gap-3 max-md:min-w-0 max-md:gap-1.5">
+          <h1 className="max-md:truncate max-md:text-base text-lg font-bold text-gray-900 dark:text-white">
             {MONTHS_PT[month]} {year}
           </h1>
           <div className="flex items-center gap-1">
@@ -237,9 +237,10 @@ export default function InternoCalendario() {
         <Button
           size="sm"
           onClick={() => openNew(todayStr)}
-          className="bg-purple-600 hover:bg-purple-700 text-white gap-1.5 h-8 text-xs"
+          className="bg-purple-600 hover:bg-purple-700 text-white gap-1.5 h-8 text-xs max-md:w-8 max-md:shrink-0 max-md:px-0"
+          aria-label="Novo evento"
         >
-          <Plus size={14} /> Novo evento
+          <Plus size={14} /> <span className="max-md:hidden">Novo evento</span>
         </Button>
       </div>
 
@@ -253,7 +254,7 @@ export default function InternoCalendario() {
       </div>
 
       {/* ── Calendar grid ── */}
-      <div className="flex-1 grid grid-cols-7 overflow-y-auto" style={{ gridAutoRows: 'minmax(100px, 1fr)' }}>
+      <div className="flex-1 grid grid-cols-7 overflow-y-auto [grid-auto-rows:minmax(100px,1fr)] max-md:[grid-auto-rows:minmax(72px,1fr)]">
         {calendarDays.map(({ date, current }, idx) => {
           const ds   = date.toISOString().split('T')[0];
           const evs  = byDate.get(ds) || [];
@@ -268,7 +269,7 @@ export default function InternoCalendario() {
               onDragLeave={handleDragLeave}
               onDrop={e => handleDrop(e, ds)}
               className={[
-                'border-b border-r border-gray-100 dark:border-gray-800 p-1.5 cursor-pointer group relative transition-colors',
+                'border-b border-r border-gray-100 dark:border-gray-800 p-1.5 max-md:p-1 cursor-pointer group relative transition-colors',
                 !current  ? 'bg-gray-50/70 dark:bg-gray-950/50'            : '',
                 current && isWeekend ? 'bg-gray-50/40 dark:bg-gray-800/20' : '',
                 current && !isWeekend ? 'bg-white dark:bg-gray-900'        : '',

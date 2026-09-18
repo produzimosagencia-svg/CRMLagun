@@ -183,12 +183,12 @@ export default function InternoLanding() {
   return (
     <div className="max-w-4xl mx-auto">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
+      <div className="flex items-center justify-between mb-6 max-md:mb-4">
+        <div className="max-md:hidden">
           <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">Landing Page</h2>
           <p className="text-sm text-gray-400 mt-0.5">Gerencie os eventos exibidos no site público</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 max-md:w-full max-md:gap-2">
           <a
             href="/"
             target="_blank"
@@ -205,7 +205,7 @@ export default function InternoLanding() {
           </button>
           <button
             onClick={openNew}
-            className="flex items-center gap-2 bg-[#D9B14E] hover:bg-[#B98F35] text-white shadow-[0_2px_12px_rgba(168,85,247,0.35)] dark:bg-gradient-to-br dark:from-[#E8C766] dark:via-[#e8b830] dark:to-[#E8C766] dark:hover:brightness-105 dark:text-[#1A0800] text-sm font-semibold px-4 py-2 rounded-lg transition-all dark:shadow-[0_2px_12px_rgba(232,184,48,0.35)]"
+            className="max-md:ml-auto flex items-center gap-2 bg-[#D9B14E] hover:bg-[#B98F35] text-white shadow-[0_2px_12px_rgba(168,85,247,0.35)] dark:bg-gradient-to-br dark:from-[#E8C766] dark:via-[#e8b830] dark:to-[#E8C766] dark:hover:brightness-105 dark:text-[#1A0800] text-sm font-semibold px-4 py-2 rounded-lg transition-all dark:shadow-[0_2px_12px_rgba(232,184,48,0.35)]"
           >
             <Plus size={16} /> Novo evento
           </button>
@@ -230,7 +230,7 @@ export default function InternoLanding() {
           {events.map((ev) => (
             <div
               key={ev.id}
-              className={`flex items-center gap-4 rounded-xl border bg-white dark:bg-[#1A1916] p-4 transition-all ${
+              className={`flex items-center gap-4 rounded-xl border bg-white dark:bg-[#1A1916] p-4 transition-all max-md:flex-wrap max-md:gap-x-3 max-md:gap-y-2 max-md:p-3 ${
                 ev.show_on_landing
                   ? 'border-gray-200 dark:border-[#34322B]'
                   : 'border-dashed border-gray-200 dark:border-[#34322B] opacity-60'
@@ -255,7 +255,7 @@ export default function InternoLanding() {
               </div>
 
               {/* Info */}
-              <div className="flex-1 min-w-0">
+              <div className="flex-1 min-w-0 max-md:basis-[calc(100%-76px)]">
                 <div className="flex items-center gap-2">
                   <p className="font-semibold text-gray-900 dark:text-gray-100 text-sm truncate">{ev.nome}</p>
                   {ev.tag && (
@@ -277,20 +277,20 @@ export default function InternoLanding() {
                     href={ev.link}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-[11px] text-[#D9B14E] hover:underline flex items-center gap-1 mt-0.5"
+                    className="text-[11px] text-[#D9B14E] hover:underline flex items-center gap-1 mt-0.5 max-md:min-w-0"
                   >
-                    <ExternalLink size={10} /> {ev.link.length > 50 ? ev.link.slice(0, 50) + '…' : ev.link}
+                    <ExternalLink size={10} className="max-md:shrink-0" /> <span className="max-md:truncate">{ev.link.length > 50 ? ev.link.slice(0, 50) + '…' : ev.link}</span>
                   </a>
                 )}
               </div>
 
               {/* Click counter */}
-              <div className="flex flex-col items-center shrink-0 min-w-[52px]" title="Cliques no botão de ingresso">
+              <div className="flex flex-col items-center shrink-0 min-w-[52px] max-md:ml-[76px] max-md:min-w-0 max-md:flex-row max-md:gap-1" title="Cliques no botão de ingresso">
                 <div className="flex items-center gap-1 text-[#D9B14E]">
                   <MousePointerClick size={13} />
                   <span className="text-sm font-bold">{(clicks[ev.id] || 0).toLocaleString('pt-BR')}</span>
                 </div>
-                <span className="text-[10px] text-gray-400 mt-0.5">cliques</span>
+                <span className="text-[10px] text-gray-400 mt-0.5 max-md:mt-0">cliques</span>
               </div>
 
               {/* Order badge */}
@@ -300,7 +300,7 @@ export default function InternoLanding() {
               </div>
 
               {/* Actions */}
-              <div className="flex items-center gap-1 shrink-0">
+              <div className="flex items-center gap-1 shrink-0 max-md:ml-auto">
                 <button
                   onClick={() => toggleVisible(ev)}
                   title={ev.show_on_landing ? 'Ocultar no site' : 'Mostrar no site'}

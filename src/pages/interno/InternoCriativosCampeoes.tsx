@@ -294,17 +294,17 @@ export default function InternoCriativosCampeoes() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-md:gap-3">
         {rankedCreatives.map((c, idx) => (
           <div
             key={c.ad_id}
             onClick={() => openCreativeModal(c)}
-            className={`relative rounded-xl border bg-card overflow-hidden transition-shadow hover:shadow-lg cursor-pointer ${
+            className={`relative rounded-xl border bg-card overflow-hidden transition-shadow hover:shadow-lg cursor-pointer max-md:flex ${
               idx < 3 ? 'border-amber-300 dark:border-amber-700 shadow-sm' : 'border-border'
             }`}
           >
             {/* Thumbnail */}
-            <div className="aspect-video bg-muted flex items-center justify-center relative">
+            <div className="aspect-video bg-muted flex items-center justify-center relative max-md:aspect-auto max-md:w-28 max-md:shrink-0 max-md:self-stretch">
               {c.thumbnail_url || c.image_url ? (
                 <img
                   src={c.thumbnail_url || c.image_url || ''}
@@ -321,18 +321,18 @@ export default function InternoCriativosCampeoes() {
                 <span className="text-xs mt-1">Sem preview</span>
               </div>
               {/* Rank badge */}
-              <div className="absolute top-2 left-2 bg-card rounded-full h-8 w-8 flex items-center justify-center shadow-md">
+              <div className="absolute top-2 left-2 bg-card rounded-full h-8 w-8 flex items-center justify-center shadow-md max-md:left-1.5 max-md:top-1.5 max-md:h-7 max-md:w-7">
                 {getRankBadge(idx)}
               </div>
               {/* Type badge */}
-              <div className="absolute top-2 right-2 bg-card/90 backdrop-blur-sm rounded-full px-2 py-0.5 flex items-center gap-1 shadow-sm">
+              <div className="absolute top-2 right-2 bg-card/90 backdrop-blur-sm rounded-full px-2 py-0.5 flex items-center gap-1 shadow-sm max-md:hidden">
                 {c.creative_type === 'video' ? <Video size={10} /> : <ImageIcon size={10} />}
                 <span className="text-[10px] font-medium">{c.creative_type === 'video' ? 'Vídeo' : 'Estático'}</span>
               </div>
             </div>
 
             {/* Info */}
-            <div className="p-4">
+            <div className="p-4 max-md:min-w-0 max-md:flex-1 max-md:p-3">
               <p className="text-sm font-semibold text-foreground truncate" title={c.ad_name}>
                 {c.ad_name}
               </p>
@@ -345,7 +345,7 @@ export default function InternoCriativosCampeoes() {
                 </p>
               </div>
 
-              <div className="grid grid-cols-2 gap-x-4 gap-y-2 mt-3">
+              <div className="grid grid-cols-2 gap-x-4 gap-y-2 mt-3 max-md:mt-2 max-md:gap-x-2">
                 <div className="flex items-center gap-1.5">
                   <DollarSign size={12} className="text-green-500" />
                   <div>

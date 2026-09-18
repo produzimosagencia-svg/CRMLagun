@@ -274,8 +274,8 @@ export default function InternoDashboardSocial() {
           : <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white/10 text-white/70"><Instagram size={18} /></span>}
         itens={[
           { label: 'Seguidores', valor: perfil ? nf.format(perfil.followers_count) : '—', sub: 'conta profissional', cor: CORES.ouro, barra: 100 },
-          { label: 'Engajamento', valor: engajamento.taxa ? pct(engajamento.taxa) : '—', sub: engajamento.posts ? `média de ${engajamento.posts} ${engajamento.posts === 1 ? 'post' : 'posts'}` : undefined, cor: CORES.verde, barra: Math.min(100, engajamento.taxa * 20) },
-          { label: 'DMs recebidas', valor: nf.format(totais.dms), sub: `últimos ${dias} dias`, cor: CORES.rosa, barra: 62 },
+          { label: 'Engajamento', valor: engajamento.taxa ? pct(engajamento.taxa) : '—', sub: engajamento.posts ? `média de ${engajamento.posts} ${engajamento.posts === 1 ? 'post' : 'posts'}` : undefined, cor: CORES.verde, barra: Math.min(100, engajamento.taxa * 20), soWeb: true },
+          { label: 'DMs recebidas', valor: nf.format(totais.dms), sub: `últimos ${dias} dias`, cor: CORES.rosa, barra: 62, soWeb: true },
           { label: 'Curtidas', valor: nf.format(engajamento.curtidas), sub: engajamento.posts ? `em ${engajamento.posts} ${engajamento.posts === 1 ? 'publicação' : 'publicações'}` : 'nas publicações', cor: CORES.azul, barra: 70 },
           { label: 'Cliques no link', valor: nf.format(totais.cliques), sub: `${nf.format(Math.round(totais.cliques / Math.max(dias, 1)))}/dia em média`, cor: CORES.branco, barra: 80 },
         ]}
