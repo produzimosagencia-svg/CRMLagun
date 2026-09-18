@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -170,6 +170,23 @@ export default function InternoCalendario() {
     setDraggedId(null);
   }
 
+  // Celular: arrastar o dedo pro lado troca o mês (esquerda = próximo).
+  const toqueInicio = useRef<{ x: number; y: number } | null>(null);
+  const onToqueInicio = (e: React.TouchEvent) => {
+    const t = e.touches[0];
+    toqueInicio.current = { x: t.clientX, y: t.clientY };
+  };
+  const onToqueFim = (e: React.TouchEvent) => {
+    const ini = toqueInicio.current;
+    toqueInicio.current = null;
+    if (!ini) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - ini.x;
+    const dy = t.clientY - ini.y;
+    if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+    if (dx < 0) nextMonth(); else prevMonth();
+  };
+
   function prevMonth() {
     if (month === 0) { setMonth(11); setYear(y => y - 1); }
     else setMonth(m => m - 1);
@@ -210,7 +227,7 @@ export default function InternoCalendario() {
     EVENT_COLORS.find(x => x.value === c)?.light ?? EVENT_COLORS[0].light;
 
   return (
-    <div className="flex flex-col h-[calc(100vh-64px)] max-md:h-[calc(var(--app-body)-32px)] bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+    <div onTouchStart={onToqueInicio} onTouchEnd={onToqueFim} className="flex flex-col h-[calc(100vh-64px)] max-md:h-[calc(var(--app-body)-32px)] bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
 
       {/* ── Header ── */}
       <div className="flex items-center justify-between px-5 py-3 border-b border-gray-200 dark:border-gray-700 shrink-0 max-md:gap-2 max-md:px-3">

@@ -21,35 +21,10 @@ export default defineConfig(({ mode }) => ({
         globPatterns: ["**/*.{js,css,html,ico,png,svg,jpg,jpeg,webp,woff,woff2}"],
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
       },
-      manifest: {
-        name: "Lagun",
-        short_name: "Lagun",
-        description: "Lagun - A maior do RAP no ES",
-        theme_color: "#FF0080",
-        background_color: "#000000",
-        display: "standalone",
-        orientation: "portrait",
-        scope: "/",
-        start_url: "/",
-        icons: [
-          {
-            src: "/pwa-192x192.png",
-            sizes: "192x192",
-            type: "image/png",
-          },
-          {
-            src: "/pwa-512x512.png",
-            sizes: "512x512",
-            type: "image/png",
-          },
-          {
-            src: "/pwa-512x512.png",
-            sizes: "512x512",
-            type: "image/png",
-            purpose: "maskable",
-          },
-        ],
-      },
+      // O manifesto é escolhido pelo endereço no index.html: o site público usa
+      // public/manifest.webmanifest (abre em "/") e o painel usa
+      // public/manifest-interno.webmanifest (abre em /interno/login).
+      manifest: false,
     }),
   ].filter(Boolean),
   resolve: {
