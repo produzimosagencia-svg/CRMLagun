@@ -94,6 +94,9 @@ export function AppMobile({
   const alturaSub = subItens.length > 0 ? 44 : 0;
   const varsCorpo = {
     '--app-body': `calc(100dvh - ${ALTURA_ABAS + FOLGA_ABAS + alturaSub + 8}px - env(safe-area-inset-top) - env(safe-area-inset-bottom))`,
+    // Espaço que a pílula flutuante reserva no fim do conteúdo. Telas que
+    // precisam encostar no fim (o Chat) descontam isto com margem negativa.
+    '--app-tabs': `calc(${ALTURA_ABAS + FOLGA_ABAS}px + env(safe-area-inset-bottom) + 16px)`,
   } as CSSProperties;
 
   return (
@@ -139,8 +142,11 @@ export function AppMobile({
       {/* ── Barra de baixo: pílula flutuante, tipo Instagram/Apple ── */}
       {/* pointer-events-none no envelope: só a pílula em si captura toque,
           as margens transparentes ao redor deixam passar pro conteúdo. */}
+      {/* app-abas: a conversa aberta do Chat esconde a pílula para ocupar a
+          tela inteira, como em qualquer aplicativo de mensagem (regra em
+          index.css, ligada pela classe app-chat-cheio no body). */}
       <nav
-        className="pointer-events-none absolute inset-x-0 bottom-0 z-40 px-3"
+        className="app-abas pointer-events-none absolute inset-x-0 bottom-0 z-40 px-3"
         style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 16px)', paddingTop: 4 }}
         aria-label="Ferramentas"
       >

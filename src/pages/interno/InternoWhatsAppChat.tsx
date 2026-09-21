@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback, memo, Fragment } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { callWhatsappApi } from '@/lib/whatsappApi';
 import { Button } from '@/components/ui/button';
@@ -14,10 +14,10 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { confirmDialog } from '@/components/ConfirmDialog';
 import { formatPhone } from '@/lib/formatPhone';
+import { useAppMobile } from '@/hooks/useAppMobile';
 import { format, isToday, isYesterday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
-import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 
 interface Message {
   id: string;
@@ -34,6 +34,15 @@ interface Message {
   wamid: string | null;
   channel?: string;
   raw_payload?: Record<string, any> | null;
+  // Campos achatados pela consulta enxuta da lista (ver CONVERSATION_SELECT).
+  // Evitam trazer o raw_payload inteiro de mil mensagens só para descobrir
+  // o canal e a API de origem.
+  wa_phone_id?: string | null;
+  wa_meta_phone_id?: string | null;
+  wa_display_phone?: string | null;
+  wa_contact_id?: string | null;
+  ig_sender_id?: string | null;
+  ig_recipient_id?: string | null;
 }
 
 interface Conversation {
@@ -162,14 +171,26 @@ function phoneSearchVariants(phone: string): string[] {
   return Array.from(variants).filter(Boolean);
 }
 
+/** Id da API do WhatsApp que originou a mensagem, venha ela da consulta
+ *  enxuta (campos achatados) ou do raw_payload completo. */
+function messageApiPhoneIdRaw(message: Message | Record<string, any>): string {
+  const payload = (message as Message).raw_payload as Record<string, any> | null | undefined;
+  return (message as Message).wa_phone_id
+    || (message as Message).wa_meta_phone_id
+    || payload?.phone_number_id
+    || payload?.metadata?.phone_number_id
+    || '';
+}
+
 function inferMessageChannel(message: Message): 'whatsapp' | 'instagram' {
   if (message.channel === 'instagram') return 'instagram';
   if (message.channel === 'whatsapp') return 'whatsapp';
 
   const payload = message.raw_payload as Record<string, any> | null | undefined;
   const hasWhatsappMetadata = Boolean(
-    payload?.phone_number_id
-    || payload?.metadata?.phone_number_id
+    messageApiPhoneIdRaw(message)
+    || message.wa_display_phone
+    || message.wa_contact_id
     || payload?.metadata?.display_phone_number
     || payload?.contacts
   );
@@ -181,6 +202,8 @@ function inferMessageChannel(message: Message): 'whatsapp' | 'instagram' {
     message.contact_username
     || message.contact_avatar
     || /^\d{16,}$/.test(message.phone || '')
+    || message.ig_sender_id
+    || message.ig_recipient_id
     || payload?.sender?.id
     || payload?.recipient?.id
   ) {
@@ -245,19 +268,263 @@ function contactLabel(channel: 'whatsapp' | 'instagram', name?: string | null, u
   return id || '';
 }
 
+// Colunas da lista de conversas. Em vez do raw_payload inteiro (que em mil
+// mensagens vira megabytes e travava a troca de aba), o Postgres devolve só
+// os quatro campos que a tela usa para saber canal e API de origem. Se o banco
+// recusar essa sintaxe, a consulta cai no select('*') de antes.
+const CONVERSATION_SELECT = [
+  'id', 'phone', 'contact_name', 'contact_avatar', 'contact_username',
+  'direction', 'message_type', 'message_text', 'media_url', 'timestamp',
+  'status', 'wamid', 'channel',
+  'wa_phone_id:raw_payload->>phone_number_id',
+  'wa_meta_phone_id:raw_payload->metadata->>phone_number_id',
+  'wa_display_phone:raw_payload->metadata->>display_phone_number',
+  'ig_sender_id:raw_payload->sender->>id',
+  'ig_recipient_id:raw_payload->recipient->>id',
+].join(',');
+
+// A lista começa curta e cresce sozinha em blocos, quadro a quadro. A primeira
+// pintura sai leve mesmo com mil conversas e nenhuma some do histórico.
+const CONVERSATION_PAGE = 40;
+
+const ConversationRow = memo(function ConversationRow({
+  conv, channel, selected, onSelect, app = false,
+}: {
+  conv: Conversation;
+  channel: 'whatsapp' | 'instagram';
+  selected: boolean;
+  onSelect: (conv: Conversation) => void;
+  /** No celular a linha vira item de lista de aplicativo: foto maior, nome
+   *  em cima, prévia embaixo, divisória começando depois da foto. */
+  app?: boolean;
+}) {
+  const rotulo = contactLabel(channel, conv.contact_name, conv.contact_username, conv.phone);
+  // Quando não há @ nem nome, o rótulo é um id: mostra em fonte mono e
+  // apagada, para não parecer um nome quebrado.
+  const soId = channel === 'instagram' && /^\d+$/.test(rotulo);
+  const unread = conv.unread_count > 0;
+  const cor = channel === 'instagram' ? '#E4405F' : '#25D366';
+  return (
+    <button
+      onClick={() => onSelect(conv)}
+      className={`relative w-full text-left transition-colors duration-150 ${
+        app
+          ? `app-lista-linha px-4 py-3 active:bg-muted/70 ${unread ? 'bg-muted/25' : ''}`
+          : `p-4 border-b ${
+            selected
+              ? 'bg-muted'
+              : unread
+                ? channel === 'instagram' ? 'bg-[#E4405F]/10 hover:bg-[#E4405F]/15' : 'bg-[#25D366]/10 hover:bg-[#25D366]/15'
+                : 'hover:bg-muted/50'
+          }`
+      }`}
+    >
+      <div className={`flex items-center ${app ? 'gap-3.5' : 'gap-3'}`}>
+        <ContactAvatar src={conv.contact_avatar} name={conv.contact_name} id={conv.phone} channel={channel} size={app ? 52 : 40} />
+        <div className="flex-1 min-w-0 overflow-hidden">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5 min-w-0 flex-1">
+              <p className={`truncate ${app ? 'text-[15px]' : 'text-sm'} ${unread ? 'font-extrabold text-foreground' : app ? 'font-medium' : 'font-semibold'} ${soId ? 'font-mono text-xs font-normal text-muted-foreground' : ''}`}>
+                {soId ? <><span className="mr-1 not-italic">Sem nome</span><span className="opacity-50">#{rotulo.slice(-6)}</span></> : rotulo}
+              </p>
+              {conv.needs_support && (
+                <span className="w-2.5 h-2.5 rounded-full bg-red-500 shrink-0 animate-pulse" title="Precisa de suporte humano" />
+              )}
+            </div>
+            <div className={`flex items-center shrink-0 ml-2 ${app ? 'flex-col items-end gap-1' : 'gap-2'}`}>
+              <span
+                className={`text-xs ${unread ? 'font-bold' : 'text-muted-foreground'}`}
+                style={unread ? { color: cor } : undefined}
+              >
+                {formatTimestamp(conv.last_timestamp)}
+              </span>
+              {unread && (
+                <span
+                  className="min-w-5 h-5 px-1.5 rounded-full flex items-center justify-center text-[10px] font-black text-white"
+                  style={{ background: cor }}
+                  title={`${conv.unread_count} mensagem${conv.unread_count === 1 ? '' : 's'} não lida${conv.unread_count === 1 ? '' : 's'}`}
+                >
+                  {conv.unread_count > 99 ? '99+' : conv.unread_count}
+                </span>
+              )}
+            </div>
+          </div>
+          <p className={`truncate mt-0.5 pr-2 flex items-center gap-1 ${app ? 'text-[13px]' : 'text-xs'} ${unread ? 'text-foreground font-semibold' : 'text-muted-foreground'}`}>
+            {conv.last_direction === 'outgoing' && <StatusIcon status={conv.last_status} />}
+            <span className="truncate">{conv.last_message && conv.last_message.trim() !== '' ? conv.last_message : '📸 Mencionou no story'}</span>
+          </p>
+        </div>
+      </div>
+    </button>
+  );
+});
+
+/** Etiqueta de dia entre as mensagens, como em aplicativo de mensagem. */
+function dayLabel(ts: string) {
+  const date = new Date(ts);
+  if (isToday(date)) return 'Hoje';
+  if (isYesterday(date)) return 'Ontem';
+  return format(date, "d 'de' MMMM", { locale: ptBR });
+}
+
+const DaySeparator = memo(function DaySeparator({ label }: { label: string }) {
+  return (
+    <div className="flex justify-center py-2">
+      <span className="rounded-full bg-muted/70 px-3 py-1 text-[11px] font-medium text-muted-foreground">
+        {label}
+      </span>
+    </div>
+  );
+});
+
+const MessageBubble = memo(function MessageBubble({
+  msg, channel, isLast,
+}: {
+  msg: Message;
+  channel: 'whatsapp' | 'instagram';
+  isLast: boolean;
+}) {
+  const mediaSrc = msg.media_url
+    ? (msg.media_url.startsWith('http')
+      ? msg.media_url
+      : `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/whatsapp-api?action=get_media&media_id=${msg.media_url}`)
+    : null;
+  const isStory = msg.message_type === 'story_mention' || msg.message_type === 'story_reply';
+  return (
+    <div className={`flex ${isLast ? (msg.direction === 'outgoing' ? 'chat-message-out' : 'chat-message-in') : ''} ${msg.direction === 'outgoing' ? 'justify-end' : 'justify-start'}`}>
+      <div className={`max-w-[78%] max-md:max-w-[84%] rounded-2xl border px-3.5 py-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.08)] ${
+        msg.direction === 'outgoing'
+          ? (channel === 'instagram' ? 'border-[#E4405F]/20 bg-[#E4405F]/15 text-foreground rounded-br-md' : 'border-[#25D366]/20 bg-[#25D366]/15 text-foreground rounded-br-md')
+          : 'border-border/60 bg-card/80 text-foreground rounded-bl-md'
+      }`}>
+        {mediaSrc && (msg.message_type === 'image' || msg.message_type === 'sticker' || isStory) && (
+          <div className="mb-1">
+            {isStory && (
+              <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide opacity-70">Story mencionado</p>
+            )}
+            <img
+              src={mediaSrc}
+              alt={isStory ? 'Conteúdo do story mencionado' : ''}
+              className={`rounded-lg max-w-full cursor-pointer ${msg.message_type === 'sticker' ? 'max-h-32 w-auto' : 'max-h-64'}`}
+              onClick={() => window.open(mediaSrc, '_blank')}
+              loading="lazy"
+              decoding="async"
+              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+            />
+          </div>
+        )}
+        {mediaSrc && msg.message_type === 'video' && (
+          <video src={mediaSrc} controls preload="none" className="rounded-lg max-w-full max-h-64 mb-1" />
+        )}
+        {mediaSrc && msg.message_type === 'audio' && (
+          <audio src={mediaSrc} controls preload="none" className="mb-1 max-w-full" />
+        )}
+        {msg.message_text && msg.message_text.trim() !== '' && msg.message_text !== `[${msg.message_type}]` ? (
+          <p className="text-sm max-md:text-[15px] max-md:leading-snug whitespace-pre-wrap break-words">{msg.message_text}</p>
+        ) : (
+          <p className="text-sm italic opacity-70">
+            {isStory
+              ? '📸 Mencionou no story'
+              : msg.message_type === 'share' || msg.message_type === 'media_share' ? '🔗 Compartilhou um post'
+              : msg.message_type === 'reel' || msg.message_type === 'ig_reel' ? '🎬 Enviou um reel'
+              : msg.message_type === 'clip' ? '🎥 Enviou um clip'
+              : msg.message_type === 'image' ? '📷 Enviou uma foto'
+              : msg.message_type === 'video' ? '🎬 Enviou um vídeo'
+              : msg.message_type === 'audio' ? '🎤 Enviou um áudio'
+              : msg.message_type === 'attachment' ? '📎 Anexo'
+              : (!msg.message_text || msg.message_text.trim() === '') ? '📸 Mencionou no story'
+              : `[${msg.message_type}]`}
+          </p>
+        )}
+        <div className="mt-1.5 flex items-center justify-end gap-1 text-muted-foreground/80">
+          <span className="text-[10px]">{formatTimestamp(msg.timestamp)}</span>
+          {msg.direction === 'outgoing' && <StatusIcon status={msg.status} />}
+        </div>
+      </div>
+    </div>
+  );
+});
+
+/**
+ * Caixa de escrita com estado próprio.
+ *
+ * Antes o texto morava no componente da página inteira: cada letra digitada
+ * repintava a lista de conversas e todas as mensagens abertas, e era isso que
+ * deixava a digitação travada. Aqui a letra só mexe na própria caixa.
+ */
+const Composer = memo(function Composer({
+  channel, sending, onSend,
+}: {
+  channel: 'whatsapp' | 'instagram';
+  sending: boolean;
+  onSend: (text: string) => Promise<boolean>;
+}) {
+  const [text, setText] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const submit = async () => {
+    const value = text.trim();
+    if (!value || sending) return;
+    const ok = await onSend(value);
+    if (ok) setText('');
+    inputRef.current?.focus();
+  };
+
+  // app-composer (index.css): só no celular, acrescenta embaixo a margem
+  // segura do aparelho, para a caixa não cair sob a barra de gestos.
+  return (
+    <div className="app-composer border-t border-border/60 bg-background/80 px-4 py-3 max-md:px-3 max-md:py-2 backdrop-blur-sm">
+      <div className={`flex gap-2 max-w-2xl mx-auto rounded-2xl border border-border/70 bg-card/70 p-1.5 shadow-sm transition-colors ${channel === 'instagram' ? 'focus-within:border-[#E4405F]/60' : 'focus-within:border-[#25D366]/40'}`}>
+        <Input
+          ref={inputRef}
+          value={text}
+          onChange={e => setText(e.target.value)}
+          onKeyDown={e => {
+            // nativeEvent.isComposing: teclado de acento/emoji ainda montando a
+            // palavra — Enter aqui confirma a letra, não envia a mensagem.
+            if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+              e.preventDefault();
+              void submit();
+            }
+          }}
+          placeholder={channel === 'instagram' ? 'Enviar mensagem no Instagram...' : 'Digite uma mensagem...'}
+          className="flex-1 border-0 bg-transparent shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+        />
+        <Button
+          onClick={() => void submit()}
+          disabled={!text.trim() || sending}
+          size="icon"
+          aria-label={sending ? 'Enviando mensagem' : 'Enviar mensagem'}
+          className={`h-9 w-9 shrink-0 rounded-xl shadow-none transition-all duration-150 active:scale-95 ${channel === 'instagram'
+            ? 'bg-[#E4405F] hover:bg-[#D93654] text-white'
+            : 'bg-[#25D366] hover:bg-[#20BD5A] text-white'
+          }`}
+        >
+          {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+        </Button>
+      </div>
+    </div>
+  );
+});
+
 export default function InternoWhatsAppChat() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedPhone, setSelectedPhone] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
-  const [replyText, setReplyText] = useState('');
   const [sending, setSending] = useState(false);
   const [botEnabled, setBotEnabled] = useState<Record<string, boolean>>({});
   const [profile, setProfile] = useState<CustomerProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesViewportRef = useRef<HTMLDivElement>(null);
   const conversationLoadIdRef = useRef(0);
-  const reduceMotion = useReducedMotion();
+  const currentUserIdRef = useRef<string | null>(null);
+  // Celular (abaixo de 768px): o chat vira tela de aplicativo de mensagem.
+  const app = useAppMobile();
+  const [fechando, setFechando] = useState(false);
+  // Quantas conversas já foram pintadas (a lista cresce em blocos).
+  const [visibleCount, setVisibleCount] = useState(CONVERSATION_PAGE);
 
   const [globalAiEnabled, setGlobalAiEnabled] = useState(false);
   const [togglingGlobal, setTogglingGlobal] = useState(false);
@@ -305,11 +572,17 @@ export default function InternoWhatsAppChat() {
     const accountScope = getAccountScope(channel);
 
     // Atualização otimista: o destaque some no mesmo clique.
-    setConversations(prev => prev.map(conv =>
-      conv.phone === phone ? { ...conv, unread_count: 0 } : conv
-    ));
+    setConversations(prev => prev.some(conv => conv.phone === phone && conv.unread_count > 0)
+      ? prev.map(conv => (conv.phone === phone ? { ...conv, unread_count: 0 } : conv))
+      : prev);
 
-    const { data: { user } } = await supabase.auth.getUser();
+    // O id do usuário vem da sessão já guardada no navegador. Buscar o usuário
+    // no servidor a cada clique atrasava a abertura da conversa.
+    if (!currentUserIdRef.current) {
+      const { data: { session } } = await supabase.auth.getSession();
+      currentUserIdRef.current = session?.user?.id || null;
+    }
+    const user = { id: currentUserIdRef.current };
     const { error } = await supabase
       .from('chat_conversation_reads')
       .upsert({
@@ -324,14 +597,14 @@ export default function InternoWhatsAppChat() {
     if (error) console.error('Error marking conversation as read:', error);
   };
 
-  const handleConversationSelect = (conv: Conversation) => {
-    setSelectedPhone(conv.phone);
+  const handleConversationSelect = useCallback((conv: Conversation) => {
+    setSelectedPhone(prev => (prev === conv.phone ? prev : conv.phone));
     void markConversationRead(conv.phone);
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeChannel, selectedApiPhone, selectedIgAccount?.id]);
 
   const messageApiPhoneId = (message: any) =>
-    message?.raw_payload?.phone_number_id
-    || message?.raw_payload?.metadata?.phone_number_id
+    messageApiPhoneIdRaw(message)
     // Mensagens antigas não guardavam a API de origem. Elas pertencem ao
     // primeiro número que já era usado antes da inclusão do seletor.
     || apiPhones[0]?.id
@@ -478,11 +751,26 @@ export default function InternoWhatsAppChat() {
   const loadConversationsForChannel = async (channel: string) => {
     const loadId = ++conversationLoadIdRef.current;
     setLoading(true);
+
     // For whatsapp: include messages with channel='whatsapp' OR channel=null (legacy Meta API messages)
-    const query = supabase.from('whatsapp_messages').select('*').order('timestamp', { ascending: false }).limit(1000);
-    const { data, error } = channel === 'whatsapp'
-      ? await query.or('channel.eq.whatsapp,channel.is.null')
-      : await query.eq('channel', channel);
+    const fetchPage = async (columns: string) => {
+      const query = (supabase as any).from('whatsapp_messages')
+        .select(columns).order('timestamp', { ascending: false }).limit(1000);
+      return channel === 'whatsapp'
+        ? await query.or('channel.eq.whatsapp,channel.is.null')
+        : await query.eq('channel', channel);
+    };
+
+    let { data, error } = await fetchPage(CONVERSATION_SELECT);
+    // Banco que não aceite os atalhos de JSON (erro, ou resposta sem os campos
+    // pedidos): repete do jeito antigo, trazendo o raw_payload inteiro. Sem
+    // esta conferência, mensagem antiga do WhatsApp poderia ser lida como
+    // Instagram e sumir da caixa.
+    const gotFlattenedFields = !data?.length || 'wa_phone_id' in (data[0] as Record<string, unknown>);
+    if (error || !gotFlattenedFields) {
+      if (error) console.warn('Consulta enxuta recusada, repetindo completa:', error.message);
+      ({ data, error } = await fetchPage('*'));
+    }
 
     if (loadId !== conversationLoadIdRef.current) return;
     if (error) { console.error('Error loading messages:', error); setLoading(false); return; }
@@ -556,6 +844,7 @@ export default function InternoWhatsAppChat() {
       }
     }
 
+    setVisibleCount(CONVERSATION_PAGE);
     setConversations(
       Array.from(convMap.values()).sort((a, b) => new Date(b.last_timestamp).getTime() - new Date(a.last_timestamp).getTime())
     );
@@ -637,13 +926,20 @@ export default function InternoWhatsAppChat() {
     setSelectedApiPhone(phoneId);
   };
 
+  // O que os avisos do tempo real precisam saber sobre a tela agora. Fica em
+  // ref, não em dependência: assim a assinatura é criada uma única vez.
+  const liveRef = useRef({ activeChannel, selectedPhone, selectedApiPhone, apiPhones, markConversationRead });
+  liveRef.current = { activeChannel, selectedPhone, selectedApiPhone, apiPhones, markConversationRead };
+
   useEffect(() => {
     const channel = supabase
       .channel('whatsapp-messages-realtime')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'whatsapp_messages' }, (payload) => {
         const newMsg = payload.new as Message & { channel?: string };
         const msgChannel = inferMessageChannel(newMsg);
-        
+        const { activeChannel, selectedPhone, selectedApiPhone, apiPhones } = liveRef.current;
+        const messageApiPhoneId = (message: any) => messageApiPhoneIdRaw(message) || apiPhones[0]?.id || '';
+
         // Only add to conversation list if it matches the active channel
         const belongsToSelectedApi = msgChannel !== 'whatsapp'
           || !selectedApiPhone
@@ -678,14 +974,23 @@ export default function InternoWhatsAppChat() {
             if (prev.some(m => m.id === newMsg.id || (m.wamid && m.wamid === newMsg.wamid))) return prev;
             return [...prev, newMsg];
           });
-          if (newMsg.direction === 'incoming') void markConversationRead(newMsg.phone, newMsg.timestamp);
+          if (newMsg.direction === 'incoming') void liveRef.current.markConversationRead(newMsg.phone, newMsg.timestamp);
         }
       })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'whatsapp_messages' }, (payload) => {
         const updated = payload.new as Message;
+        const { activeChannel, selectedApiPhone, apiPhones } = liveRef.current;
+        const messageApiPhoneId = (message: any) => messageApiPhoneIdRaw(message) || apiPhones[0]?.id || '';
         if (inferMessageChannel(updated) !== activeChannel) return;
         if (activeChannel === 'whatsapp' && selectedApiPhone && messageApiPhoneId(updated) !== selectedApiPhone) return;
-        setMessages(prev => prev.map(m => m.id === updated.id ? { ...m, status: updated.status } : m));
+        // Casa também pelo wamid: a mensagem que acabou de sair daqui ainda tem
+        // o id provisório do navegador, e sem isso o "entregue/lido" dela nunca
+        // aparecia.
+        setMessages(prev => prev.map(m => (
+          m.id === updated.id || (m.wamid && updated.wamid && m.wamid === updated.wamid)
+            ? { ...m, id: updated.id || m.id, status: updated.status }
+            : m
+        )));
         setConversations(prev => prev.map(c => {
           if (c.phone === updated.phone) {
             return { ...c, last_status: updated.status };
@@ -696,7 +1001,7 @@ export default function InternoWhatsAppChat() {
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [selectedPhone, activeChannel, selectedApiPhone, apiPhones]);
+  }, []);
 
   useEffect(() => {
     const loadBotSettings = async () => {
@@ -720,9 +1025,12 @@ export default function InternoWhatsAppChat() {
     if (!selectedPhone) { setProfile(null); return; }
 
     const loadMessages = async () => {
+      // Ordem decrescente + reverse: traz as 200 mensagens MAIS RECENTES.
+      // Em ordem crescente o limite pegava as 200 mais antigas, e conversa
+      // longa abria no começo do histórico, sem as mensagens de hoje.
       const msgQuery = supabase.from('whatsapp_messages').select('*')
         .eq('phone', selectedPhone)
-        .order('timestamp', { ascending: true }).limit(200);
+        .order('timestamp', { ascending: false }).limit(200);
       const { data } = activeChannel === 'whatsapp'
         ? await msgQuery.or('channel.eq.whatsapp,channel.is.null')
         : await msgQuery.eq('channel', activeChannel);
@@ -731,7 +1039,7 @@ export default function InternoWhatsAppChat() {
         m.message_type !== 'system'
         && inferMessageChannel(m) === activeChannel
         && (activeChannel !== 'whatsapp' || !selectedApiPhone || messageApiPhoneId(m) === selectedApiPhone)
-      ));
+      ).reverse());
     };
 
     const loadProfile = async () => {
@@ -739,70 +1047,82 @@ export default function InternoWhatsAppChat() {
       setProfile(null);
 
       const needle = normalizePhone(selectedPhone);
-      const selectedConversation = conversations.find(c => c.phone === selectedPhone);
-      const username = (selectedConversation?.contact_username || '').replace(/^@/, '').trim();
-      const phoneVariants = activeChannel === 'whatsapp' ? phoneSearchVariants(selectedPhone) : [];
+      const phoneVariants = phoneSearchVariants(selectedPhone);
 
-      const findRegistration = async (table: string, select: string) => {
-        const lookups: PromiseLike<any>[] = [];
-        if (phoneVariants.length > 0) {
-          lookups.push((supabase as any).from(table).select(select).in('whatsapp', phoneVariants).limit(1));
-        }
-        if (username) {
-          lookups.push((supabase as any).from(table).select(select).ilike('instagram', username).limit(1));
-          lookups.push((supabase as any).from(table).select(select).ilike('instagram', `@${username}`).limit(1));
-        }
-        if (lookups.length === 0) return null;
-        const results = await Promise.all(lookups);
-        return results.flatMap(result => result.data || [])[0] || null;
-      };
-
+      // Cadastros (divulgador, creator, pré-venda) ainda não são buscados aqui.
       const registrations: CustomerRegistration[] = [];
 
+      // Antes esta tela baixava a tabela inteira de clientes a cada conversa
+      // aberta e procurava o telefone no navegador. Agora o banco procura:
+      // primeiro pelas grafias exatas do número, depois pelos 9 dígitos finais.
+      const findCustomer = async () => {
+        const { data: exact } = await supabase
+          .from('crm_customers')
+          .select('id, full_name, phone, ltv, city, neighborhood')
+          .in('phone', phoneVariants)
+          .limit(20);
+        const exactMatch = (exact || []).find(c => c.phone && normalizePhone(c.phone) === needle);
+        if (exactMatch) return exactMatch;
 
-      const { data: customers } = await supabase
-        .from('crm_customers')
-        .select('id, full_name, phone, ltv, city, neighborhood');
+        // O telefone pode estar salvo com pontuação, então a busca por trecho
+        // cobre tanto "27999998862" quanto "(27) 99999-8862".
+        const dashed = needle.length === 9 ? `${needle.slice(0, 5)}-${needle.slice(5)}` : needle;
+        const { data: similar } = await supabase
+          .from('crm_customers')
+          .select('id, full_name, phone, ltv, city, neighborhood')
+          .or(`phone.ilike.%${needle}%,phone.ilike.%${dashed}%`)
+          .limit(50);
+        return (similar || []).find(c => c.phone && normalizePhone(c.phone) === needle) || null;
+      };
 
-      const match = (customers || []).find(c => {
-        if (!c.phone) return false;
-        return normalizePhone(c.phone) === needle;
-      });
+      // Só os carrinhos abandonados, filtrados no banco. Antes vinham mil
+      // webhooks inteiros para o navegador peneirar.
+      const loadAbandonedCarts = async (): Promise<AbandonedCart[]> => {
+        const base = () => supabase
+          .from('webhook_logs')
+          .select('payload, received_at')
+          .eq('source', 'blueticket')
+          .order('received_at', { ascending: false })
+          .limit(500);
+        type WebhookRow = { payload: unknown; received_at: string };
+        const filtered = await (base() as unknown as {
+          filter: (column: string, operator: string, value: string) => Promise<{ data: WebhookRow[] | null; error: unknown }>;
+        }).filter('payload->payload->>type', 'eq', 'abandoned_cart');
+        // Banco que não aceite o filtro dentro do JSON: peneira aqui mesmo.
+        const rows: WebhookRow[] = (filtered.error ? (await base()).data : filtered.data) || [];
+
+        const carts: AbandonedCart[] = [];
+        const phoneNeedle = selectedPhone.replace(/\D/g, '').slice(-9);
+        rows.forEach((log) => {
+          const p = log.payload as Record<string, any> | null;
+          if (p?.payload?.type !== 'abandoned_cart') return;
+          const custPhone = (p?.payload?.customer?.phone || '').replace(/\D/g, '');
+          if (custPhone.slice(-9) !== phoneNeedle) return;
+          carts.push({
+            event_name: p?.payload?.event?.name || 'Evento desconhecido',
+            timestamp: p?.timestamp || log.received_at,
+            amount: p?.payload?.order?.amount || 0,
+          });
+        });
+        return carts;
+      };
+
+      const match = await findCustomer();
 
       if (match) {
-        const { data: purchases } = await supabase
-          .from('crm_purchases')
-          .select('event_name, total_value')
-          .eq('customer_id', match.id);
+        const [{ data: purchases }, abandonedCarts] = await Promise.all([
+          supabase
+            .from('crm_purchases')
+            .select('event_name, total_value')
+            .eq('customer_id', match.id),
+          loadAbandonedCarts(),
+        ]);
 
         const eventMap = new Map<string, number>();
         (purchases || []).forEach(p => {
           eventMap.set(p.event_name, (eventMap.get(p.event_name) || 0) + (p.total_value || 0));
         });
         const eventBreakdown: EventBreakdown[] = Array.from(eventMap.entries()).map(([event_name, total]) => ({ event_name, total }));
-
-        const { data: webhookLogs } = await supabase
-          .from('webhook_logs')
-          .select('payload, received_at')
-          .eq('source', 'blueticket')
-          .limit(1000);
-
-        const abandonedCarts: AbandonedCart[] = [];
-        const phoneNeedle = selectedPhone.replace(/\D/g, '').slice(-9);
-
-        (webhookLogs || []).forEach(log => {
-          const p = log.payload as any;
-          if (p?.payload?.type === 'abandoned_cart') {
-            const custPhone = (p?.payload?.customer?.phone || '').replace(/\D/g, '');
-            if (custPhone.slice(-9) === phoneNeedle) {
-              abandonedCarts.push({
-                event_name: p?.payload?.event?.name || 'Evento desconhecido',
-                timestamp: p?.timestamp || log.received_at,
-                amount: p?.payload?.order?.amount || 0,
-              });
-            }
-          }
-        });
 
         setProfile({
           full_name: match.full_name, phone: match.phone, ltv: match.ltv,
@@ -820,27 +1140,7 @@ export default function InternoWhatsAppChat() {
           .single();
 
         if (newCustomer) {
-          const { data: webhookLogs2 } = await supabase
-            .from('webhook_logs')
-            .select('payload, received_at')
-            .eq('source', 'blueticket')
-            .limit(1000);
-
-          const abandonedCarts2: AbandonedCart[] = [];
-          const pDigits = selectedPhone.replace(/\D/g, '').slice(-9);
-          (webhookLogs2 || []).forEach(log => {
-            const p = log.payload as any;
-            if (p?.payload?.type === 'abandoned_cart') {
-              const custPhone = (p?.payload?.customer?.phone || '').replace(/\D/g, '');
-              if (custPhone.slice(-9) === pDigits) {
-                abandonedCarts2.push({
-                  event_name: p?.payload?.event?.name || 'Evento desconhecido',
-                  timestamp: p?.timestamp || log.received_at,
-                  amount: p?.payload?.order?.amount || 0,
-                });
-              }
-            }
-          });
+          const abandonedCarts2 = await loadAbandonedCarts();
 
           setProfile({
             full_name: newCustomer.full_name, phone: newCustomer.phone, ltv: newCustomer.ltv,
@@ -858,11 +1158,31 @@ export default function InternoWhatsAppChat() {
     };
 
     loadMessages();
-    loadProfile();
+    // O painel de perfil só existe no WhatsApp, e o "telefone" de uma DM é o id
+    // numérico do Instagram. Rodar isto no Instagram cadastrava um cliente novo
+    // no CRM com o id no lugar do telefone a cada DM aberta.
+    if (activeChannel === 'whatsapp') loadProfile();
+    else { setProfile(null); setProfileLoading(false); }
   }, [selectedPhone, selectedApiPhone, activeChannel]);
 
+  // Ao abrir uma conversa, vai direto para o fim, sem animar o caminho inteiro.
+  // Depois disso, mensagem nova só puxa a rolagem se a pessoa já estiver perto
+  // do fim: quem está lendo o histórico não é mais arrancado de lá.
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    if (!selectedPhone) return;
+    messagesEndRef.current?.scrollIntoView({ block: 'end' });
+  }, [selectedPhone, activeChannel]);
+
+  useEffect(() => {
+    const viewport = messagesViewportRef.current;
+    if (!viewport) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      return;
+    }
+    const distanceFromBottom = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
+    if (distanceFromBottom < 240) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
   }, [messages.length]);
 
   const toggleBot = async (phone: string) => {
@@ -957,13 +1277,15 @@ export default function InternoWhatsAppChat() {
     else { toast.success('Evento removido'); loadKnowledge(); }
   };
 
-  const handleSendReply = async () => {
-    if (!replyText.trim() || !selectedPhone || sending) return;
+  // Devolve true quando a mensagem saiu — só então a caixa de escrita se limpa.
+  const handleSendReply = useCallback(async (replyText: string): Promise<boolean> => {
+    if (!replyText.trim() || !selectedPhone || sending) return false;
 
     // Instagram DM send
     if (activeChannel === 'instagram') {
       const igAccount = selectedIgAccount ?? { id: '17841436376156784', username: 'lagunvix' };
       setSending(true);
+      let sent = false;
       try {
         const { data: { session } } = await supabase.auth.getSession();
         const token = session?.access_token || ANON_KEY;
@@ -988,21 +1310,27 @@ export default function InternoWhatsAppChat() {
             id: crypto.randomUUID(), phone: selectedPhone, contact_name: null,
             direction: 'outgoing', message_type: 'text', message_text: replyText,
             media_url: null, timestamp: sentAt, status: 'sent', wamid: result.message_id || null,
+            channel: 'instagram',
           };
           setMessages(prev => [...prev, optimisticMsg]);
+          // A DM enviada também vira a última linha da conversa na lista.
+          setConversations(prev => prev.map(c => c.phone === selectedPhone
+            ? { ...c, last_message: replyText, last_timestamp: sentAt, last_direction: 'outgoing', last_status: 'sent' }
+            : c).sort((a, b) => new Date(b.last_timestamp).getTime() - new Date(a.last_timestamp).getTime()));
           // Uma resposta manual assume o atendimento e pausa a IA somente
           // para este contato, mesmo que o interruptor global volte a ser ligado.
           await supabase.from('whatsapp_bot_settings')
             .upsert({ phone: `ig:${selectedPhone}`, bot_enabled: false, updated_at: new Date().toISOString() }, { onConflict: 'phone' });
-          setReplyText('');
+          sent = true;
         }
       } catch (err) { console.error('IG send error:', err); toast.error('Erro ao enviar DM'); }
       finally { setSending(false); }
-      return;
+      return sent;
     }
 
     // ── WhatsApp via Meta API oficial ──────────────────────────────────
     setSending(true);
+    let sent = false;
     try {
       const sentAt = new Date().toISOString();
       const contactName = conversations.find(c => c.phone === selectedPhone)?.contact_name || null;
@@ -1035,7 +1363,7 @@ export default function InternoWhatsAppChat() {
                  has_incoming: false, latest_incoming_timestamp: null, started_by_broadcast: false }, ...prev];
           return updated.sort((a, b) => new Date(b.last_timestamp).getTime() - new Date(a.last_timestamp).getTime());
         });
-        setReplyText('');
+        sent = true;
         if (result.persisted === false) toast.error('Mensagem enviada mas não salva no histórico.');
         if (botEnabled[selectedPhone] !== false) {
           setBotEnabled(prev => ({ ...prev, [selectedPhone]: false }));
@@ -1043,41 +1371,101 @@ export default function InternoWhatsAppChat() {
             .upsert({ phone: selectedPhone, bot_enabled: false, updated_at: new Date().toISOString() }, { onConflict: 'phone' });
         }
       }
-    } catch (err) { console.error('Send error:', err); }
+    } catch (err) { console.error('Send error:', err); toast.error('Não foi possível enviar a mensagem'); }
     finally { setSending(false); }
-  };
+    return sent;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedPhone, sending, activeChannel, selectedApiPhone, selectedIgAccount?.id, conversations, botEnabled]);
 
-  const selectedConv = conversations.find(c => c.phone === selectedPhone);
-  const isConversationWindowOpen = (conversation: Conversation) => Boolean(
-    conversation.latest_incoming_timestamp
-    && inboxNow - new Date(conversation.latest_incoming_timestamp).getTime() <= WHATSAPP_WINDOW_MS
+  const selectedConv = useMemo(
+    () => conversations.find(c => c.phone === selectedPhone),
+    [conversations, selectedPhone],
   );
-  const visibleConversations = activeChannel === 'whatsapp'
-    ? conversations.filter((conversation) => {
-      const unansweredBroadcast = conversation.started_by_broadcast && !conversation.has_incoming;
-      const windowOpen = isConversationWindowOpen(conversation);
-      if (activeWhatsappInbox === 'help') return conversation.needs_support;
-      if (conversation.needs_support) return false;
-      if (activeWhatsappInbox === 'broadcasts') return unansweredBroadcast;
-      if (activeWhatsappInbox === 'window24h') return !unansweredBroadcast && windowOpen;
-      return !unansweredBroadcast && !windowOpen;
-    })
-    : conversations;
-  const whatsappInboxCounts = activeChannel === 'whatsapp' ? {
-    chat: conversations.filter(conversation => !conversation.needs_support && !(conversation.started_by_broadcast && !conversation.has_incoming) && !isConversationWindowOpen(conversation)).length,
-    window24h: conversations.filter(conversation => !conversation.needs_support && !(conversation.started_by_broadcast && !conversation.has_incoming) && isConversationWindowOpen(conversation)).length,
-    help: conversations.filter(conversation => conversation.needs_support).length,
-    broadcasts: conversations.filter(conversation => !conversation.needs_support && conversation.started_by_broadcast && !conversation.has_incoming).length,
-  } : { chat: 0, window24h: 0, help: 0, broadcasts: 0 };
-  const latestIncomingMessage = [...messages].reverse().find((message) => message.direction === 'incoming');
-  const is24hWindowOpen = latestIncomingMessage
-    ? Date.now() - new Date(latestIncomingMessage.timestamp).getTime() <= WHATSAPP_WINDOW_MS
-    : false;
+
+  // Uma passada só pela lista: separa as quatro caixas do WhatsApp e já conta
+  // cada uma. Antes eram cinco varreduras completas a cada repintura.
+  const { visibleConversations, whatsappInboxCounts } = useMemo(() => {
+    if (activeChannel !== 'whatsapp') {
+      return { visibleConversations: conversations, whatsappInboxCounts: { chat: 0, window24h: 0, help: 0, broadcasts: 0 } };
+    }
+    const buckets = { chat: [] as Conversation[], window24h: [] as Conversation[], help: [] as Conversation[], broadcasts: [] as Conversation[] };
+    for (const conversation of conversations) {
+      if (conversation.needs_support) { buckets.help.push(conversation); continue; }
+      if (conversation.started_by_broadcast && !conversation.has_incoming) { buckets.broadcasts.push(conversation); continue; }
+      const windowOpen = Boolean(
+        conversation.latest_incoming_timestamp
+        && inboxNow - new Date(conversation.latest_incoming_timestamp).getTime() <= WHATSAPP_WINDOW_MS
+      );
+      (windowOpen ? buckets.window24h : buckets.chat).push(conversation);
+    }
+    return {
+      visibleConversations: buckets[activeWhatsappInbox],
+      whatsappInboxCounts: {
+        chat: buckets.chat.length,
+        window24h: buckets.window24h.length,
+        help: buckets.help.length,
+        broadcasts: buckets.broadcasts.length,
+      },
+    };
+  }, [conversations, activeChannel, activeWhatsappInbox, inboxNow]);
+
+  // A lista entra em blocos: a primeira pintura sai leve e o resto aparece nos
+  // quadros seguintes, sem bloquear o clique nem a rolagem.
+  const shownConversations = useMemo(
+    () => visibleConversations.slice(0, visibleCount),
+    [visibleConversations, visibleCount],
+  );
+  useEffect(() => {
+    if (visibleCount >= visibleConversations.length) return;
+    const id = window.requestAnimationFrame(() => setVisibleCount(count => count + CONVERSATION_PAGE));
+    return () => window.cancelAnimationFrame(id);
+  }, [visibleCount, visibleConversations.length]);
+  useEffect(() => { setVisibleCount(CONVERSATION_PAGE); }, [activeWhatsappInbox, activeChannel]);
+
+  // ── Celular: a conversa é uma tela inteira que entra por cima da lista ──
+  // Enquanto ela está aberta, a barra de abas do app sai da frente e a caixa
+  // de escrita acompanha o teclado. A versão web não passa por nada disto.
+  useEffect(() => {
+    if (!app || !selectedPhone) return;
+    document.body.classList.add('app-chat-cheio');
+    return () => document.body.classList.remove('app-chat-cheio');
+  }, [app, selectedPhone]);
+
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!app || !selectedPhone || !vv) return;
+    const raiz = document.documentElement;
+    const medir = () => {
+      const teclado = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+      raiz.style.setProperty('--kb', `${Math.round(teclado)}px`);
+    };
+    medir();
+    vv.addEventListener('resize', medir);
+    vv.addEventListener('scroll', medir);
+    return () => {
+      vv.removeEventListener('resize', medir);
+      vv.removeEventListener('scroll', medir);
+      raiz.style.removeProperty('--kb');
+    };
+  }, [app, selectedPhone]);
+
+  // Voltar para a lista: a tela sai deslizando antes de desmontar.
+  const fecharConversa = useCallback(() => {
+    if (!app) { setSelectedPhone(null); return; }
+    setFechando(true);
+    window.setTimeout(() => { setSelectedPhone(null); setFechando(false); }, 170);
+  }, [app]);
+
+  const raizClasse = app
+    ? (selectedPhone
+      ? `app-chat-tela ${fechando ? 'app-chat-saindo' : ''} flex overflow-hidden bg-background`
+      : 'app-chat-lista flex overflow-hidden bg-background')
+    : 'flex h-[calc(100vh-120px)] overflow-hidden rounded-xl border bg-background lg:h-[calc(100vh-60px)]';
 
   return (
-    <div className="flex h-[calc(100vh-120px)] overflow-hidden rounded-xl border bg-background lg:h-[calc(100vh-60px)] max-md:-m-4 max-md:h-[var(--app-body)] max-md:rounded-none max-md:border-0">
+    <div className={raizClasse}>
       <div className={`w-full md:w-80 border-r max-md:border-r-0 flex flex-col shrink-0 ${selectedPhone ? 'hidden md:flex' : 'flex'}`}>
-        <div className="border-b">
+        <div className={`border-b ${app ? 'order-[-2]' : ''}`}>
           <div className="flex">
             <button
               onClick={() => handleChannelChange('instagram')}
@@ -1184,72 +1572,23 @@ export default function InternoWhatsAppChat() {
               </p>
             </div>
           ) : (
-            <AnimatePresence initial={false} mode="popLayout">
-              {visibleConversations.map(conv => (
-            <motion.button
-              layout={!reduceMotion}
-              initial={reduceMotion ? false : { opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={reduceMotion ? undefined : { opacity: 0, y: -6 }}
-              transition={reduceMotion
-                ? { duration: 0 }
-                : { layout: { type: 'spring', stiffness: 420, damping: 38 }, opacity: { duration: 0.16 }, y: { duration: 0.18 } }}
-              key={`${activeChannel}:${selectedApiPhone}:${conv.phone}`}
-              onClick={() => handleConversationSelect(conv)}
-              className={`relative w-full text-left p-4 border-b transition-colors ${
-                selectedPhone === conv.phone
-                  ? 'bg-muted'
-                  : conv.unread_count > 0
-                    ? activeChannel === 'instagram' ? 'bg-[#E4405F]/10 hover:bg-[#E4405F]/15' : 'bg-[#25D366]/10 hover:bg-[#25D366]/15'
-                    : 'hover:bg-muted/50'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <ContactAvatar src={conv.contact_avatar} name={conv.contact_name} id={conv.phone} channel={activeChannel} />
-                <div className="flex-1 min-w-0 overflow-hidden">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                      {(() => {
-                        // Quando não há @ nem nome, o rótulo é um id: mostra em
-                        // fonte mono e apagada, para não parecer um nome quebrado.
-                        const rotulo = contactLabel(activeChannel, conv.contact_name, conv.contact_username, conv.phone);
-                        const soId = activeChannel === 'instagram' && /^\d+$/.test(rotulo);
-                        return (
-                          <p className={`truncate text-sm ${conv.unread_count > 0 ? 'font-extrabold text-foreground' : 'font-semibold'} ${soId ? 'font-mono text-xs font-normal text-muted-foreground' : ''}`}>
-                            {soId ? <><span className="mr-1 not-italic">Sem nome</span><span className="opacity-50">#{rotulo.slice(-6)}</span></> : rotulo}
-                          </p>
-                        );
-                      })()}
-                      {conv.needs_support && (
-                        <span className="w-2.5 h-2.5 rounded-full bg-red-500 shrink-0 animate-pulse" title="Precisa de suporte humano" />
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0 ml-2">
-                      <span className={`text-xs ${conv.unread_count > 0 ? activeChannel === 'instagram' ? 'text-[#E4405F] font-bold' : 'text-[#25D366] font-bold' : 'text-muted-foreground'}`}>{formatTimestamp(conv.last_timestamp)}</span>
-                      {conv.unread_count > 0 && (
-                        <span
-                          className={`min-w-5 h-5 px-1.5 rounded-full flex items-center justify-center text-[10px] font-black text-white ${activeChannel === 'instagram' ? 'bg-[#E4405F]' : 'bg-[#25D366]'}`}
-                          title={`${conv.unread_count} mensagem${conv.unread_count === 1 ? '' : 's'} não lida${conv.unread_count === 1 ? '' : 's'}`}
-                        >
-                          {conv.unread_count > 99 ? '99+' : conv.unread_count}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <p className={`text-xs truncate mt-0.5 pr-2 flex items-center gap-1 ${conv.unread_count > 0 ? 'text-foreground font-semibold' : 'text-muted-foreground'}`}>
-                    {conv.last_direction === 'outgoing' && <StatusIcon status={conv.last_status} />}
-                    <span className="truncate">{conv.last_message && conv.last_message.trim() !== '' ? conv.last_message : '📸 Mencionou no story'}</span>
-                  </p>
-                </div>
-              </div>
-            </motion.button>
+            <>
+              {shownConversations.map(conv => (
+                <ConversationRow
+                  key={`${activeChannel}:${selectedApiPhone}:${conv.phone}`}
+                  conv={conv}
+                  channel={activeChannel}
+                  selected={selectedPhone === conv.phone}
+                  onSelect={handleConversationSelect}
+                  app={app}
+                />
               ))}
-            </AnimatePresence>
+            </>
           )}
         </ScrollArea>
 
         {activeChannel === 'instagram' && (
-          <div className="border-t p-2">
+          <div className={`p-2 ${app ? 'order-[-1] border-b' : 'border-t'}`}>
             <Button
               variant={igAutoReply ? 'default' : 'outline'}
               size="sm"
@@ -1265,7 +1604,7 @@ export default function InternoWhatsAppChat() {
         )}
 
         {activeChannel === 'whatsapp' && (
-          <div className="border-t p-2 grid grid-cols-2 gap-1">
+          <div className={`p-2 grid gap-1 ${app ? 'order-[-1] border-b grid-cols-4' : 'border-t grid-cols-2'}`}>
             <Button
               variant="outline"
               size="sm"
@@ -1359,8 +1698,8 @@ export default function InternoWhatsAppChat() {
           </div>
         ) : (
           <>
-            <div className="p-4 border-b flex items-center gap-3">
-              <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setSelectedPhone(null)}>
+            <div className="p-4 max-md:px-3 max-md:py-2.5 border-b flex items-center gap-3 max-md:gap-2.5 max-md:bg-background/95 max-md:backdrop-blur-sm">
+              <Button variant="ghost" size="icon" className="md:hidden -ml-1.5" onClick={fecharConversa}>
                 <ArrowLeft className="w-5 h-5" />
               </Button>
               <ContactAvatar src={selectedConv?.contact_avatar} name={selectedConv?.contact_name} id={selectedPhone || ''} channel={activeChannel} />
@@ -1384,95 +1723,36 @@ export default function InternoWhatsAppChat() {
               )}
             </div>
 
-            <ScrollArea className="flex-1 px-4 py-5">
+            <ScrollArea className="flex-1 px-4 py-5" viewportRef={messagesViewportRef}>
               <div className="space-y-1.5 max-w-2xl mx-auto">
-                {messages.map((msg, i) => (
-                  <div key={msg.id} className={`flex ${i === messages.length - 1 ? (msg.direction === 'outgoing' ? 'chat-message-out' : 'chat-message-in') : ''} ${msg.direction === 'outgoing' ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-[78%] rounded-2xl border px-3.5 py-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.08)] ${
-                      msg.direction === 'outgoing'
-                        ? (activeChannel === 'instagram' ? 'border-[#E4405F]/20 bg-[#E4405F]/15 text-foreground rounded-br-md' : 'border-[#25D366]/20 bg-[#25D366]/15 text-foreground rounded-br-md')
-                        : 'border-border/60 bg-card/80 text-foreground rounded-bl-md'
-                    }`}>
-                      {msg.media_url && (msg.message_type === 'image' || msg.message_type === 'sticker' || msg.message_type === 'story_mention' || msg.message_type === 'story_reply') && (
-                        <div className="mb-1">
-                          {(msg.message_type === 'story_mention' || msg.message_type === 'story_reply') && (
-                            <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide opacity-70">Story mencionado</p>
-                          )}
-                          <img
-                            src={msg.media_url.startsWith('http') ? msg.media_url : `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/whatsapp-api?action=get_media&media_id=${msg.media_url}`}
-                            alt={msg.message_type === 'story_mention' || msg.message_type === 'story_reply' ? 'Conteúdo do story mencionado' : ''}
-                            className={`rounded-lg max-w-full cursor-pointer ${msg.message_type === 'sticker' ? 'max-h-32 w-auto' : 'max-h-64'}`}
-                            onClick={() => window.open(msg.media_url!.startsWith('http') ? msg.media_url! : `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/whatsapp-api?action=get_media&media_id=${msg.media_url}`, '_blank')}
-                            loading="lazy"
-                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                          />
-                        </div>
-                      )}
-                      {msg.media_url && msg.message_type === 'video' && (
-                        <video
-                          src={msg.media_url.startsWith('http') ? msg.media_url : `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/whatsapp-api?action=get_media&media_id=${msg.media_url}`}
-                          controls
-                          className="rounded-lg max-w-full max-h-64 mb-1"
-                        />
-                      )}
-                      {msg.media_url && msg.message_type === 'audio' && (
-                        <audio
-                          src={msg.media_url.startsWith('http') ? msg.media_url : `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/whatsapp-api?action=get_media&media_id=${msg.media_url}`}
-                          controls
-                          className="mb-1 max-w-full"
-                        />
-                      )}
-                      {msg.message_text && msg.message_text.trim() !== '' && msg.message_text !== `[${msg.message_type}]` ? (
-                        <p className="text-sm whitespace-pre-wrap break-words">{msg.message_text}</p>
-                      ) : (
-                        <p className="text-sm italic opacity-70">
-                          {msg.message_type === 'story_mention' || msg.message_type === 'story_reply'
-                            ? '📸 Mencionou no story'
-                            : msg.message_type === 'share' || msg.message_type === 'media_share' ? '🔗 Compartilhou um post'
-                            : msg.message_type === 'reel' || msg.message_type === 'ig_reel' ? '🎬 Enviou um reel'
-                            : msg.message_type === 'clip' ? '🎥 Enviou um clip'
-                            : msg.message_type === 'image' ? '📷 Enviou uma foto'
-                            : msg.message_type === 'video' ? '🎬 Enviou um vídeo'
-                            : msg.message_type === 'audio' ? '🎤 Enviou um áudio'
-                            : msg.message_type === 'attachment' ? '📎 Anexo'
-                            : (!msg.message_text || msg.message_text.trim() === '') ? '📸 Mencionou no story'
-                            : `[${msg.message_type}]`}
-                        </p>
-                      )}
-                      <div className="mt-1.5 flex items-center justify-end gap-1 text-muted-foreground/80">
-                        <span className="text-[10px]">{formatTimestamp(msg.timestamp)}</span>
-                        {msg.direction === 'outgoing' && <StatusIcon status={msg.status} />}
-                      </div>
-                    </div>
-                  </div>
-                ))}
+                {messages.map((msg, i) => {
+                  // Etiqueta de dia sempre que a data muda (só no celular, para
+                  // a versão web continuar exatamente como está).
+                  const dia = app && (i === 0 || new Date(msg.timestamp).toDateString() !== new Date(messages[i - 1].timestamp).toDateString())
+                    ? dayLabel(msg.timestamp)
+                    : null;
+                  return (
+                    <Fragment key={msg.id}>
+                      {dia && <DaySeparator label={dia} />}
+                      <MessageBubble
+                        msg={msg}
+                        channel={activeChannel}
+                        isLast={i === messages.length - 1}
+                      />
+                    </Fragment>
+                  );
+                })}
                 <div ref={messagesEndRef} />
               </div>
             </ScrollArea>
-
-            <div className="border-t border-border/60 bg-background/80 px-4 py-3 backdrop-blur-sm">
-              <div className={`flex gap-2 max-w-2xl mx-auto rounded-2xl border border-border/70 bg-card/70 p-1.5 shadow-sm transition-colors ${activeChannel === 'instagram' ? 'focus-within:border-[#E4405F]/60' : 'focus-within:border-[#25D366]/40'}`}>
-                <Input
-                  value={replyText} onChange={e => setReplyText(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSendReply()}
-                  placeholder={activeChannel === 'instagram' ? 'Enviar mensagem no Instagram...' : 'Digite uma mensagem...'}
-                  className="flex-1 border-0 bg-transparent shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
-                />
-                <Button
-                  onClick={handleSendReply}
-                  disabled={!replyText.trim() || sending}
-                  size="icon"
-                  aria-label={sending ? 'Enviando mensagem' : 'Enviar mensagem'}
-                  className={`h-9 w-9 shrink-0 rounded-xl shadow-none transition-all duration-150 active:scale-95 ${activeChannel === 'instagram'
-                    ? 'bg-[#E4405F] hover:bg-[#D93654] text-white'
-                    : 'bg-[#25D366] hover:bg-[#20BD5A] text-white'
-                  }`
-                  }
-                >
-                  {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                </Button>
-              </div>
-            </div>
+            <Composer
+              // Uma caixa por conversa: o rascunho não escorrega para o
+              // próximo contato quando se troca de conversa.
+              key={`${activeChannel}:${selectedPhone}`}
+              channel={activeChannel}
+              sending={sending}
+              onSend={handleSendReply}
+            />
           </>
         )}
       </div>

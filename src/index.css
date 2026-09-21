@@ -199,6 +199,91 @@
   .login-flamingo { animation: none; filter: drop-shadow(0 0 7px rgba(255,225,77,.4)); }
 }
 
+/* Chat no celular (InternoWhatsAppChat.tsx): tela de aplicativo de mensagem.
+   Tudo aqui vale só abaixo de 768px — a versão web não usa nenhuma regra
+   desta seção. */
+@keyframes app-chat-entra {
+  from { opacity: .3; transform: translateX(7%); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes app-chat-sai {
+  from { opacity: 1; transform: none; }
+  to   { opacity: 0; transform: translateX(9%); }
+}
+@keyframes app-lista-volta {
+  from { opacity: .4; transform: translateX(-5%); }
+  to   { opacity: 1; transform: none; }
+}
+
+@media (max-width: 767px) {
+  /* Lista: ocupa a altura livre do app e encosta na pílula de baixo, sem
+     deixar a página rolar por trás. */
+  .app-chat-lista {
+    height: var(--app-body);
+    /* -1rem nas laterais e no topo anula o respiro do <main>; embaixo anula
+       também o espaço que a pílula de abas reserva. */
+    margin: -1rem -1rem calc(-1 * var(--app-tabs, 1rem));
+    animation: app-lista-volta .2s ease-out;
+  }
+
+  /* Conversa aberta: tela cheia por cima da barra de abas. `bottom` segue o
+     teclado (--kb), então a caixa de escrita nunca fica escondida atrás dele. */
+  .app-chat-tela {
+    position: fixed;
+    inset: 0;
+    bottom: var(--kb, 0px);
+    /* Acima da pílula de abas (40) e abaixo de janela e aviso (50). */
+    z-index: 45;
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+    background: var(--background);
+    padding-top: env(safe-area-inset-top);
+    animation: app-chat-entra .22s cubic-bezier(.2,.8,.2,1);
+  }
+  .app-chat-tela.app-chat-saindo {
+    animation: app-chat-sai .17s cubic-bezier(.4,0,1,1) forwards;
+  }
+
+  /* Enquanto a conversa está aberta, a pílula de abas sai da frente. */
+  body.app-chat-cheio .app-abas { display: none; }
+
+  /* Caixa de escrita encostada no fim da tela, respeitando a barra de gestos. */
+  .app-composer { padding-bottom: max(env(safe-area-inset-bottom), 0.5rem); }
+
+  /* Divisória começa depois da foto, como em lista de aplicativo. */
+  .app-lista-linha::after {
+    content: '';
+    position: absolute;
+    left: 4.5rem;
+    right: 0;
+    bottom: 0;
+    border-bottom: 1px solid var(--border);
+    opacity: .55;
+  }
+  .app-lista-linha:last-child::after { border-bottom: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-chat-tela, .app-chat-tela.app-chat-saindo, .app-chat-lista { animation: none; }
+}
+
+/* Chat (InternoWhatsAppChat.tsx): a mensagem nova entra vindo do seu lado.
+   As classes já eram usadas na tela, mas a animação nunca existiu no CSS. */
+@keyframes chat-entra-direita {
+  from { opacity: 0; transform: translate3d(12px, 6px, 0) scale(.98); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes chat-entra-esquerda {
+  from { opacity: 0; transform: translate3d(-12px, 6px, 0) scale(.98); }
+  to   { opacity: 1; transform: none; }
+}
+.chat-message-out { animation: chat-entra-direita .22s cubic-bezier(.2,.8,.2,1); }
+.chat-message-in  { animation: chat-entra-esquerda .22s cubic-bezier(.2,.8,.2,1); }
+@media (prefers-reduced-motion: reduce) {
+  .chat-message-out, .chat-message-in { animation: none; }
+}
+
 @layer base {
   * {
     @apply border-border;

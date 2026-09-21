@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, GripVertical, Calendar, Flag, Paperclip, Circle, Loader2, CheckCircle2, Trash2, Upload, X, LayoutGrid, List, Home } from 'lucide-react';
+import { Plus, GripVertical, Calendar, Flag, Paperclip, Circle, Loader2, CheckCircle2, Trash2, Upload, X, LayoutGrid, List, Home, ListChecks, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import { confirmDialog } from '@/components/ConfirmDialog';
 import { useAuth } from '@/hooks/useAuth';
@@ -26,6 +26,20 @@ interface TeamTask {
   due_date: string | null;
   created_at: string;
   event_id: string | null;
+  checklist?: ChecklistItem[] | null;
+}
+
+// Subtarefa: um item de checklist dentro da tarefa (coluna jsonb checklist).
+interface ChecklistItem {
+  id: string;
+  text: string;
+  done: boolean;
+}
+
+/** Lê o checklist com tolerância: tarefa antiga (ou banco ainda sem a coluna)
+ *  vem sem o campo, e aí a lista é simplesmente vazia. */
+function checklistOf(t: TeamTask | null | undefined): ChecklistItem[] {
+  return Array.isArray(t?.checklist) ? t!.checklist! : [];
 }
 
 interface ProfileInfo {
@@ -102,6 +116,8 @@ export default function InternoTarefas() {
   const [assignedTo, setAssignedTo] = useState('');
   const [eventId, setEventId] = useState('');
   const [files, setFiles] = useState<File[]>([]);
+  const [createChecklist, setCreateChecklist] = useState<ChecklistItem[]>([]);
+  const [createChecklistItem, setCreateChecklistItem] = useState('');
   const [showCreateEvent, setShowCreateEvent] = useState(false);
   const [newEventName, setNewEventName] = useState('');
   const [creatingEvent, setCreatingEvent] = useState(false);
@@ -111,6 +127,7 @@ export default function InternoTarefas() {
   const [editTitle, setEditTitle] = useState('');
   const [editingDescription, setEditingDescription] = useState(false);
   const [editDescription, setEditDescription] = useState('');
+  const [newChecklistItem, setNewChecklistItem] = useState('');
 
   const load = useCallback(async () => {
     const [taskRes, profileRes, eventRes] = await Promise.all([
@@ -118,7 +135,7 @@ export default function InternoTarefas() {
       supabase.from('profiles').select('id, full_name, username').order('full_name'),
       (supabase as any).from('lagun_events').select('id, nome, show_on_landing').order('display_order', { ascending: true }),
     ]);
-    setTasks((taskRes.data || []) as TeamTask[]);
+    setTasks((taskRes.data || []) as unknown as TeamTask[]);
     setProfiles(profileRes.data || []);
     // Map lagun_events.nome → name; Lagun fixo já está no LAGUN_EVENT
     const mapped: EventInfo[] = (eventRes.data || []).map((r: any) => ({
@@ -188,6 +205,7 @@ export default function InternoTarefas() {
       event_id: eventId && eventId !== 'none' ? eventId : null,
       created_by: user?.id || null,
       attachments: attachmentUrls,
+      checklist: createChecklist as unknown as never,
     });
 
     if (error) { console.error('Erro ao criar tarefa:', error); toast.error('Erro ao criar tarefa: ' + error.message); }
@@ -195,6 +213,7 @@ export default function InternoTarefas() {
       toast.success('Tarefa criada!');
       setShowCreate(false);
       setTitle(''); setDescription(''); setDueDate(''); setPriority(''); setAssignedTo(''); setEventId(''); setFiles([]);
+      setCreateChecklist([]); setCreateChecklistItem('');
       load();
     }
     setSaving(false);
@@ -276,6 +295,43 @@ export default function InternoTarefas() {
       setTasks(prev => prev.map(t => t.id === taskId ? { ...t, assigned_to: userId || null } : t));
       if (selectedTask?.id === taskId) setSelectedTask(prev => prev ? { ...prev, assigned_to: userId || null } : null);
     }
+  }
+
+  // Grava o checklist inteiro de uma vez. A tela muda na hora e volta ao que
+  // era se o banco recusar.
+  async function saveChecklist(taskId: string, next: ChecklistItem[]) {
+    const before = checklistOf(tasks.find(t => t.id === taskId));
+    const apply = (list: ChecklistItem[]) => {
+      setTasks(prev => prev.map(t => t.id === taskId ? { ...t, checklist: list } : t));
+      setSelectedTask(prev => prev && prev.id === taskId ? { ...prev, checklist: list } : prev);
+    };
+    apply(next);
+    const { error } = await supabase.from('team_tasks').update({ checklist: next as unknown as never }).eq('id', taskId);
+    if (error) {
+      console.error('Erro ao salvar checklist:', error);
+      apply(before);
+      toast.error(/checklist/i.test(error.message)
+        ? 'O checklist ainda não foi ativado no banco.'
+        : 'Erro ao salvar o checklist');
+    }
+  }
+
+  function addChecklistItem(taskId: string) {
+    const text = newChecklistItem.trim();
+    if (!text) return;
+    const current = checklistOf(tasks.find(t => t.id === taskId));
+    setNewChecklistItem('');
+    void saveChecklist(taskId, [...current, { id: crypto.randomUUID(), text, done: false }]);
+  }
+
+  function toggleChecklistItem(taskId: string, itemId: string) {
+    const current = checklistOf(tasks.find(t => t.id === taskId));
+    void saveChecklist(taskId, current.map(i => i.id === itemId ? { ...i, done: !i.done } : i));
+  }
+
+  function removeChecklistItem(taskId: string, itemId: string) {
+    const current = checklistOf(tasks.find(t => t.id === taskId));
+    void saveChecklist(taskId, current.filter(i => i.id !== itemId));
   }
 
   async function handleUploadAttachment(taskId: string, fileList: FileList) {
@@ -385,6 +441,7 @@ export default function InternoTarefas() {
     setEditDescription(t.description || '');
     setEditingTitle(false);
     setEditingDescription(false);
+    setNewChecklistItem('');
   }
 
   function renderTaskCard(t: TeamTask) {
@@ -444,6 +501,16 @@ export default function InternoTarefas() {
                     <Paperclip size={10} />{t.attachments.length}
                   </span>
                 )}
+                {checklistOf(t).length > 0 && (() => {
+                  const lista = checklistOf(t);
+                  const feitos = lista.filter(i => i.done).length;
+                  const completo = feitos === lista.length;
+                  return (
+                    <span className={`inline-flex items-center gap-1 text-[11px] ${completo ? 'text-emerald-500 font-medium' : 'text-gray-400'}`}>
+                      <ListChecks size={11} />{feitos}/{lista.length}
+                    </span>
+                  );
+                })()}
               </div>
             </div>
           </div>
@@ -639,6 +706,57 @@ export default function InternoTarefas() {
               </div>
             </div>
             <div>
+              <label className="text-xs font-medium text-gray-500 mb-2 flex items-center gap-1.5">
+                <ListChecks size={12} /> Checklist <span className="font-normal text-gray-400">(opcional)</span>
+              </label>
+              <div className="space-y-0.5">
+                {createChecklist.map(item => (
+                  <div key={item.id} className="group flex items-center gap-2.5 rounded-lg px-2 py-1.5 hover:bg-gray-50 dark:hover:bg-gray-900">
+                    <span className="h-[18px] w-[18px] shrink-0 rounded-[5px] border border-gray-300 dark:border-gray-600" />
+                    <span className="flex-1 text-sm text-gray-700 dark:text-gray-300 break-words">{item.text}</span>
+                    <button
+                      onClick={() => setCreateChecklist(prev => prev.filter(i => i.id !== item.id))}
+                      className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 max-md:opacity-100 transition-opacity"
+                      aria-label="Remover item"
+                    >
+                      <X size={13} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-1.5 flex items-center gap-2">
+                <Input
+                  value={createChecklistItem}
+                  onChange={e => setCreateChecklistItem(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+                      e.preventDefault();
+                      const text = createChecklistItem.trim();
+                      if (!text) return;
+                      setCreateChecklist(prev => [...prev, { id: crypto.randomUUID(), text, done: false }]);
+                      setCreateChecklistItem('');
+                    }
+                  }}
+                  placeholder="Adicionar subtarefa..."
+                  className="h-9 rounded-xl border-gray-200 dark:border-gray-700 text-sm"
+                />
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  disabled={!createChecklistItem.trim()}
+                  onClick={() => {
+                    const text = createChecklistItem.trim();
+                    if (!text) return;
+                    setCreateChecklist(prev => [...prev, { id: crypto.randomUUID(), text, done: false }]);
+                    setCreateChecklistItem('');
+                  }}
+                  className="h-9 px-2.5"
+                >
+                  <Plus size={14} />
+                </Button>
+              </div>
+            </div>
+            <div>
               <label className="text-xs font-medium text-gray-500 mb-2 block">Anexos</label>
               <label className="flex items-center gap-2 px-3 py-2 rounded-xl border border-dashed border-gray-200 dark:border-gray-700 cursor-pointer hover:border-blue-400 transition-colors">
                 <Upload size={14} className="text-gray-400" />
@@ -770,6 +888,84 @@ export default function InternoTarefas() {
                   )}
                 </div>
 
+                {/* Checklist (subtarefas) */}
+                {(() => {
+                  const lista = checklistOf(selectedTask);
+                  const feitos = lista.filter(i => i.done).length;
+                  const pct = lista.length ? Math.round((feitos / lista.length) * 100) : 0;
+                  return (
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <label className="text-xs font-medium text-gray-500 flex items-center gap-1.5">
+                          <ListChecks size={12} /> Checklist
+                        </label>
+                        {lista.length > 0 && (
+                          <span className={`text-[11px] font-medium ${feitos === lista.length ? 'text-emerald-500' : 'text-gray-400'}`}>
+                            {feitos}/{lista.length}
+                          </span>
+                        )}
+                      </div>
+                      {lista.length > 0 && (
+                        <div className="h-1 rounded-full bg-gray-100 dark:bg-gray-800 mb-2 overflow-hidden">
+                          <div className="h-full rounded-full bg-emerald-500 transition-all duration-300" style={{ width: `${pct}%` }} />
+                        </div>
+                      )}
+                      <div className="space-y-0.5">
+                        {lista.map(item => (
+                          <div key={item.id} className="group flex items-center gap-2.5 rounded-lg px-2 py-1.5 hover:bg-gray-50 dark:hover:bg-gray-900">
+                            <button
+                              type="button"
+                              role="checkbox"
+                              aria-checked={item.done}
+                              aria-label={item.done ? 'Desmarcar item' : 'Marcar item como feito'}
+                              onClick={() => toggleChecklistItem(selectedTask.id, item.id)}
+                              className={`h-[18px] w-[18px] shrink-0 rounded-[5px] border flex items-center justify-center transition-colors ${item.done ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-gray-300 dark:border-gray-600 hover:border-emerald-400'}`}
+                            >
+                              {item.done && <Check size={12} strokeWidth={3} />}
+                            </button>
+                            <span
+                              onClick={() => toggleChecklistItem(selectedTask.id, item.id)}
+                              className={`flex-1 text-sm cursor-pointer select-none break-words ${item.done ? 'line-through text-gray-400' : 'text-gray-700 dark:text-gray-300'}`}
+                            >
+                              {item.text}
+                            </span>
+                            <button
+                              onClick={() => removeChecklistItem(selectedTask.id, item.id)}
+                              className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 max-md:opacity-100 transition-opacity"
+                              aria-label="Remover item"
+                            >
+                              <X size={13} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="mt-1.5 flex items-center gap-2">
+                        <Input
+                          value={newChecklistItem}
+                          onChange={e => setNewChecklistItem(e.target.value)}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+                              e.preventDefault();
+                              addChecklistItem(selectedTask.id);
+                            }
+                          }}
+                          placeholder="Adicionar item..."
+                          className="h-8 rounded-lg border-gray-200 dark:border-gray-700 text-sm"
+                        />
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => addChecklistItem(selectedTask.id)}
+                          disabled={!newChecklistItem.trim()}
+                          className="h-8 px-2.5 text-xs"
+                        >
+                          <Plus size={14} />
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })()}
+
                 {/* Attachments */}
                 <div>
                   <label className="text-xs font-medium text-gray-500 mb-2 block">Anexos</label>
@@ -797,7 +993,7 @@ export default function InternoTarefas() {
                 <div className="pt-2 border-t border-gray-100 dark:border-gray-800">
                   <button
                     onClick={() => handleDeleteTask(selectedTask.id)}
-                    className="w-full flex items-center justify-center gap-2 py-2 rounded-xl text-sm font-medium text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors"
+                    className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold border border-red-500/35 bg-red-500/10 text-red-400 hover:bg-red-500/20 hover:border-red-500/60 hover:text-red-300 transition-colors"
                   >
                     <Trash2 size={14} /> Excluir tarefa
                   </button>

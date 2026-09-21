@@ -78,10 +78,20 @@ export function ConfirmDialogHost() {
           </div>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel onClick={() => close(false)}>{cancelText || 'Cancelar'}</AlertDialogCancel>
+          {/* Cores fixas nos dois botões: este aviso é aberto por um portal na
+              raiz da página, fora do tema do painel, e com as cores do tema ele
+              saía sem preenchimento — parecia botão quebrado. */}
+          <AlertDialogCancel
+            onClick={() => close(false)}
+            className="border border-border bg-secondary text-secondary-foreground hover:bg-secondary/70"
+          >
+            {cancelText || 'Cancelar'}
+          </AlertDialogCancel>
           <AlertDialogAction
             onClick={() => close(true)}
-            className={destructive ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90' : ''}
+            className={destructive
+              ? 'border-0 bg-red-600 text-white hover:bg-red-700'
+              : 'border-0 bg-primary text-primary-foreground hover:bg-primary/90'}
           >
             {confirmText || 'Confirmar'}
           </AlertDialogAction>
