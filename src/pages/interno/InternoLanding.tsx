@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Plus, Pencil, Trash2, Eye, EyeOff, GripVertical, ExternalLink, Globe, Upload, X, MousePointerClick } from 'lucide-react';
+import { Plus, Pencil, Trash2, Eye, EyeOff, GripVertical, ExternalLink, Globe, Upload, X, MousePointerClick, Handshake, Check } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import {
   Dialog,
@@ -23,7 +23,10 @@ interface LandingEvent {
   flyer_desktop_url: string | null;
   show_on_landing: boolean;
   display_order: number;
+  sem_parceiro: boolean;
 }
+
+interface ParceiroOpcao { id: string; nome: string; telefone: string | null }
 
 const emptyEvent: Omit<LandingEvent, 'id'> = {
   nome: '',
@@ -37,6 +40,7 @@ const emptyEvent: Omit<LandingEvent, 'id'> = {
   flyer_desktop_url: '',
   show_on_landing: true,
   display_order: 0,
+  sem_parceiro: false,
 };
 
 export default function InternoLanding() {
@@ -51,6 +55,11 @@ export default function InternoLanding() {
   const [uploadingMobile, setUploadingMobile] = useState(false);
   const [uploadingDesktop, setUploadingDesktop] = useState(false);
   const [managingPhotos, setManagingPhotos] = useState(false);
+  // Parceiros: lista cadastrada (Admin → Parceiros), vínculos de cada evento
+  // e os escolhidos no formulário aberto.
+  const [parceiros, setParceiros] = useState<ParceiroOpcao[]>([]);
+  const [parceirosPorEvento, setParceirosPorEvento] = useState<Record<string, string[]>>({});
+  const [parceirosEscolhidos, setParceirosEscolhidos] = useState<string[]>([]);
   const mobileInputRef = useRef<HTMLInputElement>(null);
   const desktopInputRef = useRef<HTMLInputElement>(null);
 
@@ -72,13 +81,23 @@ export default function InternoLanding() {
     const [{ data: evData }, { data: clickData }] = await Promise.all([
       (supabase as any)
         .from('lagun_events')
-        .select('id, nome, data, dia_semana, artista, guests, tag, link, flyer_mobile_url, flyer_desktop_url, show_on_landing, display_order')
+        .select('id, nome, data, dia_semana, artista, guests, tag, link, flyer_mobile_url, flyer_desktop_url, show_on_landing, display_order, sem_parceiro')
         .order('show_on_landing', { ascending: false })
         .order('display_order', { ascending: true }),
       (supabase as any)
         .from('link_clicks')
         .select('event_id'),
     ]);
+    const [{ data: listaParceiros }, { data: vinculos }] = await Promise.all([
+      (supabase as any).from('lagun_partners').select('id, nome, telefone').order('nome'),
+      (supabase as any).from('lagun_event_partners').select('event_id, partner_id'),
+    ]);
+    setParceiros((listaParceiros || []) as ParceiroOpcao[]);
+    const porEvento: Record<string, string[]> = {};
+    ((vinculos || []) as { event_id: string; partner_id: string }[]).forEach(({ event_id, partner_id }) => {
+      (porEvento[event_id] ||= []).push(partner_id);
+    });
+    setParceirosPorEvento(porEvento);
     if (evData) setEvents(evData as LandingEvent[]);
     if (clickData) {
       const map: Record<string, number> = {};
@@ -95,6 +114,7 @@ export default function InternoLanding() {
   function openNew() {
     setEditingId(null);
     setForm(emptyEvent);
+    setParceirosEscolhidos([]);
     setModalOpen(true);
   }
 
@@ -112,7 +132,9 @@ export default function InternoLanding() {
       flyer_desktop_url: ev.flyer_desktop_url ?? '',
       show_on_landing: ev.show_on_landing ?? true,
       display_order: ev.display_order ?? 0,
+      sem_parceiro: ev.sem_parceiro ?? false,
     });
+    setParceirosEscolhidos(parceirosPorEvento[ev.id] || []);
     setModalOpen(true);
   }
 
@@ -128,6 +150,13 @@ export default function InternoLanding() {
 
   async function handleSave() {
     if (!form.nome.trim()) { toast.error('Nome é obrigatório'); return; }
+    // Regra dos parceiros: todo evento diz quem são os parceiros, ou marca
+    // explicitamente que não tem. Não dá para salvar sem uma das duas.
+    const semParceiro = parceirosEscolhidos.length === 0 && form.sem_parceiro;
+    if (parceirosEscolhidos.length === 0 && !semParceiro) {
+      toast.error('Selecione os produtores parceiros do evento, ou marque "Sem parceiro".');
+      return;
+    }
     setSaving(true);
     const payload = {
       nome: form.nome.trim(),
@@ -141,13 +170,26 @@ export default function InternoLanding() {
       flyer_desktop_url: form.flyer_desktop_url || null,
       show_on_landing: form.show_on_landing,
       display_order: Number(form.display_order) || 0,
+      sem_parceiro: semParceiro,
     };
 
     let error: any = null;
+    let eventId = editingId;
     if (editingId) {
       ({ error } = await (supabase as any).from('lagun_events').update(payload).eq('id', editingId));
     } else {
-      ({ error } = await (supabase as any).from('lagun_events').insert(payload));
+      const res = await (supabase as any).from('lagun_events').insert(payload).select('id').single();
+      error = res.error; eventId = res.data?.id ?? null;
+    }
+
+    // Vínculos com parceiros: substitui os do evento pelos escolhidos agora.
+    if (!error && eventId) {
+      const { error: erroApagar } = await (supabase as any).from('lagun_event_partners').delete().eq('event_id', eventId);
+      if (erroApagar) error = erroApagar;
+      else if (parceirosEscolhidos.length > 0) {
+        ({ error } = await (supabase as any).from('lagun_event_partners')
+          .insert(parceirosEscolhidos.map((partner_id) => ({ event_id: eventId, partner_id }))));
+      }
     }
 
     setSaving(false);
@@ -366,6 +408,57 @@ export default function InternoLanding() {
               </div>
 
               {field('Link de ingressos', 'link', 'url', 'https://...')}
+
+              {/* Produtores parceiros (obrigatório escolher: parceiros ou "sem parceiro") */}
+              <div className="border-t border-gray-100 pt-3">
+                <div className="mb-2 flex items-center justify-between">
+                  <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    <Handshake size={13} /> Produtores parceiros *
+                  </p>
+                  <span className="text-[11px] text-gray-400">
+                    {parceirosEscolhidos.length > 0
+                      ? `${parceirosEscolhidos.length} selecionado${parceirosEscolhidos.length === 1 ? '' : 's'}`
+                      : form.sem_parceiro ? 'sem parceiro' : 'escolha obrigatória'}
+                  </span>
+                </div>
+                {parceiros.length === 0 ? (
+                  <p className="mb-2 text-xs text-gray-400">Nenhum parceiro cadastrado. Cadastre em Admin → Parceiros.</p>
+                ) : (
+                  <div className="mb-2 flex flex-wrap gap-1.5">
+                    {parceiros.map((p) => {
+                      const ativo = parceirosEscolhidos.includes(p.id);
+                      return (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => {
+                            setParceirosEscolhidos((atual) => ativo ? atual.filter((id) => id !== p.id) : [...atual, p.id]);
+                            if (!ativo) setForm((f) => ({ ...f, sem_parceiro: false }));
+                          }}
+                          className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                            ativo ? 'border-[#D9B14E] bg-[#D9B14E]/15 text-[#D9B14E]' : 'border-gray-200 text-gray-500 hover:border-gray-300'
+                          }`}
+                          title={p.telefone ?? undefined}
+                        >
+                          {ativo && <Check size={11} />} {p.nome}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+                <label className="flex cursor-pointer items-center gap-2 text-xs text-gray-500">
+                  <input
+                    type="checkbox"
+                    checked={parceirosEscolhidos.length === 0 && form.sem_parceiro}
+                    onChange={(e) => {
+                      setForm((f) => ({ ...f, sem_parceiro: e.target.checked }));
+                      if (e.target.checked) setParceirosEscolhidos([]);
+                    }}
+                    className="accent-[#D9B14E]"
+                  />
+                  Sem parceiro (evento só da casa)
+                </label>
+              </div>
 
               {/* Flyers */}
               <div className="border-t border-gray-100 pt-3">

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import InternoParceiros from './InternoParceiros';
 import { useAuth, AppRole } from '@/hooks/useAuth';
 import { useSidebarSettings, SidebarKey } from '@/hooks/useSidebarSettings';
 import { supabase } from '@/integrations/supabase/client';
@@ -57,7 +58,7 @@ async function mensagemDaFuncao(error: any): Promise<string> {
 export default function InternoAdmin() {
   const { isAdmin, user: currentUser } = useAuth();
   const { isGlobalEnabled, refetch: refetchSidebarSettings } = useSidebarSettings();
-  const [activeTab, setActiveTab] = useState<'usuarios' | 'configuracoes'>('usuarios');
+  const [activeTab, setActiveTab] = useState<'usuarios' | 'configuracoes' | 'parceiros'>('usuarios');
   const [users, setUsers] = useState<UserWithRoles[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
@@ -315,7 +316,19 @@ export default function InternoAdmin() {
         >
           Configurações
         </button>
+        <button
+          onClick={() => setActiveTab('parceiros')}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === 'parceiros'
+              ? 'border-brand text-foreground'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          Parceiros
+        </button>
       </div>
+
+      {activeTab === 'parceiros' && <InternoParceiros />}
 
       {activeTab === 'configuracoes' && (
         <div className="rounded-md border border-border bg-card overflow-hidden">
