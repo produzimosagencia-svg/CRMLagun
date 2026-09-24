@@ -28,6 +28,7 @@ const InternoSocialMedia = lazy(() => import("./pages/interno/InternoSocialMedia
 const InternoComentarios = lazy(() => import("./pages/interno/InternoComentarios.tsx"));
 const InternoCampanhas = lazy(() => import("./pages/interno/InternoCampanhas.tsx"));
 const InternoRelatorios = lazy(() => import("./pages/interno/InternoRelatorios.tsx"));
+const InternoRelatorioEvento = lazy(() => import("./pages/interno/InternoRelatorioEvento.tsx"));
 const InternoCriativosCampeoes = lazy(() => import("./pages/interno/InternoCriativosCampeoes.tsx"));
 const InternoAdsCriarCampanha = lazy(() => import("./pages/interno/InternoAdsCriarCampanha.tsx"));
 const InternoAdsGerenciar = lazy(() => import("./pages/interno/InternoAdsGerenciar.tsx"));
@@ -133,6 +134,7 @@ createRoot(document.getElementById("root")!).render(
           <Route path="blueticket/:eventId" element={<InternoBluetick />} />
           <Route path="email" element={<InternoEmail />} />
           <Route path="ads/campanhas" element={<InternoRelatorios />} />
+          <Route path="ads/campanhas/evento/:eventId" element={<InternoRelatorioEvento />} />
           <Route path="ads/criativos" element={<InternoCriativosCampeoes />} />
           <Route path="ads/criar" element={<InternoAdsCriarCampanha />} />
           <Route path="ads/gerenciar" element={<InternoAdsGerenciar />} />

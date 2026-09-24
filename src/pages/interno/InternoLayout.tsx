@@ -236,7 +236,7 @@ export default function InternoLayout() {
   const getPageTitle = () => {
     if (path === '/interno/dashboard') return 'Redes Sociais';
     if (path.startsWith('/interno/trafego-gpt')) return 'TráfegoGPT';
-    if (path === '/interno/ads/campanhas') return 'Campanhas';
+    if (path.startsWith('/interno/ads/campanhas')) return 'Campanhas';
     if (path === '/interno/ads/criativos') return 'Criativos Campeões';
     if (path === '/interno/ads/criar') return 'Nova Campanha';
     if (path === '/interno/ads/gerenciar') return 'Gerenciar Meta Ads';
