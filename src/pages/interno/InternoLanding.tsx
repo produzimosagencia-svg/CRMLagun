@@ -89,7 +89,7 @@ export default function InternoLanding() {
         .select('event_id'),
     ]);
     const [{ data: listaParceiros }, { data: vinculos }] = await Promise.all([
-      (supabase as any).from('lagun_partners').select('id, nome, telefone').order('nome'),
+      (supabase as any).from('lagun_partners').select('id, nome, telefone').eq('tipo', 'parceiro').order('nome'),
       (supabase as any).from('lagun_event_partners').select('event_id, partner_id'),
     ]);
     setParceiros((listaParceiros || []) as ParceiroOpcao[]);
