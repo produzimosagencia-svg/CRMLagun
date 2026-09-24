@@ -8,6 +8,7 @@ import {
   Megaphone, BarChart3, Trophy, Users, ClipboardList, Cake, Globe, CalendarRange, LayoutDashboard,
   TrendingUp, MessagesSquare, ShoppingCart, RotateCcw, MousePointerClick, Zap, Crown, Database, Activity,
   type LucideIcon,
+  Handshake,
 } from 'lucide-react';
 import SplashScreen from '@/components/SplashScreen';
 import { DefinirSenha } from '@/components/interno/DefinirSenha';
@@ -179,6 +180,7 @@ export default function InternoLayout() {
           { label: 'Aniversário', to: '/interno/whatsapp/aniversario', icon: Cake },
           { label: 'Estornos', to: '/interno/whatsapp/estornos', icon: RotateCcw },
           { label: 'Rastreamento', to: '/interno/whatsapp/rastreamento', icon: MousePointerClick },
+          { label: 'Resumo para produtores', to: '/interno/whatsapp/resumo-produtores', icon: Handshake },
         ],
       },
       canSeeAds && isEnabled('ads') && {

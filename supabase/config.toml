@@ -35,3 +35,13 @@ verify_jwt = false
 
 [functions.ig-link]
 verify_jwt = false
+
+# Relatório público de campanhas por evento (link secreto /relatorio/<token>).
+[functions.relatorio-evento]
+verify_jwt = false
+
+[functions.lagun-zig-sync]
+verify_jwt = false
+
+[functions.lagun-resumo-produtores]
+verify_jwt = false

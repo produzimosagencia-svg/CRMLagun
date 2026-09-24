@@ -41,7 +41,9 @@ const InternoWhatsAppChat = lazy(() => import("./pages/interno/InternoWhatsAppCh
 const InternoWhatsAppDashboard = lazy(() => import("./pages/interno/InternoWhatsAppDashboard.tsx"));
 const InternoWhatsAppCampaign = lazy(() => import("./pages/interno/InternoWhatsAppCampaign.tsx"));
 const InternoRastreamento = lazy(() => import("./pages/interno/InternoRastreamento.tsx"));
+const InternoResumoProdutores = lazy(() => import("./pages/interno/InternoResumoProdutores.tsx"));
 const TrackedRedirect = lazy(() => import("./pages/TrackedRedirect.tsx"));
+const RelatorioEvento = lazy(() => import("./pages/RelatorioEvento.tsx"));
 const LandingPhotos = lazy(() => import("./pages/LandingPhotos.tsx"));
 const InternoBluetick = lazy(() => import("./pages/interno/InternoBluetick.tsx"));
 const InternoZigTickets = lazy(() => import("./pages/interno/InternoZigTickets.tsx"));
@@ -91,6 +93,7 @@ createRoot(document.getElementById("root")!).render(
         <Route path="/influenciadores/callback" element={<InfluenciadorCallback />} />
         <Route path="/influenciadores/portal"   element={<InfluenciadorPortal />} />
         <Route path="/r/:token" element={<TrackedRedirect />} />
+        <Route path="/relatorio/:token" element={<RelatorioEvento />} />
         <Route path="/l/:slug" element={<IgLinkRedirect />} />
         <Route path="/fotos" element={<LandingPhotos />} />
 
@@ -121,6 +124,7 @@ createRoot(document.getElementById("root")!).render(
           <Route path="whatsapp/aniversario" element={<InternoWhatsAppCampaign campaignKey="aniversario" />} />
           <Route path="whatsapp/estornos" element={<InternoWhatsAppCampaign campaignKey="estornos" />} />
           <Route path="whatsapp/rastreamento" element={<InternoRastreamento />} />
+          <Route path="whatsapp/resumo-produtores" element={<InternoResumoProdutores />} />
           <Route path="lebai" element={<InternoLeBai />} />
           <Route path="aura" element={<InternoAura />} />
           <Route path="prive" element={<InternoPrive />} />

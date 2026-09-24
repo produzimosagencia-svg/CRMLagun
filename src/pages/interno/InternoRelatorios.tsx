@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   ArrowLeft,
   Check,
   ChevronDown,
+  Copy,
   DollarSign,
   Eye,
   FileDown,
@@ -11,6 +12,7 @@ import {
   Loader2,
   MousePointerClick,
   RotateCcw,
+  Sparkles,
   TrendingUp,
   Video,
 } from 'lucide-react';
@@ -80,8 +82,22 @@ interface ObjectiveSummaryRow {
   dailyBudget: number;
 }
 
+interface CampanhaDoGrupo {
+  campaign_id: string;
+  campaign_name: string;
+  spend: number;
+  impressions: number;
+  clicks: number;
+  returnValue: number;
+}
+
 interface EventGroup {
+  // Chave do grupo: `ev:<id>` quando vinculado ao evento, `nome:<palpite>` quando não.
+  key: string;
+  eventId: string | null;
+  vinculado: boolean;
   eventName: string;
+  campanhas: CampanhaDoGrupo[];
   totalSpend: number;
   totalImpressions: number;
   totalReach: number;
@@ -100,6 +116,20 @@ const KNOWN_EVENTS = [
   'Pagodear',
   'Aperta O Play',
 ];
+
+// Eventos da landing (lagun_events) para o vínculo explícito campanha → evento.
+interface EventoLanding {
+  id: string;
+  nome: string;
+  show_on_landing: boolean;
+  relatorio_token: string | null;
+}
+
+const SEM_EVENTO = '__sem_evento__';
+const APP_URL = (import.meta.env.VITE_APP_URL || 'https://lagunvitoria.com.br').replace(/\/$/, '');
+
+// Comparação sem acento e sem caixa, para sugerir o evento pelo nome da campanha.
+const semAcento = (t: string) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
 
 const CAMPAIGN_RENAME_MAP: Record<string, string> = {
   'fantástico mundo do lukao': 'Fantástico Mundo do Lukão',
@@ -232,6 +262,96 @@ export default function InternoRelatorios() {
   const [creatives, setCreatives] = useState<AdCreativeInsight[]>([]);
   const [loadingCreatives, setLoadingCreatives] = useState(false);
   const [campaignBudgets, setCampaignBudgets] = useState<CampaignBudget[]>([]);
+  const [eventos, setEventos] = useState<EventoLanding[]>([]);
+  const [vinculos, setVinculos] = useState<Map<string, string>>(new Map());
+  const [salvandoVinculo, setSalvandoVinculo] = useState<Set<string>>(new Set());
+
+  // Eventos da landing e vínculos salvos campanha → evento.
+  useEffect(() => {
+    (async () => {
+      const [ev, vc] = await Promise.all([
+        (supabase as any)
+          .from('lagun_events')
+          .select('id, nome, show_on_landing, relatorio_token')
+          .order('display_order', { ascending: true }),
+        (supabase as any).from('lagun_event_campaigns').select('campaign_id, event_id'),
+      ]);
+      if (ev.error) console.error('[Relatórios] Falha ao carregar eventos', ev.error);
+      else setEventos((ev.data || []) as EventoLanding[]);
+      if (vc.error) console.error('[Relatórios] Falha ao carregar vínculos', vc.error);
+      else setVinculos(new Map((vc.data || []).map((v: { campaign_id: string; event_id: string }) => [v.campaign_id, v.event_id])));
+    })();
+  }, []);
+
+  const eventosPorId = useMemo(() => new Map(eventos.map((e) => [e.id, e])), [eventos]);
+  const eventosAtivos = useMemo(() => eventos.filter((e) => e.show_on_landing), [eventos]);
+
+  // Agrupa pelo vínculo salvo; sem vínculo, cai no palpite antigo pelo nome.
+  const grupoDaCampanha = useCallback((campaignId: string, campaignName: string) => {
+    const eventId = vinculos.get(campaignId);
+    const evento = eventId ? eventosPorId.get(eventId) : undefined;
+    if (eventId && evento) {
+      return { key: `ev:${eventId}`, eventId, vinculado: true, eventName: evento.nome };
+    }
+    const palpite = extractEventName(campaignName || '');
+    return { key: `nome:${palpite}`, eventId: null, vinculado: false, eventName: palpite };
+  }, [vinculos, eventosPorId]);
+
+  // Sugestão pelo nome: o nome da campanha contém o nome de um evento ativo.
+  // O nome mais longo vence ("Isso É Trap 2" antes de "Isso É Trap").
+  const sugerirEvento = (campaignName: string): EventoLanding | null => {
+    const alvo = semAcento(campaignName || '');
+    return [...eventosAtivos]
+      .filter((e) => semAcento(e.nome).length >= 3 && alvo.includes(semAcento(e.nome)))
+      .sort((a, b) => b.nome.length - a.nome.length)[0] || null;
+  };
+
+  const vincularCampanha = async (campaignId: string, campaignName: string, eventId: string | null) => {
+    const anterior = vinculos.get(campaignId) ?? null;
+    if (anterior === eventId) return;
+    setSalvandoVinculo((s) => new Set(s).add(campaignId));
+    setVinculos((m) => {
+      const n = new Map(m);
+      if (eventId) n.set(campaignId, eventId); else n.delete(campaignId);
+      return n;
+    });
+    const { error: erroVinculo } = eventId
+      ? await (supabase as any).from('lagun_event_campaigns').upsert({
+          campaign_id: campaignId,
+          event_id: eventId,
+          campaign_name: campaignName,
+          account_id: selectedAccount,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'campaign_id' })
+      : await (supabase as any).from('lagun_event_campaigns').delete().eq('campaign_id', campaignId);
+    setSalvandoVinculo((s) => { const n = new Set(s); n.delete(campaignId); return n; });
+    if (erroVinculo) {
+      console.error('[Relatórios] Falha ao salvar vínculo', erroVinculo);
+      setVinculos((m) => {
+        const n = new Map(m);
+        if (anterior) n.set(campaignId, anterior); else n.delete(campaignId);
+        return n;
+      });
+      toast.error('Não foi possível salvar o vínculo da campanha.');
+      return;
+    }
+    toast.success(eventId ? `Campanha vinculada a ${eventosPorId.get(eventId)?.nome || 'evento'}.` : 'Vínculo removido.');
+  };
+
+  const copiarLinkRelatorio = async (eventId: string) => {
+    const token = eventosPorId.get(eventId)?.relatorio_token;
+    if (!token) {
+      toast.error('Este evento ainda não tem link de relatório.');
+      return;
+    }
+    const link = `${APP_URL}/relatorio/${token}`;
+    try {
+      await navigator.clipboard.writeText(link);
+      toast.success('Link do relatório copiado.');
+    } catch {
+      window.prompt('Copie o link do relatório:', link);
+    }
+  };
 
   useEffect(() => {
     if (!ADS_ACCOUNT_ID) { setLoading(false); return; }
@@ -348,14 +468,14 @@ export default function InternoRelatorios() {
   const creativesByEvent = useMemo(() => {
     const grouped = new Map<string, AdCreativeInsight[]>();
     for (const creative of creatives) {
-      const eventName = extractEventName(creative.campaign_name);
-      grouped.set(eventName, [...(grouped.get(eventName) || []), creative]);
+      const { key } = grupoDaCampanha(creative.campaign_id, creative.campaign_name);
+      grouped.set(key, [...(grouped.get(key) || []), creative]);
     }
     for (const [eventName, items] of grouped) {
       grouped.set(eventName, items.sort((a, b) => Number(b.spend || 0) - Number(a.spend || 0)));
     }
     return grouped;
-  }, [creatives]);
+  }, [creatives, grupoDaCampanha]);
 
   const summary: AccountSummary = useMemo(() => {
     const totals = {
@@ -386,14 +506,17 @@ export default function InternoRelatorios() {
       string,
       EventGroup & {
         rowsMap: Map<string, ObjectiveSummaryRow>;
+        campanhasMap: Map<string, CampanhaDoGrupo>;
       }
     >();
 
     for (const row of insights) {
-      const eventName = extractEventName(row.campaign_name);
+      const grupo = grupoDaCampanha(row.campaign_id, row.campaign_name);
       const objectiveMeta = getObjectiveMeta(row.objective);
-      const event = events.get(eventName) || {
-        eventName,
+      const event = events.get(grupo.key) || {
+        ...grupo,
+        campanhas: [],
+        campanhasMap: new Map<string, CampanhaDoGrupo>(),
         totalSpend: 0,
         totalImpressions: 0,
         totalReach: 0,
@@ -438,13 +561,32 @@ export default function InternoRelatorios() {
       objectiveRow.returnValue += purchaseValue;
       objectiveRow.dailyBudget += dailyBudgetByCampaign.get(row.campaign_id) || 0;
 
+      const campaignKey = row.campaign_id || row.campaign_name;
+      const campanha = event.campanhasMap.get(campaignKey) || {
+        campaign_id: row.campaign_id,
+        campaign_name: row.campaign_name || 'Campanha sem nome',
+        spend: 0,
+        impressions: 0,
+        clicks: 0,
+        returnValue: 0,
+      };
+      campanha.spend += spend;
+      campanha.impressions += impressions;
+      campanha.clicks += clicks;
+      campanha.returnValue += purchaseValue;
+      event.campanhasMap.set(campaignKey, campanha);
+
       event.rowsMap.set(rowKey, objectiveRow);
-      events.set(eventName, event);
+      events.set(grupo.key, event);
     }
 
     return Array.from(events.values())
       .map((event) => ({
+        key: event.key,
+        eventId: event.eventId,
+        vinculado: event.vinculado,
         eventName: event.eventName,
+        campanhas: Array.from(event.campanhasMap.values()).sort((a, b) => b.spend - a.spend),
         totalSpend: event.totalSpend,
         totalImpressions: event.totalImpressions,
         totalReach: event.totalReach,
@@ -457,7 +599,7 @@ export default function InternoRelatorios() {
         ),
       }))
       .sort((a, b) => b.totalSpend - a.totalSpend);
-  }, [insights, dailyBudgetByCampaign]);
+  }, [insights, dailyBudgetByCampaign, grupoDaCampanha]);
 
 
   const toggleEventCollapse = (eventName: string) => {
@@ -646,29 +788,51 @@ export default function InternoRelatorios() {
       {!loadingInsights && groupedByEvent.length > 0 && (
         <div className="space-y-4">
           {groupedByEvent.map((eventGroup) => {
-            const isCollapsed = collapsedEvents[eventGroup.eventName] ?? false;
+            const isCollapsed = collapsedEvents[eventGroup.key] ?? false;
+            const criativosDoGrupo = creativesByEvent.get(eventGroup.key) || [];
 
             return (
               <div
-                key={eventGroup.eventName}
+                key={eventGroup.key}
                 className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden"
               >
                 <div className="p-4 border-b border-gray-100 dark:border-gray-800">
                   <div className="flex items-start justify-between gap-4 mb-3">
-                    <div>
-                      <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100">
-                        🎤 {eventGroup.eventName}
+                    <div className="min-w-0">
+                      <h3 className="flex flex-wrap items-center gap-2 text-sm font-bold text-gray-900 dark:text-gray-100">
+                        <span>🎤 {eventGroup.eventName}</span>
+                        {!eventGroup.vinculado && (
+                          <span
+                            title="Agrupado pelo nome da campanha. Vincule cada campanha a um evento na lista abaixo."
+                            className="rounded-full border border-dashed border-gray-300 px-2 py-0.5 text-[10px] font-medium text-gray-500 dark:border-gray-700 dark:text-gray-400"
+                          >
+                            não vinculado · pelo nome
+                          </span>
+                        )}
                       </h3>
                       <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                        {eventGroup.rows.length} tipo{eventGroup.rows.length > 1 ? 's' : ''} de campanha
+                        {eventGroup.campanhas.length} campanha{eventGroup.campanhas.length === 1 ? '' : 's'} · {eventGroup.rows.length} tipo{eventGroup.rows.length > 1 ? 's' : ''} de campanha
                       </p>
                     </div>
 
+                    <div className="flex shrink-0 items-center gap-1 max-md:flex-col max-md:items-end">
+                    {eventGroup.vinculado && eventGroup.eventId && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => void copiarLinkRelatorio(eventGroup.eventId!)}
+                        title="Link secreto que abre o PDF das campanhas deste evento"
+                        className="h-8 gap-1.5 px-2.5 text-xs border-[#FFE14D]/50 text-gray-700 hover:bg-[#FFE14D]/10 dark:text-gray-200"
+                      >
+                        <Copy size={13} /> Copiar link do relatório
+                      </Button>
+                    )}
                     <Button
                       type="button"
                       variant="ghost"
                       size="sm"
-                      onClick={() => toggleEventCollapse(eventGroup.eventName)}
+                      onClick={() => toggleEventCollapse(eventGroup.key)}
                       className="h-8 px-2 text-xs text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
                     >
                       {isCollapsed ? 'Mostrar campanhas' : 'Ocultar campanhas'}
@@ -677,6 +841,7 @@ export default function InternoRelatorios() {
                         className={`ml-1 transition-transform ${isCollapsed ? '-rotate-90' : 'rotate-0'}`}
                       />
                     </Button>
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-2 lg:grid-cols-6 gap-2">
@@ -737,7 +902,7 @@ export default function InternoRelatorios() {
 
                     <div className="divide-y divide-gray-100 dark:divide-gray-800">
                       {eventGroup.rows.map((row) => (
-                        <div key={`${eventGroup.eventName}-${row.objLabel}`} className="py-2 flex items-center justify-between gap-4">
+                        <div key={`${eventGroup.key}-${row.objLabel}`} className="py-2 flex items-center justify-between gap-4">
                           <div className="min-w-0 flex-1 flex items-center gap-2">
                             <span className="text-sm">{row.objIcon}</span>
                             <p className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">
@@ -764,12 +929,67 @@ export default function InternoRelatorios() {
                     </div>
 
                     <div className="mt-5 border-t border-gray-100 pt-4 dark:border-gray-800">
+                      <div className="mb-2 flex items-center justify-between gap-3">
+                        <div><h4 className="text-xs font-bold text-gray-800 dark:text-gray-200">Campanhas</h4><p className="mt-0.5 text-[10px] text-gray-400">Vincule cada campanha ao evento da landing. O link do relatório do evento usa só as vinculadas.</p></div>
+                      </div>
+                      <div className="divide-y divide-gray-100 dark:divide-gray-800">
+                        {eventGroup.campanhas.map((campanha) => {
+                          const vinculadoA = vinculos.get(campanha.campaign_id);
+                          const eventoAtual = vinculadoA ? eventosPorId.get(vinculadoA) : undefined;
+                          const sugestao = !eventoAtual ? sugerirEvento(campanha.campaign_name) : null;
+                          const salvando = salvandoVinculo.has(campanha.campaign_id);
+                          // Evento vinculado que saiu da landing continua aparecendo na lista.
+                          const opcoes = eventoAtual && !eventoAtual.show_on_landing ? [...eventosAtivos, eventoAtual] : eventosAtivos;
+                          return (
+                            <div key={campanha.campaign_id || campanha.campaign_name} className="flex items-center gap-4 py-2 max-md:flex-wrap max-md:gap-2">
+                              <p className="min-w-0 flex-1 truncate text-xs font-medium text-gray-700 dark:text-gray-300 max-md:basis-full" title={campanha.campaign_name}>
+                                {campanha.campaign_name}
+                              </p>
+                              <p className="w-24 text-right text-xs text-gray-500 dark:text-gray-400 max-md:hidden">{formatCurrency(campanha.spend)}</p>
+                              <p className="w-16 text-right text-xs text-gray-500 dark:text-gray-400 max-md:hidden">{formatNumber(campanha.impressions)}</p>
+                              <p className="w-24 text-right text-xs font-semibold text-emerald-600 dark:text-emerald-400 max-md:hidden">{campanha.returnValue > 0 ? formatCurrency(campanha.returnValue) : '—'}</p>
+                              <div className="flex w-[260px] shrink-0 items-center justify-end gap-1.5 max-md:w-full max-md:justify-start">
+                                {sugestao && (
+                                  <button
+                                    type="button"
+                                    disabled={salvando || !campanha.campaign_id}
+                                    onClick={() => void vincularCampanha(campanha.campaign_id, campanha.campaign_name, sugestao.id)}
+                                    title={`Sugestão pelo nome da campanha. Clique para vincular a ${sugestao.nome}.`}
+                                    className="flex h-7 max-w-[120px] items-center gap-1 rounded-md border border-dashed border-amber-400/70 bg-amber-50 px-2 text-[10px] font-medium text-amber-700 hover:bg-amber-100 disabled:opacity-50 dark:bg-amber-500/10 dark:text-amber-300 dark:hover:bg-amber-500/20"
+                                  >
+                                    <Sparkles size={11} className="shrink-0" />
+                                    <span className="truncate">sugestão: {sugestao.nome}</span>
+                                  </button>
+                                )}
+                                <Select
+                                  value={eventoAtual ? eventoAtual.id : SEM_EVENTO}
+                                  disabled={salvando || !campanha.campaign_id}
+                                  onValueChange={(valor) => void vincularCampanha(campanha.campaign_id, campanha.campaign_name, valor === SEM_EVENTO ? null : valor)}
+                                >
+                                  <SelectTrigger className={`h-7 w-[130px] text-[11px] rounded-md ${eventoAtual ? 'border-[#FFE14D]/60' : 'border-gray-200 text-gray-400 dark:border-gray-700'}`}>
+                                    {salvando ? <span className="flex items-center gap-1"><Loader2 size={11} className="animate-spin" /> Salvando…</span> : <SelectValue placeholder="Evento" />}
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value={SEM_EVENTO} className="text-xs">Sem evento</SelectItem>
+                                    {opcoes.map((ev) => (
+                                      <SelectItem key={ev.id} value={ev.id} className="text-xs">{ev.nome}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="mt-5 border-t border-gray-100 pt-4 dark:border-gray-800">
                       <div className="mb-3 flex items-center justify-between gap-3">
                         <div><h4 className="text-xs font-bold text-gray-800 dark:text-gray-200">Criativos das campanhas</h4><p className="mt-0.5 text-[10px] text-gray-400">Anúncios veiculados no período selecionado.</p></div>
-                        <span className="rounded-full border border-gray-200 px-2 py-1 text-[10px] font-semibold text-gray-500 dark:border-gray-700 dark:text-gray-400">{(creativesByEvent.get(eventGroup.eventName) || []).length} criativo{(creativesByEvent.get(eventGroup.eventName) || []).length === 1 ? '' : 's'}</span>
+                        <span className="rounded-full border border-gray-200 px-2 py-1 text-[10px] font-semibold text-gray-500 dark:border-gray-700 dark:text-gray-400">{criativosDoGrupo.length} criativo{criativosDoGrupo.length === 1 ? '' : 's'}</span>
                       </div>
 
-                      {loadingCreatives ? <div className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-gray-200 py-8 text-xs text-gray-400 dark:border-gray-800"><Loader2 size={15} className="animate-spin" />Carregando criativos...</div> : (creativesByEvent.get(eventGroup.eventName) || []).length === 0 ? <div className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-gray-200 py-8 text-xs text-gray-400 dark:border-gray-800"><ImageOff size={15} />Nenhum criativo com entrega neste período.</div> : <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 max-md:flex max-md:snap-x max-md:snap-mandatory max-md:overflow-x-auto max-md:pb-1">{(creativesByEvent.get(eventGroup.eventName) || []).map(creative => {
+                      {loadingCreatives ? <div className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-gray-200 py-8 text-xs text-gray-400 dark:border-gray-800"><Loader2 size={15} className="animate-spin" />Carregando criativos...</div> : criativosDoGrupo.length === 0 ? <div className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-gray-200 py-8 text-xs text-gray-400 dark:border-gray-800"><ImageOff size={15} />Nenhum criativo com entrega neste período.</div> : <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 max-md:flex max-md:snap-x max-md:snap-mandatory max-md:overflow-x-auto max-md:pb-1">{criativosDoGrupo.map(creative => {
                         const preview = creative.image_url || creative.thumbnail_url;
                         const isVideo = creative.creative_type === 'video';
                         return <a key={creative.ad_id} href={creative.video_url || creative.image_url || creative.thumbnail_url || undefined} target="_blank" rel="noreferrer" onClick={event => { if (!preview && !creative.video_url) event.preventDefault(); }} className="group overflow-hidden rounded-xl border border-gray-200 bg-gray-50 transition hover:-translate-y-0.5 hover:border-purple-300 hover:shadow-lg dark:border-gray-800 dark:bg-[#160F20] dark:hover:border-purple-500/40 max-md:w-[78vw] max-md:max-w-[280px] max-md:shrink-0 max-md:snap-start">

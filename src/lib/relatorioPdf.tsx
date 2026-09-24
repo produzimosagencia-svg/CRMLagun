@@ -12,6 +12,17 @@ const esperarImagens = (el: HTMLElement) =>
 
 /** Renderiza `pagina` fora da tela e baixa como PDF A4 (uma ou mais folhas). */
 export async function baixarRelatorioPdf(pagina: ReactNode, arquivo: string) {
+  const pdf = await montarPdf(pagina);
+  pdf.save(`${arquivo}-${new Date().toISOString().slice(0, 10)}.pdf`);
+}
+
+/** Mesmo PDF de `baixarRelatorioPdf`, devolvido como Blob (para abrir direto no navegador). */
+export async function gerarRelatorioPdfBlob(pagina: ReactNode): Promise<Blob> {
+  const pdf = await montarPdf(pagina);
+  return pdf.output('blob');
+}
+
+async function montarPdf(pagina: ReactNode) {
   const [{ default: html2canvas }, { jsPDF }] = await Promise.all([import('html2canvas'), import('jspdf')]);
   const host = document.createElement('div');
   host.style.cssText = `position:fixed;left:-10000px;top:0;width:${A4_W}px;background:#fff;z-index:-1`;
@@ -44,7 +55,7 @@ export async function baixarRelatorioPdf(pagina: ReactNode, arquivo: string) {
       pdf.addImage(folha.toDataURL('image/jpeg', 0.93), 'JPEG', 0, 0, A4_W, A4_H);
       inicio = fim;
     }
-    pdf.save(`${arquivo}-${new Date().toISOString().slice(0, 10)}.pdf`);
+    return pdf;
   } finally {
     root.unmount(); host.remove();
   }
