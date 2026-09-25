@@ -198,7 +198,7 @@ async function montarResumo(sb: any, evento: any, dia: string, corte: { texto: s
   const dias = evento.data ? diasEntre(dia, String(evento.data).slice(0, 10)) : null;
   const { data: zig } = await sb.from("lagun_event_zig")
     .select("zig_event_id, last_sync_at, last_sync_error").eq("event_id", evento.id).maybeSingle();
-  if (!zig) pendencias.push("Zig não configurada para o evento");
+  if (!zig) pendencias.push("Sem Zig: os números saem como \"Veja na ticketeira\"");
   if (!evento.relatorio_token) pendencias.push("Evento sem link do relatório (relatorio_token)");
   if (dias === null) pendencias.push("Evento sem data");
 
@@ -210,7 +210,13 @@ async function montarResumo(sb: any, evento: any, dia: string, corte: { texto: s
   const numeros = zig ? await totais(sb, evento.id, dia, corte) : { total: 0, hoje: 0 };
   const lista = await destinatarios(sb, evento.id);
   if (lista.length === 0) pendencias.push("Nenhum produtor com telefone");
-  return { dias, frase: dias === null ? "" : frase(dias), numeros, lista, pendencias, zig };
+  // Sem Zig cadastrada não há como contar ingressos: a mensagem manda a
+  // pessoa conferir direto na ticketeira em vez de mostrar zero.
+  const SEM_DADO = "Veja na ticketeira";
+  const textoNumeros = zig
+    ? { total: numeros.total.toLocaleString("pt-BR"), hoje: numeros.hoje.toLocaleString("pt-BR") }
+    : { total: SEM_DADO, hoje: SEM_DADO };
+  return { dias, frase: dias === null ? "" : frase(dias), numeros, textoNumeros, lista, pendencias, zig };
 }
 
 // ------------------------------------------------------------------ handler
@@ -243,7 +249,7 @@ Deno.serve(async (req) => {
       const tpl = waToken ? await carregarTemplate(waToken, templateName, idioma) : { body: null, buttonIndex: 0, status: null };
       const varsPara = (nome: string) => [
         primeiroNome(nome), String(evento.nome ?? ""), resumo.frase,
-        resumo.numeros.total.toLocaleString("pt-BR"), resumo.numeros.hoje.toLocaleString("pt-BR"),
+        resumo.textoNumeros.total, resumo.textoNumeros.hoje,
       ];
 
       if (action === "previa") {
@@ -325,7 +331,7 @@ Deno.serve(async (req) => {
     for (const evento of (eventos ?? []) as any[]) {
       const resumo = await montarResumo(sb, evento, dia, corte, true);
       if (resumo.dias === null || !DIAS_DA_REGRA.includes(resumo.dias)) continue;
-      if (!resumo.zig || !evento.relatorio_token) {
+      if (!evento.relatorio_token) {
         relatorio.push({ event_id: evento.id, pulado: true, motivo: resumo.pendencias.join("; ") });
         continue;
       }
@@ -356,7 +362,7 @@ Deno.serve(async (req) => {
 
         const vars = [
           primeiroNome(d.nome), String(evento.nome ?? ""), resumo.frase,
-          resumo.numeros.total.toLocaleString("pt-BR"), resumo.numeros.hoje.toLocaleString("pt-BR"),
+          resumo.textoNumeros.total, resumo.textoNumeros.hoje,
         ];
         const r = await enviarTemplate({
           token: waToken, phoneNumberId, to: d.telefone, template: templateName, idioma,

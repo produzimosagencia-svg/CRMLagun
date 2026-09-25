@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactElement } from 'react';
 import { useParams } from 'react-router-dom';
-import { AlertTriangle, FileDown, RotateCcw } from 'lucide-react';
-import { gerarRelatorioPdfBlob } from '@/lib/relatorioPdf';
+import { AlertTriangle, FileDown, Loader2, RotateCcw } from 'lucide-react';
+import { A4_W, gerarRelatorioPdfBlob } from '@/lib/relatorioPdf';
 import { RelatorioCampanhas, type CriativoRel, type LinhaCampanha } from '@/components/interno/RelatorioCampanhas';
 import marcaLagun from '@/assets/palavra-lagun-branco.png';
 
@@ -9,10 +9,15 @@ import marcaLagun from '@/assets/palavra-lagun-branco.png';
  * Link secreto do relatório de campanhas de um evento (/relatorio/<token>).
  *
  * Público, sem login: enviado aos produtores pelo WhatsApp. Busca os dados na
- * edge function relatorio-evento (só as campanhas vinculadas ao evento), monta o
- * PDF no mesmo modelo do relatório interno e abre direto no navegador. Se o
- * navegador do app bloquear a navegação para o blob, fica a tela com
- * "Baixar PDF".
+ * edge function relatorio-evento (só as campanhas vinculadas ao evento) e
+ * mostra o relatório NA TELA, no mesmo modelo do PDF, reduzido à largura do
+ * celular. O botão "Baixar PDF" gera o arquivo na hora: no celular abre o
+ * compartilhamento do aparelho (Salvar em Arquivos, WhatsApp…); onde isso não
+ * existe, baixa o arquivo.
+ *
+ * Antes a página trocava a própria tela pelo PDF em memória (blob:). No
+ * navegador de dentro do WhatsApp e no Safari isso abria uma tela branca e os
+ * botões sumiam junto.
  */
 
 type Resposta = {
@@ -26,7 +31,7 @@ type Resposta = {
 
 type Estado =
   | { fase: 'carregando' }
-  | { fase: 'pronto'; url: string; arquivo: string; evento: string }
+  | { fase: 'pronto'; relatorio: ReactElement; arquivo: string; evento: string }
   | { fase: 'erro'; titulo: string; texto: string; tentarDeNovo?: boolean };
 
 const PERIODOS: Record<string, string> = {
@@ -49,7 +54,7 @@ export default function RelatorioEvento() {
   const { token } = useParams<{ token: string }>();
   const [estado, setEstado] = useState<Estado>({ fase: 'carregando' });
   const [tentativa, setTentativa] = useState(0);
-  const urlAtual = useRef<string | null>(null);
+  const [baixando, setBaixando] = useState(false);
 
   useEffect(() => {
     document.title = 'Relatório de campanhas · Lagun';
@@ -82,35 +87,76 @@ export default function RelatorioEvento() {
       const campanhas = dados.campanhas || [];
       if (!campanhas.length) return erro('sem_entrega');
 
-      try {
-        const nome = dados.evento?.nome || 'Evento';
-        const blob = await gerarRelatorioPdfBlob(
-          <RelatorioCampanhas
-            cliente={nome}
-            periodo={PERIODOS[dados.date_preset || 'maximum'] || 'Todo o período'}
-            dias={dados.dias || 30}
-            campanhas={campanhas}
-            criativos={dados.criativos || []}
-          />,
-        );
-        if (cancelado) return;
-        const url = URL.createObjectURL(blob);
-        urlAtual.current = url;
-        const arquivo = `relatorio-${slug(nome) || 'evento'}-${new Date().toISOString().slice(0, 10)}.pdf`;
-        setEstado({ fase: 'pronto', url, arquivo, evento: nome });
-        // Abre o PDF direto. Alguns navegadores de app bloqueiam blob; aí fica a tela com o botão.
-        try { window.location.replace(url); } catch { /* segue na tela de download */ }
-      } catch (e) {
-        console.error('[Relatório] Falha ao gerar PDF', e);
-        erro('erro_interno');
-      }
+      if (cancelado) return;
+      const nome = dados.evento?.nome || 'Evento';
+      const relatorio = (
+        <RelatorioCampanhas
+          cliente={nome}
+          periodo={PERIODOS[dados.date_preset || 'maximum'] || 'Todo o período'}
+          dias={dados.dias || 30}
+          campanhas={campanhas}
+          criativos={dados.criativos || []}
+        />
+      );
+      const arquivo = `relatorio-${slug(nome) || 'evento'}-${new Date().toISOString().slice(0, 10)}.pdf`;
+      setEstado({ fase: 'pronto', relatorio, arquivo, evento: nome });
     })();
 
     return () => { cancelado = true; };
   }, [token, tentativa]);
 
-  // Libera o blob ao sair da página.
-  useEffect(() => () => { if (urlAtual.current) URL.revokeObjectURL(urlAtual.current); }, []);
+  async function baixarPdf() {
+    if (estado.fase !== 'pronto' || baixando) return;
+    setBaixando(true);
+    try {
+      const blob = await gerarRelatorioPdfBlob(estado.relatorio);
+      const arquivo = new File([blob], estado.arquivo, { type: 'application/pdf' });
+      // Celular: compartilhamento nativo (Salvar em Arquivos, WhatsApp, e-mail).
+      if (navigator.canShare?.({ files: [arquivo] })) {
+        try {
+          await navigator.share({ files: [arquivo], title: `Relatório · ${estado.evento}` });
+          return;
+        } catch (e) {
+          if ((e as Error)?.name === 'AbortError') return; // pessoa fechou a folha de compartilhar
+        }
+      }
+      // Computador e navegadores sem compartilhamento: download direto.
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = estado.arquivo; a.rel = 'noopener';
+      document.body.appendChild(a); a.click(); a.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (e) {
+      console.error('[Relatório] Falha ao gerar PDF', e);
+      alertaFalha();
+    } finally {
+      setBaixando(false);
+    }
+  }
+
+  if (estado.fase === 'pronto') {
+    return (
+      <main className="min-h-screen bg-[#0B0B10] text-white">
+        <header className="sticky top-0 z-10 flex items-center gap-3 border-b border-white/10 bg-[#06060A]/95 px-4 py-3 backdrop-blur">
+          <img src={marcaLagun} alt="Lagun" className="h-5 w-auto opacity-90" />
+          <div className="min-w-0 flex-1">
+            <p className="text-[10px] font-semibold uppercase tracking-[.14em] text-[#FFE14D]">Relatório de campanhas</p>
+            <p className="truncate text-sm font-semibold">{estado.evento}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => void baixarPdf()}
+            disabled={baixando}
+            className="inline-flex h-10 shrink-0 items-center gap-2 rounded-xl bg-[#FFE14D] px-4 text-sm font-semibold text-black transition hover:bg-[#FFEC8A] disabled:opacity-70"
+          >
+            {baixando ? <Loader2 size={16} className="animate-spin" /> : <FileDown size={16} />}
+            {baixando ? 'Gerando…' : 'Baixar PDF'}
+          </button>
+        </header>
+        <FolhaNaTela>{estado.relatorio}</FolhaNaTela>
+      </main>
+    );
+  }
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-[#06060A] px-4 py-10 text-center text-white">
@@ -120,26 +166,8 @@ export default function RelatorioEvento() {
         {estado.fase === 'carregando' && (
           <div role="status" aria-live="polite">
             <div className="mx-auto mb-5 h-10 w-10 animate-spin rounded-full border-[3px] border-white/10 border-t-[#FFE14D]" />
-            <p className="text-base font-semibold">Gerando relatório…</p>
+            <p className="text-base font-semibold">Carregando relatório…</p>
             <p className="mt-2 text-sm text-white/50">Buscando os dados das campanhas no Meta Ads. Leva alguns segundos.</p>
-          </div>
-        )}
-
-        {estado.fase === 'pronto' && (
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[.14em] text-[#FFE14D]">Relatório de campanhas</p>
-            <h1 className="mt-2 text-xl font-semibold">{estado.evento}</h1>
-            <p className="mt-2 text-sm text-white/50">Se o PDF não abriu sozinho, toque no botão abaixo.</p>
-            <a
-              href={estado.url}
-              download={estado.arquivo}
-              className="mt-7 inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#FFE14D] px-6 text-sm font-semibold text-black shadow-[0_0_24px_rgba(255,225,77,.4)] transition hover:bg-[#FFEC8A]"
-            >
-              <FileDown size={16} /> Baixar PDF
-            </a>
-            <a href={estado.url} target="_blank" rel="noreferrer" className="mt-4 block text-xs text-white/50 underline underline-offset-4 hover:text-white/80">
-              Abrir em nova aba
-            </a>
           </div>
         )}
 
@@ -164,5 +192,54 @@ export default function RelatorioEvento() {
 
       </div>
     </main>
+  );
+}
+
+function alertaFalha() {
+  // Sem alert(): em app de mensagem ele trava a página. Mensagem simples no topo.
+  const aviso = document.createElement('div');
+  aviso.textContent = 'Não foi possível gerar o PDF. Tente de novo.';
+  aviso.style.cssText = 'position:fixed;left:50%;top:72px;transform:translateX(-50%);z-index:50;background:#2a0d12;color:#fff;border:1px solid #FF4D63;border-radius:12px;padding:10px 14px;font-size:13px';
+  document.body.appendChild(aviso);
+  window.setTimeout(() => aviso.remove(), 4000);
+}
+
+/**
+ * Mostra a folha A4 do relatório inteira na tela: ela é montada na largura
+ * real do PDF (794px) e reduzida por escala para caber no celular, sem
+ * quebrar o layout do relatório.
+ */
+function FolhaNaTela({ children }: { children: ReactElement }) {
+  const caixa = useRef<HTMLDivElement>(null);
+  const folha = useRef<HTMLDivElement>(null);
+  const [escala, setEscala] = useState(1);
+  const [altura, setAltura] = useState<number | null>(null);
+
+  useLayoutEffect(() => {
+    const medir = () => {
+      const largura = caixa.current?.clientWidth ?? A4_W;
+      const e = Math.min(1, largura / A4_W);
+      setEscala(e);
+      if (folha.current) setAltura(folha.current.offsetHeight * e);
+    };
+    medir();
+    const ro = new ResizeObserver(medir);
+    if (caixa.current) ro.observe(caixa.current);
+    if (folha.current) ro.observe(folha.current);
+    return () => ro.disconnect();
+  }, []);
+
+  return (
+    <div className="px-3 py-4 sm:px-6 sm:py-8">
+      <div ref={caixa} className="mx-auto w-full" style={{ maxWidth: A4_W, height: altura ?? undefined }}>
+        <div
+          ref={folha}
+          className="origin-top-left overflow-hidden rounded-md bg-white shadow-2xl"
+          style={{ width: A4_W, transform: `scale(${escala})` }}
+        >
+          {children}
+        </div>
+      </div>
+    </div>
   );
 }

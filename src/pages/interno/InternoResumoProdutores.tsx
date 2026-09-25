@@ -245,7 +245,7 @@ export default function InternoResumoProdutores() {
         if (templateStatus && templateStatus !== 'APPROVED') {
           avisos.push(templateStatus === 'NAO_ENCONTRADO' ? 'template não encontrado' : `template não aprovado (${templateStatus})`);
         }
-        if (!zig[ev.id]) avisos.push('sem Zig configurada');
+        // Sem Zig o disparo sai assim mesmo, com "Veja na ticketeira" nos números.
         if (!ev.relatorio_token) avisos.push('sem link do relatório');
         if (!destinatariosPorEvento[ev.id]?.total) avisos.push('nenhum produtor com telefone');
         const passado = i !== 0 ? null
