@@ -45,6 +45,7 @@ const InternoRastreamento = lazy(() => import("./pages/interno/InternoRastreamen
 const InternoResumoProdutores = lazy(() => import("./pages/interno/InternoResumoProdutores.tsx"));
 const TrackedRedirect = lazy(() => import("./pages/TrackedRedirect.tsx"));
 const RelatorioEvento = lazy(() => import("./pages/RelatorioEvento.tsx"));
+const SaudadeConvite = lazy(() => import("./pages/SaudadeConvite.tsx"));
 const LandingPhotos = lazy(() => import("./pages/LandingPhotos.tsx"));
 const InternoBluetick = lazy(() => import("./pages/interno/InternoBluetick.tsx"));
 const InternoZigTickets = lazy(() => import("./pages/interno/InternoZigTickets.tsx"));
@@ -95,6 +96,7 @@ createRoot(document.getElementById("root")!).render(
         <Route path="/influenciadores/portal"   element={<InfluenciadorPortal />} />
         <Route path="/r/:token" element={<TrackedRedirect />} />
         <Route path="/relatorio/:token" element={<RelatorioEvento />} />
+        <Route path="/saudade-convite" element={<SaudadeConvite />} />
         <Route path="/l/:slug" element={<IgLinkRedirect />} />
         <Route path="/fotos" element={<LandingPhotos />} />
 
