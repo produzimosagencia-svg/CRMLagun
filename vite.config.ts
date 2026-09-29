@@ -15,25 +15,17 @@ import { VitePWA } from "vite-plugin-pwa";
  * o React abre a página normalmente.
  */
 const SITE = "https://www.lagunvitoria.com.br";
-const PREVIAS: { caminho: string; titulo: string; descricao: string; imagem: string; largura: number; altura: number }[] = [
-  {
-    caminho: "saudade-convite",
-    titulo: "Saudade · Você recebeu um convite",
-    descricao: "03 de outubro, 23h · Lagun Vitória. Abra o convite.",
-    imagem: "/og/saudade-convite.jpg",
-    largura: 864,
-    altura: 1080,
-  },
-  {
-    // Mesmo convite, sem o kit, para outro grupo de convidados.
-    caminho: "saudade-convite-2",
-    titulo: "Saudade · Você recebeu um convite",
-    descricao: "03 de outubro, 23h · Lagun Vitória. Abra o convite.",
-    imagem: "/og/saudade-convite.jpg",
-    largura: 864,
-    altura: 1080,
-  },
-];
+const PREVIA_SAUDADE = {
+  titulo: "Saudade · Você recebeu um convite",
+  descricao: "03 de outubro, 23h · Lagun Vitória. Abra o convite.",
+  imagem: "/og/saudade-convite.jpg",
+  largura: 864,
+  altura: 1080,
+};
+// saudade: com o kit; saudade-2: sem o kit (outro grupo de convidados). Os
+// endereços saudade-convite(-2) são os antigos, mantidos para links já enviados.
+const PREVIAS: { caminho: string; titulo: string; descricao: string; imagem: string; largura: number; altura: number }[] =
+  ["saudade", "saudade-2", "saudade-convite", "saudade-convite-2"].map((caminho) => ({ caminho, ...PREVIA_SAUDADE }));
 
 function previasDeLink(): Plugin {
   return {

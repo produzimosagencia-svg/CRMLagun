@@ -8,11 +8,10 @@ import capaGustavinn from '@/assets/saudade/capa-modo-gustavinn.webp';
 import avatarGustavinn from '@/assets/saudade/avatar-gustavinn.webp';
 import logoLaIsla from '@/assets/saudade/logo-la-isla.webp';
 import logoTetto from '@/assets/saudade/logo-tetto.webp';
-import logoDonCamaleone from '@/assets/saudade/logo-don-camaleone.webp';
 import palavraLagun from '@/assets/palavra-lagun-branco.png';
 
 /**
- * /saudade-convite — convite para os convidados do evento Saudade (Lagun).
+ * /saudade — convite para os convidados do evento Saudade (Lagun).
  *
  * Feito para o celular. Abre com o convite "fechado": o som só pode começar
  * depois de um toque (os celulares bloqueiam áudio automático), então o botão
@@ -76,7 +75,7 @@ const KIT: Item[] = [
 
 // Coquetel: acontece durante a festa, das 23h à 01h. Sem logo, o avatar mostra o ícone.
 const COQUETEL: Item[] = [
-  { nome: 'Don Camaleone', titulo: 'Coquetel de drinks', icone: Martini, logo: logoDonCamaleone },
+  { nome: 'Don Camaleone', titulo: 'Coquetel de drinks', icone: Martini },
   { nome: 'Comida japonesa', titulo: 'Buffet comida japonesa', icone: Fish },
   { nome: 'Fotógrafo', titulo: 'Fotógrafo', texto: 'Exclusivo', icone: Camera },
   { nome: 'Videomaker', titulo: 'Videomaker', texto: 'Exclusivo', icone: Clapperboard },
@@ -93,7 +92,7 @@ const C = {
 const FONTE_TITULO: CSSProperties = { fontFamily: "'Montserrat', 'Instrument Sans', sans-serif" };
 
 /**
- * `semKit`: versão para outro grupo de convidados (/saudade-convite-2), igual à
+ * `semKit`: versão para outro grupo de convidados (/saudade-2), igual à
  * página principal mas sem a seção do kit.
  */
 export default function SaudadeConvite({ semKit = false }: { semKit?: boolean }) {
