@@ -240,22 +240,16 @@ export default function SaudadeConvite() {
             <Clock size={15} strokeWidth={2.3} style={{ color: C.rosa }} />
             <span className="text-[13px] font-bold tracking-wide">23:00 às 01:00</span>
           </div>
-          <div className="mt-8 grid grid-cols-2 gap-3 text-left">
+          <div className="mt-8 space-y-3 text-left">
             {COQUETEL.map((item) => (
-              <div key={item.nome} className="rounded-2xl border border-white/20 bg-[rgba(8,50,76,.45)] p-3 backdrop-blur-md">
-                {item.logo
-                  ? <EspacoLogo item={item} quadrado className="aspect-square w-full" />
-                  : (
-                    <div className="flex aspect-square w-full items-center justify-center rounded-xl shadow-[0_6px_18px_rgba(0,0,0,.3)]" style={{ background: `linear-gradient(160deg, ${C.mar}, ${C.oceano})` }}>
-                      <item.icone size={46} strokeWidth={1.6} className="text-white/90" />
-                    </div>
-                  )}
-                <div className="mt-3 flex items-center gap-2.5">
-                  <IconeRedondo icone={item.icone} pequeno />
-                  <div className="min-w-0">
-                    <p className="line-clamp-2 text-[13px] font-extrabold leading-tight">{item.titulo}</p>
-                    <p className="truncate text-[10.5px] text-white/70">{item.texto}</p>
-                  </div>
+              <div key={item.nome} className="flex items-center gap-4 rounded-2xl border border-white/20 bg-[rgba(8,50,76,.45)] p-3 backdrop-blur-md">
+                <AvatarKit item={item} />
+                <div className="min-w-0 flex-1">
+                  <p className="flex items-center gap-1.5 text-[16px] font-extrabold leading-tight">
+                    <item.icone size={15} strokeWidth={2.3} style={{ color: C.rosa }} />
+                    {item.titulo}
+                  </p>
+                  <p className="mt-1 text-[13px] leading-snug text-white/75" style={{ fontFamily: "'Instrument Sans', sans-serif" }}>{item.texto}</p>
                 </div>
               </div>
             ))}
@@ -388,50 +382,18 @@ function Info({ icone: Icone, rotulo, children }: { icone: LucideIcon; rotulo: s
   );
 }
 
-/** Avatar quadrado do kit. A logo Saudade (branca, sem fundo) ganha um fundo azul. */
+/** Avatar quadrado do kit e do coquetel: a logo do item, ou o ícone quando não há logo. */
 function AvatarKit({ item }: { item: Item }) {
-  const semFundo = item.logo === logoSaudade;
+  // Logo Saudade (branca, sem fundo) e itens sem logo ganham o fundo azul.
+  const semFundo = item.logo === logoSaudade || !item.logo;
   return (
     <div
       className="flex h-[68px] w-[68px] shrink-0 items-center justify-center overflow-hidden rounded-xl shadow-[0_6px_18px_rgba(0,0,0,.3)]"
       style={semFundo ? { background: `linear-gradient(160deg, ${C.mar}, ${C.oceano})` } : undefined}
     >
-      <img src={item.logo} alt={item.nome} className={semFundo ? 'w-[84%]' : 'h-full w-full object-cover'} />
-    </div>
-  );
-}
-
-function IconeRedondo({ icone: Icone, pequeno = false }: { icone: LucideIcon; pequeno?: boolean }) {
-  return (
-    <span
-      className={`flex shrink-0 items-center justify-center rounded-full ${pequeno ? 'h-8 w-8' : 'h-11 w-11'}`}
-      style={{ background: `${C.rosa}26`, color: C.rosa }}
-    >
-      <Icone size={pequeno ? 15 : 19} strokeWidth={2.2} />
-    </span>
-  );
-}
-
-/** Logo do parceiro; enquanto não chega, um espaço reservado discreto. */
-function EspacoLogo({ item, quadrado = false, className = '' }: { item: Item; quadrado?: boolean; className?: string }) {
-  // Quadrado: a logo ocupa o card inteiro, como foto de perfil.
-  if (item.logo && quadrado) {
-    return (
-      <div className={`overflow-hidden rounded-xl shadow-[0_6px_18px_rgba(0,0,0,.3)] ${className}`}>
-        <img src={item.logo} alt={item.nome} className="h-full w-full object-cover" />
-      </div>
-    );
-  }
-  if (item.logo) {
-    return (
-      <div className={`flex items-center justify-center ${className}`}>
-        <img src={item.logo} alt={item.nome} className="max-h-full max-w-full object-contain" />
-      </div>
-    );
-  }
-  return (
-    <div className={`flex shrink-0 items-center justify-center rounded-xl border border-dashed border-white/25 bg-white/[0.03] ${className}`}>
-      <span className="text-[9px] font-semibold uppercase tracking-[.2em] text-white/40">logo</span>
+      {item.logo
+        ? <img src={item.logo} alt={item.nome} className={semFundo ? 'w-[84%]' : 'h-full w-full object-cover'} />
+        : <item.icone size={30} strokeWidth={1.7} className="text-white/90" />}
     </div>
   );
 }
