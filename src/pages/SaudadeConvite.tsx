@@ -60,7 +60,7 @@ const MUSICAS: Musica[] = [
 interface Item {
   nome: string;
   titulo: string;
-  texto: string;
+  texto?: string;
   icone: LucideIcon;
   /** Logo do parceiro (import do arquivo); sem ela, aparece o espaço reservado. */
   logo?: string;
@@ -77,7 +77,7 @@ const KIT: Item[] = [
 // Coquetel: acontece durante a festa, das 23h à 01h. Sem logo, o avatar mostra o ícone.
 const COQUETEL: Item[] = [
   { nome: 'Don Camaleone', titulo: 'Drinks', texto: 'Don Camaleone', icone: Martini, logo: logoDonCamaleone },
-  { nome: 'Comida japonesa', titulo: 'Comida japonesa', texto: 'Myio', icone: Fish },
+  { nome: 'Comida japonesa', titulo: 'Comida japonesa', icone: Fish },
   { nome: 'Fotógrafo', titulo: 'Fotógrafo', texto: 'Exclusivo', icone: Camera },
   { nome: 'Videomaker', titulo: 'Videomaker', texto: 'Exclusivo', icone: Clapperboard },
 ];
@@ -225,7 +225,7 @@ export default function SaudadeConvite() {
                     <item.icone size={15} strokeWidth={2.3} style={{ color: C.rosa }} />
                     {item.titulo}
                   </p>
-                  <p className="mt-1 text-[13px] leading-snug text-white/75" style={{ fontFamily: "'Instrument Sans', sans-serif" }}>{item.texto}</p>
+                  {item.texto && <p className="mt-1 text-[13px] leading-snug text-white/75" style={{ fontFamily: "'Instrument Sans', sans-serif" }}>{item.texto}</p>}
                 </div>
               </div>
             ))}
@@ -249,7 +249,7 @@ export default function SaudadeConvite() {
                     <item.icone size={15} strokeWidth={2.3} style={{ color: C.rosa }} />
                     {item.titulo}
                   </p>
-                  <p className="mt-1 text-[13px] leading-snug text-white/75" style={{ fontFamily: "'Instrument Sans', sans-serif" }}>{item.texto}</p>
+                  {item.texto && <p className="mt-1 text-[13px] leading-snug text-white/75" style={{ fontFamily: "'Instrument Sans', sans-serif" }}>{item.texto}</p>}
                 </div>
               </div>
             ))}
