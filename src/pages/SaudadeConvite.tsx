@@ -69,15 +69,15 @@ interface Item {
 // Kit que o convidado recebe.
 // Textos exatamente como o Guilherme passou. Avatar: a marca de cada item.
 const KIT: Item[] = [
-  { nome: 'Pulseira', titulo: 'Pulseira', texto: 'Seu acesso à label Saudade', icone: Ticket, logo: logoSaudade },
+  { nome: 'Pulseira', titulo: 'Pulseira', texto: 'Seu acesso ao setor backstage da label Saudade', icone: Ticket, logo: logoSaudade },
   { nome: 'Vale Jantar', titulo: 'Vale Jantar', texto: 'R$100,00 de jantar no Tetto', icone: UtensilsCrossed, logo: logoTetto },
   { nome: 'Vale almoço', titulo: 'Vale almoço', texto: 'Prato almoço no La Isla', icone: UtensilsCrossed, logo: logoLaIsla },
 ];
 
 // Coquetel: acontece durante a festa, das 23h à 01h. Sem logo, o avatar mostra o ícone.
 const COQUETEL: Item[] = [
-  { nome: 'Don Camaleone', titulo: 'Drinks', texto: 'Don Camaleone', icone: Martini, logo: logoDonCamaleone },
-  { nome: 'Comida japonesa', titulo: 'Comida japonesa', icone: Fish },
+  { nome: 'Don Camaleone', titulo: 'Coquetel de drinks', icone: Martini, logo: logoDonCamaleone },
+  { nome: 'Comida japonesa', titulo: 'Buffet comida japonesa', icone: Fish },
   { nome: 'Fotógrafo', titulo: 'Fotógrafo', texto: 'Exclusivo', icone: Camera },
   { nome: 'Videomaker', titulo: 'Videomaker', texto: 'Exclusivo', icone: Clapperboard },
 ];
@@ -92,7 +92,11 @@ const C = {
 
 const FONTE_TITULO: CSSProperties = { fontFamily: "'Montserrat', 'Instrument Sans', sans-serif" };
 
-export default function SaudadeConvite() {
+/**
+ * `semKit`: versão para outro grupo de convidados (/saudade-convite-2), igual à
+ * página principal mas sem a seção do kit.
+ */
+export default function SaudadeConvite({ semKit = false }: { semKit?: boolean }) {
   const [aberto, setAberto] = useState(false);
   const [tocando, setTocando] = useState<number | null>(null);
   const [progresso, setProgresso] = useState(0);
@@ -219,13 +223,14 @@ export default function SaudadeConvite() {
           <p className="mt-4 text-center text-[11px] font-medium text-white/85" style={{ textShadow: '0 1px 8px rgba(40,16,4,.6)' }}>Trechos de 15 segundos · toque para pausar</p>
         </Praia>
 
-        {/* 4. Kit do convidado — sólido */}
+        {/* 4. Kit do convidado — sólido (fora da versão sem kit) */}
+        {!semKit && (
         <Solido className="px-6 py-16">
           <div className="text-center">
             <Rotulo>Presskit</Rotulo>
             <h2 className="mt-3 text-2xl font-extrabold">Seu kit</h2>
             <p className="mx-auto mt-3 max-w-[300px] text-sm font-light leading-relaxed text-white/75" style={{ fontFamily: "'Instrument Sans', sans-serif" }}>
-              Tudo o que já está separado para você nessa noite.
+              Tudo que você vai receber antes do evento:
             </p>
           </div>
           <div className="mt-8 space-y-3">
@@ -243,6 +248,7 @@ export default function SaudadeConvite() {
             ))}
           </div>
         </Solido>
+        )}
 
         {/* 5. Coquetel — praia (céu) */}
         <Praia className="px-6 py-16 text-center">

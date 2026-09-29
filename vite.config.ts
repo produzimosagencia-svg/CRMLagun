@@ -24,6 +24,15 @@ const PREVIAS: { caminho: string; titulo: string; descricao: string; imagem: str
     largura: 864,
     altura: 1080,
   },
+  {
+    // Mesmo convite, sem o kit, para outro grupo de convidados.
+    caminho: "saudade-convite-2",
+    titulo: "Saudade · Você recebeu um convite",
+    descricao: "03 de outubro, 23h · Lagun Vitória. Abra o convite.",
+    imagem: "/og/saudade-convite.jpg",
+    largura: 864,
+    altura: 1080,
+  },
 ];
 
 function previasDeLink(): Plugin {

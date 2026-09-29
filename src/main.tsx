@@ -97,6 +97,7 @@ createRoot(document.getElementById("root")!).render(
         <Route path="/r/:token" element={<TrackedRedirect />} />
         <Route path="/relatorio/:token" element={<RelatorioEvento />} />
         <Route path="/saudade-convite" element={<SaudadeConvite />} />
+        <Route path="/saudade-convite-2" element={<SaudadeConvite semKit />} />
         <Route path="/l/:slug" element={<IgLinkRedirect />} />
         <Route path="/fotos" element={<LandingPhotos />} />
 
