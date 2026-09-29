@@ -70,8 +70,8 @@ interface Item {
 // Textos exatamente como o Guilherme passou. Avatar: a marca de cada item.
 const KIT: Item[] = [
   { nome: 'Pulseira', titulo: 'Pulseira', texto: 'Seu acesso à label Saudade', icone: Ticket, logo: logoSaudade },
-  { nome: 'Vale Jantar', titulo: 'Vale Jantar', texto: 'R$120,00 de jantar no Tetto', icone: UtensilsCrossed, logo: logoTetto },
-  { nome: 'Vale almoço', titulo: 'Vale almoço', texto: 'R$120,00 de almoço no La Isla', icone: UtensilsCrossed, logo: logoLaIsla },
+  { nome: 'Vale Jantar', titulo: 'Vale Jantar', texto: 'R$100,00 de jantar no Tetto', icone: UtensilsCrossed, logo: logoTetto },
+  { nome: 'Vale almoço', titulo: 'Vale almoço', texto: 'Prato almoço no La Isla', icone: UtensilsCrossed, logo: logoLaIsla },
 ];
 
 // Coquetel: acontece durante a festa, das 23h à 01h. Sem logo, o avatar mostra o ícone.
@@ -156,9 +156,21 @@ export default function SaudadeConvite() {
         <Solido id="convite" className="px-7 py-16 text-center">
           <Rotulo>Convite</Rotulo>
           <h2 className="mt-4 text-[26px] font-extrabold leading-tight">Você é nosso convidado</h2>
-          <p className="mt-5 text-[15px] font-light leading-relaxed text-white/85" style={{ fontFamily: "'Instrument Sans', sans-serif" }}>
-            Texto do convite. Aqui entra a mensagem que você vai mandar, com o tom do Saudade, a data, o horário e o que o convidado vai viver na noite.
-          </p>
+          {/* Texto do convite, exatamente como o Guilherme mandou. */}
+          <div className="mt-7 border-l-2 pl-4 text-left" style={{ borderColor: C.mar, fontFamily: "'Instrument Sans', sans-serif" }}>
+            <p className="text-[17px] font-semibold leading-snug text-white">
+              A label SAUDADE vem para preencher um espaço vazio!
+            </p>
+            <div className="mt-4 space-y-3.5 text-[15px] leading-relaxed text-white/80">
+              <p>Uma festa que mistura o pizeiro com o funk de uma maneira que você não vê em nenhuma festa no estado.</p>
+              <p>O artista Gustavin vem com um show incrível, juntando os melhores hits de Nathanzinho Lima, Zé Vaqueiro e muito mais. Além disso, mistura sucessos do trap e do funk no pizeiro, como Matuê, Tuto e Rodrigo do CN.</p>
+              <p>Literalmente um show totalmente diferenciado: uma vibe única vai se criar na Lagun.</p>
+              <p>
+                E para finalizar, Lukão e Belúcio vêm com o melhor do funk comercial, com as melhores do TikTok e remix de grandes sucessos do sertanejo.{' '}
+                <strong className="font-bold text-white">A Lagun vai balançar!</strong>
+              </p>
+            </div>
+          </div>
           <div className="mt-9 grid grid-cols-3 gap-2.5">
             <Info icone={CalendarDays} rotulo="Data"><span className="text-[15px] font-extrabold leading-none">03/10</span><span className="mt-1 block text-[10px] text-white/60">sábado</span></Info>
             <Info icone={Clock} rotulo="Horário"><span className="text-[15px] font-extrabold leading-none">23h</span><span className="mt-1 block text-[10px] text-white/60">abertura</span></Info>
