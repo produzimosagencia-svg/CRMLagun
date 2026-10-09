@@ -30,6 +30,20 @@ const json = (status: number, body: unknown) =>
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 
+async function ehServiceRole(token: string): Promise<boolean> {
+  try {
+    if (token.split(".").length !== 3) return false;
+    const payload = JSON.parse(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
+    if (payload?.role !== "service_role") return false;
+    const r = await fetch(`${SUPABASE_URL}/auth/v1/admin/users?per_page=1`, {
+      headers: { apikey: token, Authorization: `Bearer ${token}` },
+    });
+    return r.ok;
+  } catch {
+    return false;
+  }
+}
+
 export type AuthOk = { ok: true; userId: string; roles: string[] };
 export type AuthFail = { ok: false; response: Response };
 
@@ -57,7 +71,13 @@ export async function requireUser(req: Request): Promise<AuthOk | AuthFail> {
   // Aceita usuário autenticado OU service_role. A ANON KEY tem role 'anon'
   // (pública, sem sub de usuário) — é justamente o que bloqueamos aqui.
   const role = claims?.role as string | undefined;
-  if (error || !claims?.sub || (role !== "authenticated" && role !== "service_role")) {
+  // A service-role key atual pode não ser a mesma gravada no ambiente da função
+  // (rotação de chaves). Um JWT que se diz service_role só é aceito se fizer o
+  // que só ela faz: listar usuários no Auth admin.
+  if ((!error && role === "service_role") || (await ehServiceRole(token))) {
+    return { ok: true, userId: "service_role", roles: ["service_role"] };
+  }
+  if (error || !claims?.sub || role !== "authenticated") {
     return { ok: false, response: json(401, { error: "Unauthorized" }) };
   }
 

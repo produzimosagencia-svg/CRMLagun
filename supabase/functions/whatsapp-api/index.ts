@@ -135,6 +135,17 @@ Deno.serve(async (req) => {
         break;
       }
 
+      // Apps inscritos na conta (quem recebe os webhooks). GET lista; POST
+      // inscreve o app dono do token. Sem isso a Meta não entrega mensagem.
+      case "subscribed_apps": {
+        const resp = await fetch(`${GRAPH_API}/${WABA_ID}/subscribed_apps`, {
+          method: req.method === "POST" ? "POST" : "GET",
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        result = await resp.json();
+        break;
+      }
+
       case "templates": {
         const resp = await fetch(
           `${GRAPH_API}/${WABA_ID}/message_templates?limit=100&access_token=${token}`
