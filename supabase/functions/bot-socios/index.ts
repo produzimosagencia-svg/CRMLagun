@@ -348,7 +348,9 @@ async function responder(sb: any, socio: Socio, eventos: Evento[], textoDoUsuari
 }
 
 // ---------------------------------------------------------------- WhatsApp
-async function numeroRemetente(sb: any, token: string) {
+// Ordem: o número que recebeu a mensagem, depois o configurado no resumo, depois o primeiro da conta.
+async function numeroRemetente(sb: any, token: string, recebidoEm: string | null) {
+  if (recebidoEm && /^\d+$/.test(recebidoEm)) return recebidoEm;
   const { data: cfg } = await sb.from("lagun_resumo_config").select("phone_number_id").eq("id", "default").maybeSingle();
   if (cfg?.phone_number_id) return String(cfg.phone_number_id);
   if (!WABA_ID) return null;
@@ -358,10 +360,10 @@ async function numeroRemetente(sb: any, token: string) {
   return (cloud?.id || data?.data?.[0]?.id || null) as string | null;
 }
 
-async function enviarTexto(sb: any, socio: Socio, texto: string, ferramentas: string[]) {
+async function enviarTexto(sb: any, socio: Socio, texto: string, ferramentas: string[], recebidoEm: string | null) {
   const token = Deno.env.get("META_WHATSAPP_TOKEN");
   if (!token) throw new Error("META_WHATSAPP_TOKEN não configurado");
-  const phoneId = await numeroRemetente(sb, token);
+  const phoneId = await numeroRemetente(sb, token, recebidoEm);
   if (!phoneId) throw new Error("Nenhum número de WhatsApp encontrado");
   const resp = await fetch(`${GRAPH_API}/${phoneId}/messages`, {
     method: "POST",
@@ -428,7 +430,8 @@ Deno.serve(async (req) => {
     if (!resposta) return json({ ok: true, respondeu: false, motivo: "resposta_vazia", ferramentas });
 
     if (dryRun) return json({ ok: true, respondeu: false, dry_run: true, socio: { nome: socio.nome, tipo: socio.tipo }, eventos: eventos.map((e) => e.nome), ferramentas, resposta });
-    const wamid = await enviarTexto(sb, socio, resposta, ferramentas);
+    const recebidoEm = body.phone_number_id ? String(body.phone_number_id) : null;
+    const wamid = await enviarTexto(sb, socio, resposta, ferramentas, recebidoEm);
     return json({ ok: true, respondeu: true, wamid, ferramentas });
   } catch (e) {
     console.error("bot-socios:", e);

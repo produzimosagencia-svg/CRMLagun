@@ -8,7 +8,7 @@ const VERIFY_TOKEN = Deno.env.get("WHATSAPP_VERIFY_TOKEN") || "triade_whatsapp_v
 // Bot dos sócios (bot-socios): responde só a quem está em Parceiros. A chamada
 // não é aguardada, porque a Meta espera o webhook responder rápido e a
 // consulta (OpenAI + Zig + Meta Ads) pode levar vários segundos.
-async function acionarBotDosSocios(supabase: any, phone: string, texto: string, nome: string | null) {
+async function acionarBotDosSocios(supabase: any, phone: string, texto: string, nome: string | null, phoneNumberId: string | null = null) {
   try {
     const socio = await encontrarSocio(supabase, phone);
     if (!socio) return;
@@ -17,7 +17,8 @@ async function acionarBotDosSocios(supabase: any, phone: string, texto: string, 
     const chamada = fetch(`${supabaseUrl}/functions/v1/bot-socios`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${supabaseKey}` },
-      body: JSON.stringify({ phone, message: texto, contact_name: nome }),
+      // phone_number_id: responde pelo mesmo número que recebeu a mensagem.
+      body: JSON.stringify({ phone, message: texto, contact_name: nome, phone_number_id: phoneNumberId }),
     }).then(async (r) => console.log("bot-socios:", r.status, (await r.text()).slice(0, 200)))
       .catch((e) => console.error("bot-socios erro:", e));
     const runtime = (globalThis as any).EdgeRuntime;
@@ -223,7 +224,7 @@ Deno.serve(async (req) => {
           // Resposta automática só para os sócios (cadastro de Parceiros).
           // Qualquer outro número fica em silêncio: o chat é atendido pela equipe.
           if (msg.type === "text" && record.message_text) {
-            await acionarBotDosSocios(supabase, msg.from, String(record.message_text), contact?.profile?.name || null);
+            await acionarBotDosSocios(supabase, msg.from, String(record.message_text), contact?.profile?.name || null, value.metadata?.phone_number_id ?? null);
           }
         }
       }
