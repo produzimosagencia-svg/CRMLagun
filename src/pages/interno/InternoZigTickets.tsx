@@ -157,9 +157,8 @@ export default function InternoEventos() {
       if (phonesData?.data) {
         const cloudPhones = phonesData.data.filter((p: any) => p.platform_type === 'CLOUD_API');
         setApiPhones(cloudPhones.length > 0 ? cloudPhones : phonesData.data);
-        const preferred = phonesData.data.find((p: any) => p.display_phone_number?.includes('96591-8862'));
         const firstCloud = cloudPhones[0];
-        setSelectedPhoneId(preferred?.id || firstCloud?.id || phonesData.data[0]?.id || '');
+        setSelectedPhoneId(firstCloud?.id || phonesData.data[0]?.id || '');
       }
     } catch (e) {
       console.error('Failed to load templates/phones:', e);

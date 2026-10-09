@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { requireUser } from "../_shared/auth.ts";
 
 const GRAPH_API = "https://graph.facebook.com/v21.0";
-const WABA_ID = Deno.env.get("WHATSAPP_WABA_ID") || "1169322241814706";
+const WABA_ID = Deno.env.get("WHATSAPP_WABA_ID") || "";
 
 type TemplateComponent = {
   type?: string;

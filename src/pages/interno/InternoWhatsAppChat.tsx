@@ -630,10 +630,8 @@ export default function InternoWhatsAppChat() {
           display_phone_number: p.display_phone_number,
           verified_name: p.verified_name || '',
         })));
-        // Default to the DDD 11 phone
         if (!selectedApiPhone && result.data.length > 0) {
-          const preferred = result.data.find((p: any) => p.display_phone_number?.includes('96591-8862'));
-          setSelectedApiPhone(preferred?.id || result.data[0].id);
+          setSelectedApiPhone(result.data[0].id);
         }
       }
     } catch (err) {

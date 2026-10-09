@@ -25,7 +25,7 @@ import { requireUser } from "../_shared/auth.ts";
 import { sincronizarEvento } from "../_shared/zig.ts";
 
 const GRAPH_API = "https://graph.facebook.com/v21.0";
-const WABA_ID = Deno.env.get("WHATSAPP_WABA_ID") || "1169322241814706";
+const WABA_ID = Deno.env.get("WHATSAPP_WABA_ID") || "";
 const RELATORIO_BASE = "https://lagunvitoria.com.br/relatorio/";
 const CAMPAIGN_KEY = "resumo_produtores";
 
