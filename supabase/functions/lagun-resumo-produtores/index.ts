@@ -1,8 +1,9 @@
 // ============================================================================
 // lagun-resumo-produtores — resumo de vendas por WhatsApp para os produtores.
 // ----------------------------------------------------------------------------
-// Regra: às 20h de Brasília, quando o evento da landing acontece em 4, 3, 2 ou
-// 1 dia, e no próprio dia, os produtores fixos e os parceiros vinculados ao
+// Regra: às 20h de Brasília, todo dia enquanto a campanha do evento estiver
+// ativa (evento da landing com data de hoje em diante e Zig ou campanha de
+// Meta Ads vinculada), os produtores fixos e os parceiros vinculados ao
 // evento recebem o template `resumo_campanha_evento`:
 //   {{1}} primeiro nome · {{2}} evento · {{3}} "acontece em N dias" /
 //   "acontece amanhã" / "é hoje" · {{4}} ingressos vendidos no total ·
@@ -26,7 +27,6 @@ import { sincronizarEvento } from "../_shared/zig.ts";
 const GRAPH_API = "https://graph.facebook.com/v21.0";
 const WABA_ID = Deno.env.get("WHATSAPP_WABA_ID") || "1169322241814706";
 const RELATORIO_BASE = "https://lagunvitoria.com.br/relatorio/";
-const DIAS_DA_REGRA = [4, 3, 2, 1, 0];
 const CAMPAIGN_KEY = "resumo_produtores";
 
 const json = (body: unknown, status = 200) =>
@@ -196,9 +196,14 @@ async function registrarMensagem(sb: any, m: {
 async function montarResumo(sb: any, evento: any, dia: string, corte: { texto: string }, sincronizar: boolean) {
   const pendencias: string[] = [];
   const dias = evento.data ? diasEntre(dia, String(evento.data).slice(0, 10)) : null;
-  const { data: zig } = await sb.from("lagun_event_zig")
-    .select("zig_event_id, last_sync_at, last_sync_error").eq("event_id", evento.id).maybeSingle();
+  const [{ data: zig }, { count: campanhas }] = await Promise.all([
+    sb.from("lagun_event_zig").select("zig_event_id, last_sync_at, last_sync_error").eq("event_id", evento.id).maybeSingle(),
+    sb.from("lagun_event_campaigns").select("campaign_id", { count: "exact", head: true }).eq("event_id", evento.id),
+  ]);
+  // Campanha ativa = tem Zig ou campanha de Meta Ads vinculada e a data não passou.
+  const ativo = (!!zig || Number(campanhas ?? 0) > 0) && dias !== null && dias >= 0 && !!evento.show_on_landing;
   if (!zig) pendencias.push("Sem Zig: os números saem como \"Veja na ticketeira\"");
+  if (!zig && !Number(campanhas ?? 0)) pendencias.push("Sem Zig nem campanha vinculada: fora da regra do disparo");
   if (!evento.relatorio_token) pendencias.push("Evento sem link do relatório (relatorio_token)");
   if (dias === null) pendencias.push("Evento sem data");
 
@@ -216,7 +221,7 @@ async function montarResumo(sb: any, evento: any, dia: string, corte: { texto: s
   const textoNumeros = zig
     ? { total: numeros.total.toLocaleString("pt-BR"), hoje: numeros.hoje.toLocaleString("pt-BR") }
     : { total: SEM_DADO, hoje: SEM_DADO };
-  return { dias, frase: dias === null ? "" : frase(dias), numeros, textoNumeros, lista, pendencias, zig };
+  return { dias, ativo, frase: dias === null ? "" : frase(dias), numeros, textoNumeros, lista, pendencias, zig };
 }
 
 // ------------------------------------------------------------------ handler
@@ -261,7 +266,7 @@ Deno.serve(async (req) => {
           dia,
           hora: corte.texto,
           dias_faltando: resumo.dias,
-          dentro_da_regra: resumo.dias !== null && DIAS_DA_REGRA.includes(resumo.dias) && !!evento.show_on_landing,
+          dentro_da_regra: resumo.ativo,
           frase: resumo.frase,
           total_ingressos: resumo.numeros.total,
           ingressos_hoje: resumo.numeros.hoje,
@@ -323,14 +328,16 @@ Deno.serve(async (req) => {
       return json({ ok: true, enviado: false, motivo: `Template ${templateName}: ${tpl.status}` });
     }
 
+    // Todos os eventos da landing de hoje em diante; entra no disparo quem
+    // tem campanha ativa (Zig ou Meta Ads vinculada).
     const { data: eventos, error: erroEventos } = await sb.from("lagun_events").select("*")
-      .eq("show_on_landing", true).gte("data", dia).lte("data", somarDias(dia, 4));
+      .eq("show_on_landing", true).gte("data", dia);
     if (erroEventos) throw new Error(erroEventos.message);
 
     const relatorio: Array<Record<string, unknown>> = [];
     for (const evento of (eventos ?? []) as any[]) {
       const resumo = await montarResumo(sb, evento, dia, corte, true);
-      if (resumo.dias === null || !DIAS_DA_REGRA.includes(resumo.dias)) continue;
+      if (!resumo.ativo) continue;
       if (!evento.relatorio_token) {
         relatorio.push({ event_id: evento.id, pulado: true, motivo: resumo.pendencias.join("; ") });
         continue;

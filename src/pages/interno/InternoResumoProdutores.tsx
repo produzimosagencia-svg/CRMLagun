@@ -12,9 +12,10 @@ import { toast } from 'sonner';
 /**
  * WhatsApp → Resumo para produtores.
  *
- * Regra: às 20h (Brasília), quando o evento da landing acontece em 4, 3, 2 ou
- * 1 dia, e no próprio dia, os produtores fixos e os parceiros vinculados ao
- * evento recebem o template `resumo_campanha_evento` com o total de ingressos
+ * Regra: às 20h (Brasília), todo dia enquanto a campanha estiver ativa (evento
+ * da landing com data de hoje em diante e Zig ou campanha de Meta Ads
+ * vinculada), os produtores fixos e os parceiros vinculados ao evento recebem
+ * o template `resumo_campanha_evento` com o total de ingressos
  * vendidos (Zig), os vendidos no dia (00h às 20h) e o botão para o relatório de
  * tráfego pago. Cada envio leva um link próprio, então dá para ver quem abriu.
  *
@@ -23,7 +24,9 @@ import { toast } from 'sonner';
  * para o navegador: a tela só sabe se ele foi salvo.
  */
 
-const DIAS_DA_REGRA = [4, 3, 2, 1, 0];
+// Entra no disparo: data de hoje em diante e Zig ou campanha de Meta Ads vinculada.
+const naRegraDoDisparo = (dias: number | null, temZig: boolean, campanhas: number) =>
+  dias !== null && dias >= 0 && (temZig || campanhas > 0);
 
 type Config = {
   enabled: boolean;
@@ -128,6 +131,7 @@ export default function InternoResumoProdutores() {
   const [templateStatus, setTemplateStatus] = useState<string | null>(null);
   const [eventos, setEventos] = useState<Evento[]>([]);
   const [zig, setZig] = useState<Record<string, ZigCfg>>({});
+  const [campanhas, setCampanhas] = useState<Record<string, number>>({});
   const [produtores, setProdutores] = useState<Produtor[]>([]);
   const [vinculos, setVinculos] = useState<Record<string, string[]>>({});
   const [envios, setEnvios] = useState<Envio[]>([]);
@@ -148,11 +152,12 @@ export default function InternoResumoProdutores() {
 
   async function carregar() {
     setCarregando(true);
-    const [cfgRes, evRes, zigRes, prodRes, vincRes, envRes] = await Promise.all([
+    const [cfgRes, evRes, zigRes, campRes, prodRes, vincRes, envRes] = await Promise.all([
       (supabase as any).from('lagun_resumo_config').select('*').eq('id', 'default').maybeSingle(),
       // select('*'): relatorio_token vem de outra migration.
       (supabase as any).from('lagun_events').select('*').eq('show_on_landing', true).gte('data', hoje).order('data'),
       (supabase as any).from('lagun_event_zig').select('*'),
+      (supabase as any).from('lagun_event_campaigns').select('event_id'),
       (supabase as any).from('lagun_partners').select('id, nome, telefone, tipo'),
       (supabase as any).from('lagun_event_partners').select('event_id, partner_id'),
       (supabase as any).from('lagun_resumo_envios')
@@ -165,6 +170,9 @@ export default function InternoResumoProdutores() {
     const porEvento: Record<string, ZigCfg> = {};
     ((zigRes.data || []) as ZigCfg[]).forEach((z) => { porEvento[z.event_id] = z; });
     setZig(porEvento);
+    const nCamp: Record<string, number> = {};
+    ((campRes.data || []) as { event_id: string }[]).forEach((c) => { nCamp[c.event_id] = (nCamp[c.event_id] || 0) + 1; });
+    setCampanhas(nCamp);
     setProdutores((prodRes.data || []) as Produtor[]);
     const v: Record<string, string[]> = {};
     ((vincRes.data || []) as { event_id: string; partner_id: string }[]).forEach(({ event_id, partner_id }) => {
@@ -239,7 +247,7 @@ export default function InternoResumoProdutores() {
       for (const ev of eventos) {
         if (!ev.data) continue;
         const dias = diasEntre(dia, ev.data.slice(0, 10));
-        if (!DIAS_DA_REGRA.includes(dias)) continue;
+        if (!naRegraDoDisparo(dias, !!zig[ev.id], campanhas[ev.id] || 0)) continue;
         const avisos: string[] = [];
         if (!config?.enabled) avisos.push('disparo desligado');
         if (templateStatus && templateStatus !== 'APPROVED') {
@@ -255,7 +263,7 @@ export default function InternoResumoProdutores() {
       }
     }
     return linhas;
-  }, [config, templateStatus, eventos, zig, destinatariosPorEvento, envios, hoje]);
+  }, [config, templateStatus, eventos, zig, campanhas, destinatariosPorEvento, envios, hoje]);
 
   async function salvarConfig(patch: Partial<Config>) {
     if (!config) return;
@@ -346,7 +354,8 @@ export default function InternoResumoProdutores() {
             <h1 className="text-xl font-bold text-foreground">Resumo para produtores</h1>
           </div>
           <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-            Às {config?.hora || '20:00'} (Brasília), quando o evento acontece em 4, 3, 2 ou 1 dia, e no próprio dia, os
+            Às {config?.hora || '20:00'} (Brasília), todo dia enquanto a campanha estiver ativa (evento com data de hoje em
+            diante e Zig ou campanha de Meta Ads vinculada), os
             produtores fixos e os parceiros do evento recebem no WhatsApp o total de ingressos vendidos, os vendidos no
             dia (00h às {config?.hora || '20:00'}) e o botão do relatório de tráfego pago. Cada pessoa recebe um link
             próprio, então dá para ver quem abriu.
@@ -523,7 +532,7 @@ export default function InternoResumoProdutores() {
           const dias = ev.data ? diasEntre(hoje, ev.data.slice(0, 10)) : null;
           const z = zig[ev.id];
           const d = destinatariosPorEvento[ev.id];
-          const naRegra = dias !== null && DIAS_DA_REGRA.includes(dias);
+          const naRegra = naRegraDoDisparo(dias, !!z, campanhas[ev.id] || 0);
           return (
             <div key={ev.id} className={`${cardCls} p-4`}>
               <div className="flex flex-wrap items-start justify-between gap-3">
@@ -626,7 +635,7 @@ export default function InternoResumoProdutores() {
                 ))}
               </div>
               {!previa.dentro_da_regra && (
-                <p className="text-xs text-muted-foreground">Hoje este evento não entra na regra (só em 4, 3, 2, 1 dia e no dia).</p>
+                <p className="text-xs text-muted-foreground">Hoje este evento não entra na regra (precisa de data de hoje em diante e Zig ou campanha vinculada).</p>
               )}
               {previa.pendencias.length > 0 && (
                 <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-600 dark:text-amber-400">

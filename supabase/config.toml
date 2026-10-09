@@ -45,3 +45,6 @@ verify_jwt = false
 
 [functions.lagun-resumo-produtores]
 verify_jwt = false
+
+[functions.bot-socios]
+verify_jwt = false

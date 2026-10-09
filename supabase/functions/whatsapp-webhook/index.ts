@@ -1,7 +1,31 @@
 import { corsHeaders } from "../_shared/cors.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+import { encontrarSocio } from "../_shared/socios.ts";
+
 const VERIFY_TOKEN = Deno.env.get("WHATSAPP_VERIFY_TOKEN") || "triade_whatsapp_verify_2024";
+
+// Bot dos sócios (bot-socios): responde só a quem está em Parceiros. A chamada
+// não é aguardada, porque a Meta espera o webhook responder rápido e a
+// consulta (OpenAI + Zig + Meta Ads) pode levar vários segundos.
+async function acionarBotDosSocios(supabase: any, phone: string, texto: string, nome: string | null) {
+  try {
+    const socio = await encontrarSocio(supabase, phone);
+    if (!socio) return;
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const chamada = fetch(`${supabaseUrl}/functions/v1/bot-socios`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${supabaseKey}` },
+      body: JSON.stringify({ phone, message: texto, contact_name: nome }),
+    }).then(async (r) => console.log("bot-socios:", r.status, (await r.text()).slice(0, 200)))
+      .catch((e) => console.error("bot-socios erro:", e));
+    const runtime = (globalThis as any).EdgeRuntime;
+    if (runtime?.waitUntil) runtime.waitUntil(chamada); else await chamada;
+  } catch (e) {
+    console.error("acionarBotDosSocios:", e);
+  }
+}
 
 // ── Evolution API (Baileys) handler ────────────────────────────────────────
 async function handleEvolutionWebhook(body: any, supabase: any) {
@@ -67,21 +91,9 @@ async function handleEvolutionWebhook(body: any, supabase: any) {
     });
     if (error && error.code !== '23505') console.error('Evo insert error:', error);
 
-    // Trigger chatbot for incoming text messages
+    // Só os sócios (cadastro de Parceiros) têm resposta automática.
     if (!fromMe && (messageType === 'text') && messageText) {
-      try {
-        const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-        const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-        const { data: botSetting } = await supabase
-          .from('whatsapp_bot_settings').select('bot_enabled').eq('phone', phone).maybeSingle();
-        if (botSetting?.bot_enabled !== false) {
-          await fetch(`${supabaseUrl}/functions/v1/whatsapp-chatbot`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${supabaseKey}` },
-            body: JSON.stringify({ phone, message: messageText, contact_name: contactName, source: 'evolution' }),
-          });
-        }
-      } catch (e) { console.error('Chatbot error:', e); }
+      await acionarBotDosSocios(supabase, phone, messageText, contactName);
     }
   }
 
@@ -208,40 +220,10 @@ Deno.serve(async (req) => {
 
           if (error) console.error("Insert error:", error);
 
-          // Check bot setting and trigger AI chatbot for text messages
+          // Resposta automática só para os sócios (cadastro de Parceiros).
+          // Qualquer outro número fica em silêncio: o chat é atendido pela equipe.
           if (msg.type === "text" && record.message_text) {
-            try {
-              // Check if bot is enabled for this phone (default: enabled)
-              const { data: botSetting } = await supabase
-                .from("whatsapp_bot_settings")
-                .select("bot_enabled")
-                .eq("phone", msg.from)
-                .maybeSingle();
-
-              const botEnabled = botSetting?.bot_enabled !== false; // default true
-
-              if (botEnabled) {
-                const chatbotUrl = `${supabaseUrl}/functions/v1/whatsapp-chatbot`;
-                const chatbotResp = await fetch(chatbotUrl, {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${supabaseKey}`,
-                  },
-                  body: JSON.stringify({
-                    phone: msg.from,
-                    message: record.message_text,
-                    contact_name: contact?.profile?.name || null,
-                  }),
-                });
-                const chatbotResult = await chatbotResp.json();
-                console.log("Chatbot reply:", chatbotResult.reply?.slice(0, 100));
-              } else {
-                console.log("Bot disabled for", msg.from);
-              }
-            } catch (botErr) {
-              console.error("Chatbot trigger error:", botErr);
-            }
+            await acionarBotDosSocios(supabase, msg.from, String(record.message_text), contact?.profile?.name || null);
           }
         }
       }
