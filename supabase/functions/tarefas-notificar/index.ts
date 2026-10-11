@@ -56,6 +56,19 @@ function textoPrazo(due: string | null) {
 }
 
 // ------------------------------------------------------------------- dados
+// Cada sistema guarda o evento numa tabela: lagun_events (Lagun, Fatto) ou
+// events (Groove). Tenta nessa ordem e ignora a que não existir.
+async function nomeDoEvento(sb: any, eventId: string | null): Promise<{ nome: string } | null> {
+  if (!eventId) return null;
+  for (const [tabela, coluna] of [["lagun_events", "nome"], ["events", "name"], ["events", "nome"]] as const) {
+    try {
+      const { data, error } = await sb.from(tabela).select(coluna).eq("id", eventId).maybeSingle();
+      if (!error && data?.[coluna]) return { nome: String(data[coluna]) };
+    } catch { /* tabela não existe aqui */ }
+  }
+  return null;
+}
+
 type Tarefa = {
   id: string; title: string; status: string; due_date: string | null; assigned_to: string | null; created_by: string | null; event_id: string | null;
 };
@@ -63,9 +76,9 @@ async function carregarTarefa(sb: any, id: string) {
   const { data: t } = await sb.from("team_tasks").select("id, title, status, due_date, assigned_to, created_by, event_id").eq("id", id).maybeSingle();
   if (!t) return null;
   const ids = [t.assigned_to, t.created_by].filter(Boolean);
-  const [{ data: perfis }, { data: evento }] = await Promise.all([
+  const [{ data: perfis }, evento] = await Promise.all([
     ids.length ? sb.from("profiles").select("id, full_name, username, telefone").in("id", ids) : Promise.resolve({ data: [] }),
-    t.event_id ? sb.from("lagun_events").select("nome").eq("id", t.event_id).maybeSingle() : Promise.resolve({ data: null }),
+    nomeDoEvento(sb, t.event_id),
   ]);
   const perfil = (uid: string | null) => ((perfis ?? []) as any[]).find((p) => p.id === uid) ?? null;
   const resp = perfil(t.assigned_to), criador = perfil(t.created_by);
@@ -78,9 +91,15 @@ async function carregarTarefa(sb: any, id: string) {
 }
 
 // ---------------------------------------------------------------- WhatsApp
+// Ordem: secret WHATSAPP_PHONE_NUMBER_ID, número configurado no resumo dos
+// sócios (quando o sistema tem essa tabela), primeiro número da conta.
 async function numeroRemetente(sb: any, token: string) {
-  const { data: cfg } = await sb.from("lagun_resumo_config").select("phone_number_id").eq("id", "default").maybeSingle();
-  if (cfg?.phone_number_id) return String(cfg.phone_number_id);
+  const fixo = (Deno.env.get("WHATSAPP_PHONE_NUMBER_ID") || "").trim();
+  if (/^\d+$/.test(fixo)) return fixo;
+  try {
+    const { data: cfg } = await sb.from("lagun_resumo_config").select("phone_number_id").eq("id", "default").maybeSingle();
+    if (cfg?.phone_number_id) return String(cfg.phone_number_id);
+  } catch { /* sistema sem resumo dos sócios */ }
   if (!WABA_ID) return null;
   const r = await fetch(`${GRAPH_API}/${WABA_ID}/phone_numbers?access_token=${token}`);
   const d = await r.json();
