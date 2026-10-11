@@ -12,9 +12,9 @@ import { toast } from 'sonner';
 /**
  * WhatsApp → Resumo para produtores.
  *
- * Regra: às 20h (Brasília), todo dia enquanto a campanha estiver ativa (evento
- * da landing com data de hoje em diante e Zig ou campanha de Meta Ads
- * vinculada), os produtores fixos e os parceiros vinculados ao evento recebem
+ * Regra (padrão de todos os sistemas): às 20h (Brasília), na semana do evento
+ * (de 7 dias antes até o dia), todo dia, os produtores fixos e os parceiros
+ * vinculados ao evento da landing recebem
  * o template `resumo_campanha_evento` com o total de ingressos
  * vendidos (Zig), os vendidos no dia (00h às 20h) e o botão para o relatório de
  * tráfego pago. Cada envio leva um link próprio, então dá para ver quem abriu.
@@ -24,9 +24,10 @@ import { toast } from 'sonner';
  * para o navegador: a tela só sabe se ele foi salvo.
  */
 
-// Entra no disparo: data de hoje em diante e Zig ou campanha de Meta Ads vinculada.
-const naRegraDoDisparo = (dias: number | null, temZig: boolean, campanhas: number) =>
-  dias !== null && dias >= 0 && (temZig || campanhas > 0);
+// Entra no disparo: semana do evento (de 7 dias antes até o dia). Zig e
+// campanha só mudam o conteúdo, não a regra.
+const naRegraDoDisparo = (dias: number | null, _temZig: boolean, _campanhas: number) =>
+  dias !== null && dias >= 0 && dias <= 7;
 
 type Config = {
   enabled: boolean;
@@ -354,8 +355,7 @@ export default function InternoResumoProdutores() {
             <h1 className="text-xl font-bold text-foreground">Resumo para produtores</h1>
           </div>
           <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-            Às {config?.hora || '20:00'} (Brasília), todo dia enquanto a campanha estiver ativa (evento com data de hoje em
-            diante e Zig ou campanha de Meta Ads vinculada), os
+            Às {config?.hora || '20:00'} (Brasília), na semana do evento (de 7 dias antes até o dia), todo dia, os
             produtores fixos e os parceiros do evento recebem no WhatsApp o total de ingressos vendidos, os vendidos no
             dia (00h às {config?.hora || '20:00'}) e o botão do relatório de tráfego pago. Cada pessoa recebe um link
             próprio, então dá para ver quem abriu.
@@ -635,7 +635,7 @@ export default function InternoResumoProdutores() {
                 ))}
               </div>
               {!previa.dentro_da_regra && (
-                <p className="text-xs text-muted-foreground">Hoje este evento não entra na regra (precisa de data de hoje em diante e Zig ou campanha vinculada).</p>
+                <p className="text-xs text-muted-foreground">Hoje este evento não entra na regra (só na semana do evento: de 7 dias antes até o dia).</p>
               )}
               {previa.pendencias.length > 0 && (
                 <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-600 dark:text-amber-400">

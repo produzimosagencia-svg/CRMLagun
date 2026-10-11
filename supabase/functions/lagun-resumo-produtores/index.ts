@@ -1,10 +1,9 @@
 // ============================================================================
 // lagun-resumo-produtores — resumo de vendas por WhatsApp para os produtores.
 // ----------------------------------------------------------------------------
-// Regra: às 20h de Brasília, todo dia enquanto a campanha do evento estiver
-// ativa (evento da landing com data de hoje em diante e Zig ou campanha de
-// Meta Ads vinculada), os produtores fixos e os parceiros vinculados ao
-// evento recebem o template `resumo_campanha_evento`:
+// Regra (padrão de todos os sistemas): na semana do evento, de 7 dias antes
+// até o dia, todo dia às 20h de Brasília, os produtores fixos e os parceiros
+// vinculados ao evento da landing recebem o template `resumo_campanha_evento`:
 //   {{1}} primeiro nome · {{2}} evento · {{3}} "acontece em N dias" /
 //   "acontece amanhã" / "é hoje" · {{4}} ingressos vendidos no total ·
 //   {{5}} ingressos vendidos hoje (00h às 20h) · botão {{1}} = código do envio
@@ -28,6 +27,7 @@ const GRAPH_API = "https://graph.facebook.com/v21.0";
 const WABA_ID = Deno.env.get("WHATSAPP_WABA_ID") || "";
 const RELATORIO_BASE = "https://lagunvitoria.com.br/relatorio/";
 const CAMPAIGN_KEY = "resumo_produtores";
+const DIAS_ANTES = 7; // semana do evento: de 7 dias antes até o dia
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -200,10 +200,11 @@ async function montarResumo(sb: any, evento: any, dia: string, corte: { texto: s
     sb.from("lagun_event_zig").select("zig_event_id, last_sync_at, last_sync_error").eq("event_id", evento.id).maybeSingle(),
     sb.from("lagun_event_campaigns").select("campaign_id", { count: "exact", head: true }).eq("event_id", evento.id),
   ]);
-  // Campanha ativa = tem Zig ou campanha de Meta Ads vinculada e a data não passou.
-  const ativo = (!!zig || Number(campanhas ?? 0) > 0) && dias !== null && dias >= 0 && !!evento.show_on_landing;
+  // Padrão de todos os sistemas: na semana do evento (7 dias antes até o dia),
+  // todo dia às 20h, os sócios recebem o resumo. Precisa estar na landing.
+  const ativo = dias !== null && dias >= 0 && dias <= DIAS_ANTES && !!evento.show_on_landing;
   if (!zig) pendencias.push("Sem Zig: os números saem como \"Veja na ticketeira\"");
-  if (!zig && !Number(campanhas ?? 0)) pendencias.push("Sem Zig nem campanha vinculada: fora da regra do disparo");
+  if (!Number(campanhas ?? 0)) pendencias.push("Sem campanha vinculada: o relatório sai sem tráfego pago");
   if (!evento.relatorio_token) pendencias.push("Evento sem link do relatório (relatorio_token)");
   if (dias === null) pendencias.push("Evento sem data");
 
