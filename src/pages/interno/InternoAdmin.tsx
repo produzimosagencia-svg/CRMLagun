@@ -110,7 +110,8 @@ export default function InternoAdmin() {
   const fetchUsers = async () => {
     setLoading(true);
     // No banco live, profiles usa `id` como referência ao usuário (não user_id) e não tem coluna email
-    const { data: profiles, error: profilesError } = await supabase.from('profiles').select('id, full_name, username, telefone');
+    // telefone entrou por migração depois dos tipos gerados: cast até regenerar.
+    const { data: profiles, error: profilesError } = await (supabase as any).from('profiles').select('id, full_name, username, telefone') as { data: { id: string; full_name: string | null; username: string | null; telefone: string | null }[] | null; error: { message: string } | null };
     const { data: rolesData } = await supabase.from('user_roles').select('user_id, role');
 
     if (profilesError) toast.error('Erro ao carregar usuários: ' + profilesError.message);

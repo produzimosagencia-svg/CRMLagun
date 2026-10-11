@@ -28,12 +28,12 @@ export default function InternoPerfil() {
 
   useEffect(() => {
     if (!user) return;
-    supabase
+    (supabase as any)
       .from('profiles')
       .select('full_name, avatar_url, squad, telefone')
       .eq('id', user.id)
       .maybeSingle()
-      .then(({ data }) => {
+      .then(({ data }: { data: { full_name: string | null; avatar_url: string | null; squad: string | null; telefone: string | null } | null }) => {
         if (data) {
           setFullName(data.full_name ?? '');
           setTelefone((data as any).telefone ?? '');
@@ -82,7 +82,7 @@ export default function InternoPerfil() {
     if (!user) return;
     setSaving(true);
 
-    const { error } = await supabase
+    const { error } = await (supabase as any)
       .from('profiles')
       .update({ full_name: fullName, telefone: telefoneNormalizado(telefone) })
       .eq('id', user.id);
