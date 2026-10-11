@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import InternoParceiros from './InternoParceiros';
+import { ConfigAutomacoes } from '@/components/interno/ConfigAutomacoes';
 import { useAuth, AppRole } from '@/hooks/useAuth';
 import { useSidebarSettings, SidebarKey } from '@/hooks/useSidebarSettings';
 import { supabase } from '@/integrations/supabase/client';
@@ -26,6 +27,7 @@ const SIDEBAR_ITEMS: { key: SidebarKey; label: string }[] = [
   { key: 'social_media', label: 'Social Media' },
   { key: 'comentarios', label: 'Comentários' },
   { key: 'automacoes', label: 'Automações' },
+  { key: 'vendedores', label: 'Vendedores' },
 ];
 
 interface UserWithRoles {
@@ -329,6 +331,8 @@ export default function InternoAdmin() {
       </div>
 
       {activeTab === 'parceiros' && <InternoParceiros />}
+
+      {activeTab === 'configuracoes' && <ConfigAutomacoes />}
 
       {activeTab === 'configuracoes' && (
         <div className="rounded-md border border-border bg-card overflow-hidden">
