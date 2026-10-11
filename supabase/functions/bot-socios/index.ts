@@ -21,7 +21,7 @@
 //   as mensagens que seriam enviadas, sem mandar.
 // ============================================================================
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { PDFDocument, StandardFonts, rgb } from "https://esm.sh/pdf-lib@1.17.1";
+import { PDFDocument, StandardFonts, rgb, pushGraphicsState, popGraphicsState, moveTo, lineTo, closePath, clip, endPath } from "https://esm.sh/pdf-lib@1.17.1";
 import { corsHeaders } from "../_shared/cors.ts";
 import { requireUser } from "../_shared/auth.ts";
 import { sincronizarEvento } from "../_shared/zig.ts";
@@ -155,6 +155,7 @@ type ResumoAds = {
   evento: string; periodo: string; erro?: string; sem_campanhas?: boolean; aviso?: string; erro_parcial?: string | null;
   totais?: { gasto: number; impressoes: number; alcance: number; cliques: number; resultados: number; compras: number; receita: number; conversas: number; custo_por_resultado: number | null };
   campanhas?: Campanha[]; link_relatorio?: string | null;
+  periodo_dados?: { inicio: string | null; fim: string | null };
 };
 
 async function campanhasMeta(sb: any, ev: Evento, periodo: string): Promise<ResumoAds> {
@@ -170,9 +171,10 @@ async function campanhasMeta(sb: any, ev: Evento, periodo: string): Promise<Resu
     porConta.set(conta, [...(porConta.get(conta) || []), String(v.campaign_id)]);
   }
   const ids = new Set([...porConta.values()].flat());
-  const campos = "campaign_name,campaign_id,objective,spend,impressions,reach,clicks,actions,action_values";
+  const campos = "campaign_name,campaign_id,objective,spend,impressions,reach,clicks,actions,action_values,date_start,date_stop";
   const linhas: any[] = [];
   let erroMeta: string | null = null;
+  let inicioMin = "", fimMax = "";
   await Promise.all([...porConta.entries()].map(async ([conta, lista]) => {
     const filtro = encodeURIComponent(JSON.stringify([{ field: "campaign.id", operator: "IN", value: lista }]));
     const r = await fetch(`${GRAPH_API}/act_${conta}/insights?fields=${campos}&${filtroDePeriodo(periodo)}&level=campaign&filtering=${filtro}&limit=200&access_token=${token}`);
@@ -191,6 +193,8 @@ async function campanhasMeta(sb: any, ev: Evento, periodo: string): Promise<Resu
   for (const row of linhas) {
     const id = String(row.campaign_id || "");
     if (!ids.has(id)) continue;
+    if (row.date_start && (!inicioMin || row.date_start < inicioMin)) inicioMin = row.date_start;
+    if (row.date_stop && (!fimMax || row.date_stop > fimMax)) fimMax = row.date_stop;
     const c = porId.get(id) ?? { id, nome: row.campaign_name, objetivo: row.objective, status: status.get(id) ?? null, gasto: 0, impressoes: 0, alcance: 0, cliques: 0, resultados: 0, compras: 0, receita: 0, conversas: 0 };
     c.gasto += Number(row.spend || 0);
     c.impressoes += parseInt(row.impressions || "0", 10);
@@ -223,6 +227,7 @@ async function campanhasMeta(sb: any, ev: Evento, periodo: string): Promise<Resu
     },
     campanhas,
     link_relatorio: ev.relatorio_token ? `${RELATORIO_BASE}${ev.relatorio_token}` : null,
+    periodo_dados: { inicio: inicioMin || null, fim: fimMax || null },
   };
 }
 
@@ -342,75 +347,258 @@ function textoDisparos(d: Awaited<ReturnType<typeof disparosRecentes>>) {
 }
 
 // ------------------------------------------------------------- PDF (pdf-lib)
-async function gerarPdfRelatorio(ev: Evento, ads: ResumoAds, vendas: Awaited<ReturnType<typeof vendasIngressos>> | null) {
+// Mesmo relatório da página /relatorio/<token> (RelatorioCampanhas.tsx):
+// cabeçalho com a marca, "Campanhas" + destaque de investimento, faixa de
+// métricas, tabela por campanha, grade de criativos e rodapé. Em A4 (pontos),
+// com as cores da Lagun no papel branco.
+
+type Criativo = { ad_id: string; ad_name: string; campaign_name: string; spend: number; impressions: number; clicks: number; ctr: number; thumbnail: string | null };
+
+async function buscarTudo(url: string): Promise<{ data: any[]; error?: any }> {
+  const data: any[] = [];
+  let proxima: string | null = url;
+  let paginas = 0;
+  while (proxima && paginas < 10) {
+    const resp = await fetch(proxima);
+    const corpo = await resp.json();
+    if (corpo.error) return { data, error: corpo.error };
+    data.push(...(corpo.data || []));
+    proxima = corpo.paging?.next || null;
+    paginas++;
+  }
+  return { data };
+}
+
+// Os 10 anúncios de maior gasto das campanhas vinculadas, com miniatura
+// (imagem do criativo ou capa do vídeo), como a relatorio-evento faz.
+async function criativosDoEvento(sb: any, ev: Evento): Promise<Criativo[]> {
+  const token = Deno.env.get("META_ADS_TOKEN");
+  if (!token) return [];
+  const { data: vinculos } = await sb.from("lagun_event_campaigns").select("campaign_id, account_id").eq("event_id", ev.id);
+  if (!vinculos?.length) return [];
+  const padraoConta = (Deno.env.get("META_AD_ACCOUNT_ID") || "").replace(/^act_/, "");
+  const porConta = new Map<string, string[]>();
+  for (const v of vinculos as any[]) {
+    const conta = String(v.account_id || padraoConta).replace(/^act_/, "");
+    if (!/^\d+$/.test(conta) || !/^\d+$/.test(String(v.campaign_id))) continue;
+    porConta.set(conta, [...(porConta.get(conta) || []), String(v.campaign_id)]);
+  }
+  const ids = new Set([...porConta.values()].flat());
+  const linhas: any[] = [];
+  await Promise.all([...porConta.entries()].map(async ([conta, lista]) => {
+    const filtro = encodeURIComponent(JSON.stringify([{ field: "campaign.id", operator: "IN", value: lista }]));
+    const r = await buscarTudo(`${GRAPH_API}/act_${conta}/insights?fields=ad_name,ad_id,campaign_name,campaign_id,spend,impressions,clicks,ctr&date_preset=maximum&level=ad&filtering=${filtro}&limit=500&access_token=${token}`);
+    linhas.push(...r.data);
+  }));
+  const top = linhas.filter((a) => ids.has(String(a.campaign_id || "")))
+    .sort((a, b) => Number(b.spend || 0) - Number(a.spend || 0)).slice(0, 10);
+  return await Promise.all(top.map(async (a) => {
+    let thumbnail: string | null = null;
+    try {
+      const r = await fetch(`${GRAPH_API}/${a.ad_id}?fields=creative{thumbnail_url,image_url,video_id}&access_token=${token}`);
+      const d = await r.json();
+      thumbnail = d.creative?.image_url || null;
+      const videoId = d.creative?.video_id;
+      if (!thumbnail && videoId) {
+        const vr = await fetch(`${GRAPH_API}/${videoId}?fields=picture,thumbnails&access_token=${token}`);
+        const vd = await vr.json();
+        const maior = [...(vd.thumbnails?.data || [])].sort(
+          (x: any, y: any) => Number(y.width || 0) * Number(y.height || 0) - Number(x.width || 0) * Number(x.height || 0),
+        )[0];
+        thumbnail = maior?.uri || vd.picture || null;
+      }
+      thumbnail = thumbnail || d.creative?.thumbnail_url || null;
+    } catch { /* sem miniatura: fica o fundo dourado */ }
+    return {
+      ad_id: String(a.ad_id), ad_name: String(a.ad_name ?? ""), campaign_name: String(a.campaign_name ?? ""),
+      spend: Number(a.spend || 0), impressions: Number(a.impressions || 0), clicks: Number(a.clicks || 0), ctr: Number(a.ctr || 0), thumbnail,
+    };
+  }));
+}
+
+async function baixarImagem(url: string): Promise<Uint8Array | null> {
+  try {
+    const ctl = new AbortController();
+    const t = setTimeout(() => ctl.abort(), 8000);
+    const r = await fetch(url, { signal: ctl.signal });
+    clearTimeout(t);
+    if (!r.ok) return null;
+    return new Uint8Array(await r.arrayBuffer());
+  } catch { return null; }
+}
+
+let marcaCache: Uint8Array | null | undefined;
+async function marca(): Promise<Uint8Array | null> {
+  if (marcaCache !== undefined) return marcaCache;
+  try { marcaCache = await Deno.readFile(new URL("./marca.png", import.meta.url)); } catch { marcaCache = null; }
+  return marcaCache;
+}
+
+async function gerarPdfRelatorio(ev: Evento, ads: ResumoAds, criativos: Criativo[], vendas: Awaited<ReturnType<typeof vendasIngressos>> | null) {
   const doc = await PDFDocument.create();
+  doc.setTitle(`Relatório · ${ev.nome}`);
   const fonte = await doc.embedFont(StandardFonts.Helvetica);
   const negrito = await doc.embedFont(StandardFonts.HelveticaBold);
-  const preto = rgb(0.08, 0.08, 0.08), cinza = rgb(0.45, 0.45, 0.45), ouro = rgb(0.85, 0.69, 0.31), linhaCor = rgb(0.88, 0.88, 0.88);
-  let pagina = doc.addPage([595.28, 841.89]); // A4
-  const margem = 48;
-  let y = 841.89 - margem;
-  // pdf-lib só tem WinAnsi nas fontes padrão: troca o que não cabe.
-  const limpar = (s: string) => s.normalize("NFC").replace(/[^\x20-\x7E\xA0-\xFF]/g, "-");
-  const texto = (s: string, x: number, tam: number, f = fonte, cor = preto) => pagina.drawText(limpar(s), { x, y, size: tam, font: f, color: cor });
-  const novaLinha = (h: number) => {
-    y -= h;
-    if (y < margem) { pagina = doc.addPage([595.28, 841.89]); y = 841.89 - margem; }
+  const W = 595.28, H = 841.89, MX = 40, MY = 30;
+  const TINTA = rgb(0.098, 0.094, 0.075), OURO = rgb(0.541, 0.42, 0.071), OURO_FORTE = rgb(0.42, 0.322, 0.031);
+  const fraco = (a: number) => rgb(1 - (1 - 0.098) * a, 1 - (1 - 0.094) * a, 1 - (1 - 0.075) * a); // tinta com opacidade sobre branco
+  const VERDE = rgb(0.06, 0.54, 0.24), FUNDO_CARTAO = rgb(0.969, 0.965, 0.949), FUNDO_MINI = rgb(0.937, 0.929, 0.902);
+  const DOURADOS = [rgb(1, 0.88, 0.3), rgb(1, 0.72, 0.3), rgb(1, 0.925, 0.54), rgb(0.91, 0.78, 0.4), rgb(0.85, 0.76, 0.48)];
+  const pagina = doc.addPage([W, H]);
+  // Fontes padrão só têm WinAnsi: mantém o que ela cobre e troca o resto.
+  const limpar = (s: string) => s.normalize("NFC").replace(/[^\x20-\x7E\xA0-\xFF–—•…×]/g, "-");
+  const texto = (s: string, x: number, y: number, tam: number, f = fonte, cor = TINTA) => pagina.drawText(limpar(s), { x, y, size: tam, font: f, color: cor });
+  const largura = (s: string, tam: number, f = fonte) => f.widthOfTextAtSize(limpar(s), tam);
+  const direita = (s: string, xFim: number, y: number, tam: number, f = fonte, cor = TINTA) => texto(s, xFim - largura(s, tam, f), y, tam, f, cor);
+  const linha = (y: number, a = 0.12) => pagina.drawLine({ start: { x: MX, y }, end: { x: W - MX, y }, thickness: 0.6, color: fraco(a) });
+  const n = (v: number) => Math.round(v).toLocaleString("pt-BR");
+  const curto = (v: number) => (v >= 1e6 ? `${(v / 1e6).toFixed(2).replace(".", ",")}M` : v >= 1e4 ? `${Math.round(v / 1000)}k` : v >= 1000 ? `${(v / 1000).toFixed(1).replace(".", ",")} mil` : n(v));
+  const reais = (v: number) => `R$ ${n(v)}`;
+  const reais2 = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  const pct = (a: number, b: number) => (b ? `${((a / b) * 100).toFixed(1).replace(".", ",")}%` : "—");
+  const roasTxt = (rev: number, spend: number) => (rev && spend ? `${(rev / spend).toFixed(1).replace(".", ",")}×` : "—");
+  const cortarTxt = (s: string, max: number) => { const x = (s || "—").trim(); return x.length > max ? `${x.slice(0, max - 1).trimEnd()}…` : x; };
+
+  const t = ads.totais!;
+  const campanhas = ads.campanhas ?? [];
+  const ativas = campanhas.filter((c) => c.status === "ACTIVE").length;
+  const temCompra = t.compras > 0;
+  // Dias cobertos pelos dados da Meta (mesma conta da página); sem esse dado, 30.
+  const dias = ads.periodo_dados?.inicio && ads.periodo_dados?.fim
+    ? Math.max(1, Math.round((Date.parse(ads.periodo_dados.fim) - Date.parse(ads.periodo_dados.inicio)) / 864e5) + 1)
+    : 30;
+
+  // ---- cabeçalho
+  let y = H - MY;
+  const logo = await marca();
+  if (logo) {
+    try {
+      const img = await doc.embedPng(logo);
+      const alt = 16, larg = (img.width / img.height) * alt;
+      pagina.drawImage(img, { x: MX, y: y - alt, width: larg, height: alt });
+    } catch { texto("LAGUN", MX, y - 12, 12, negrito, OURO); }
+  } else texto("LAGUN", MX, y - 12, 12, negrito, OURO);
+  direita(`Campanhas · Meta Ads · Todo o período`, W - MX, y - 12, 8.5, fonte, fraco(0.55));
+  y -= 26; linha(y); y -= 24;
+
+  // ---- título + destaque
+  texto("Campanhas", MX, y - 6, 24, fonte);
+  const desc = `${ev.nome} · conta Meta Ads conectada · ${campanhas.length} ${campanhas.length === 1 ? "campanha" : "campanhas"} no relatório, ${ativas} ${ativas === 1 ? "ativa" : "ativas"}.`;
+  texto(cortarTxt(desc, 95), MX, y - 24, 8.5, fonte, fraco(0.65));
+  texto(`Evento: ${dataLonga(ev.data)}${ev.local ? ` · ${ev.local}` : ""}`, MX, y - 37, 8.5, fonte, fraco(0.65));
+  // caixa dourada
+  const cx = W - MX - 150, cy = y - 44, cw = 150, ch = 54;
+  pagina.drawRectangle({ x: cx, y: cy, width: cw, height: ch, color: rgb(1, 0.86, 0.35), borderColor: rgb(1, 0.72, 0.3), borderWidth: 0.8 });
+  texto("INVESTIMENTO", cx + 13, cy + ch - 15, 7, negrito, fraco(0.7));
+  texto(reais(t.gasto), cx + 13, cy + 20, 17, negrito, TINTA);
+  texto(`${reais(t.gasto / Math.max(dias, 1))}/dia em média`, cx + 13, cy + 8, 7.5, fonte, fraco(0.75));
+  y = cy - 16;
+
+  // ---- faixa de métricas
+  linha(y, 0.14); y -= 14;
+  const itens: Array<[string, string, string, boolean]> = [
+    ["IMPRESSÕES", curto(t.impressoes), `alcance ${curto(t.alcance)}`, false],
+    ["CLIQUES", curto(t.cliques), `CTR ${pct(t.cliques, t.impressoes)}`, false],
+    temCompra ? ["COMPRAS", n(t.compras), `${reais2(t.gasto / t.compras)}/compra`, false]
+      : ["RESULTADOS", n(t.resultados), t.resultados ? `${reais2(t.gasto / t.resultados)}/resultado` : "sem conversões", false],
+    ["RECEITA ATRIBUÍDA", t.receita ? reais(t.receita) : "—", "7d clique · 1d view", false],
+    ["ROAS", roasTxt(t.receita, t.gasto), "só Meta Ads", true],
+  ];
+  const colW = (W - 2 * MX) / itens.length;
+  itens.forEach(([rot, val, sub, dest], i) => {
+    const x = MX + i * colW + (i ? 9 : 0);
+    if (i) pagina.drawLine({ start: { x: MX + i * colW, y: y + 4 }, end: { x: MX + i * colW, y: y - 30 }, thickness: 0.6, color: fraco(0.12) });
+    texto(rot, x, y, 6.8, negrito, dest ? OURO : fraco(0.5));
+    texto(val, x, y - 16, val.length > 10 ? 11 : 13, negrito, dest ? OURO_FORTE : TINTA);
+    texto(sub, x, y - 28, 7.5, fonte, fraco(0.55));
+  });
+  y -= 40; linha(y, 0.14); y -= 24;
+
+  // ---- tabela por campanha
+  texto("Desempenho por campanha", MX, y, 13, fonte); y -= 16;
+  const cols = [MX, MX + 190, MX + 258, MX + 316, MX + 364, MX + 428, MX + 515];
+  const cabec = ["CAMPANHA", "GASTO", "IMPR.", "CTR", "RESULT.", "CUSTO/RESULT.", "ROAS"];
+  cabec.forEach((h, i) => (i === 0 ? texto(h, cols[i], y, 6.8, negrito, fraco(0.5)) : direita(h, cols[i], y, 6.8, negrito, fraco(0.5))));
+  y -= 6; linha(y, 0.1); y -= 13;
+  // Corta pelo espaço da coluna, não por contagem de letras.
+  const caber = (s: string, tam: number, max: number, f = fonte) => {
+    let x = (s || "—").trim();
+    if (largura(x, tam, f) <= max) return x;
+    while (x.length > 1 && largura(`${x}…`, tam, f) > max) x = x.slice(0, -1).trimEnd();
+    return `${x}…`;
   };
+  for (const c of campanhas.slice(0, 12)) {
+    pagina.drawCircle({ x: cols[0] + 3, y: y + 3, size: 2.2, color: c.status === "ACTIVE" ? VERDE : fraco(0.25) });
+    texto(caber(String(c.nome ?? ""), 8, cols[1] - largura(reais(c.gasto), 8.5, negrito) - cols[0] - 18), cols[0] + 10, y, 8, fonte);
+    direita(reais(c.gasto), cols[1], y, 8.5, negrito);
+    direita(curto(c.impressoes), cols[2], y, 8.5);
+    direita(pct(c.cliques, c.impressoes), cols[3], y, 8.5);
+    direita(c.resultados ? n(c.resultados) : "—", cols[4], y, 8.5);
+    direita(c.resultados ? reais2(c.gasto / c.resultados) : "—", cols[5], y, 8.5);
+    direita(roasTxt(c.receita, c.gasto), cols[6], y, 8.5, negrito, c.receita ? OURO_FORTE : fraco(0.45));
+    y -= 5; linha(y, 0.1); y -= 13;
+  }
+  pagina.drawCircle({ x: MX + 2.5, y: y + 2.5, size: 2, color: VERDE });
+  texto("ativa ·", MX + 8, y, 7, fonte, fraco(0.5));
+  pagina.drawCircle({ x: MX + 36, y: y + 2.5, size: 2, color: fraco(0.3) });
+  texto(`pausada. Resultados = compras para campanhas de vendas, cadastros para leads, conversas iniciadas para engajamento e tráfego.${campanhas.length > 12 ? ` Mostrando as 12 de maior gasto (de ${campanhas.length}).` : ""}`, MX + 42, y, 7, fonte, fraco(0.5));
+  y -= 22;
 
-  texto(NOME_DA_CASA.toUpperCase(), margem, 10, negrito, ouro); novaLinha(18);
-  texto(ev.nome, margem, 22, negrito); novaLinha(20);
-  texto(`Relatório geral · ${dataLonga(ev.data)}${ev.local ? ` · ${ev.local}` : ""}`, margem, 11, fonte, cinza); novaLinha(14);
-  texto(`Gerado em ${agoraTexto()} (Brasília)`, margem, 9, fonte, cinza); novaLinha(28);
-
-  const bloco = (titulo: string, itens: Array<[string, string]>) => {
-    texto(titulo, margem, 13, negrito); novaLinha(16);
-    pagina.drawLine({ start: { x: margem, y: y + 6 }, end: { x: 595.28 - margem, y: y + 6 }, thickness: 0.6, color: linhaCor });
-    novaLinha(10);
-    const col = (595.28 - 2 * margem) / 3;
-    itens.forEach(([rotulo, valor], i) => {
-      const x = margem + (i % 3) * col;
-      if (i > 0 && i % 3 === 0) novaLinha(36);
-      pagina.drawText(limpar(rotulo), { x, y, size: 9, font: fonte, color: cinza });
-      pagina.drawText(limpar(valor), { x, y: y - 14, size: 14, font: negrito, color: preto });
+  // ---- criativos
+  if (criativos.length) {
+    linha(y + 8, 0.14);
+    texto("Criativos com maior investimento", MX, y - 8, 13, fonte); y -= 22;
+    const gap = 7, cw2 = (W - 2 * MX - gap * 4) / 5, alturaMini = 112, alturaCard = alturaMini + 56;
+    const imagens = await Promise.all(criativos.slice(0, 10).map(async (c) => {
+      if (!c.thumbnail) return null;
+      const bytes = await baixarImagem(c.thumbnail);
+      if (!bytes) return null;
+      try { return await doc.embedJpg(bytes); } catch { try { return await doc.embedPng(bytes); } catch { return null; } }
+    }));
+    criativos.slice(0, 10).forEach((c, i) => {
+      const col = i % 5, row = Math.floor(i / 5);
+      const x = MX + col * (cw2 + gap);
+      const topo = y - row * (alturaCard + gap);
+      const base = topo - alturaCard;
+      if (base < MY + 20) return;
+      pagina.drawRectangle({ x, y: base, width: cw2, height: alturaCard, color: FUNDO_CARTAO });
+      const img = imagens[i];
+      if (img) {
+        // Recorte "cover": escala pela maior proporção, centraliza e recorta
+        // pela caixa da miniatura (clip), como o background-size: cover da página.
+        const esc = Math.max(cw2 / img.width, alturaMini / img.height);
+        const dw = img.width * esc, dh = img.height * esc;
+        const y0 = topo - alturaMini;
+        pagina.drawRectangle({ x, y: y0, width: cw2, height: alturaMini, color: FUNDO_MINI });
+        pagina.pushOperators(pushGraphicsState(), moveTo(x, y0), lineTo(x + cw2, y0), lineTo(x + cw2, y0 + alturaMini), lineTo(x, y0 + alturaMini), closePath(), clip(), endPath());
+        pagina.drawImage(img, { x: x + (cw2 - dw) / 2, y: y0 + (alturaMini - dh) / 2, width: dw, height: dh });
+        pagina.pushOperators(popGraphicsState());
+      } else {
+        pagina.drawRectangle({ x, y: topo - alturaMini, width: cw2, height: alturaMini, color: DOURADOS[i % DOURADOS.length] });
+      }
+      texto(caber(c.ad_name, 7.5, cw2 - 14, negrito), x + 7, topo - alturaMini - 14, 7.5, negrito);
+      texto(caber(c.campaign_name, 7, cw2 - 14), x + 7, topo - alturaMini - 26, 7, fonte, fraco(0.55));
+      texto(reais(c.spend), x + 7, topo - alturaMini - 44, 8, negrito);
+      direita(`CTR ${c.ctr.toFixed(1).replace(".", ",")}%`, x + cw2 - 7, topo - alturaMini - 44, 7.5, fonte, fraco(0.55));
     });
-    novaLinha(44);
-  };
-
-  if (ads.totais) {
-    const t = ads.totais;
-    bloco("Tráfego pago (Meta Ads) · acumulado", [
-      ["Investido", brl(t.gasto)], ["Resultados", int(t.resultados)], ["Custo por resultado", t.custo_por_resultado != null ? brl(t.custo_por_resultado) : "-"],
-      ["Alcance", int(t.alcance)], ["Cliques", int(t.cliques)], ["Compras / receita", `${int(t.compras)} / ${brl(t.receita)}`],
-    ]);
-    texto("Campanhas", margem, 13, negrito); novaLinha(16);
-    const cols = [margem, margem + 250, margem + 330, margem + 400, margem + 470];
-    ["Campanha", "Status", "Investido", "Result.", "Custo/res."].forEach((h, i) => pagina.drawText(h, { x: cols[i], y, size: 9, font: negrito, color: cinza }));
-    novaLinha(14);
-    for (const c of ads.campanhas ?? []) {
-      const nome = limpar(cortar(String(c.nome ?? ""), 44));
-      [nome, c.status === "ACTIVE" ? "Ativa" : "Pausada", brl(c.gasto), int(c.resultados), c.custo_por_resultado != null ? brl(c.custo_por_resultado) : "-"]
-        .forEach((v, i) => pagina.drawText(limpar(v), { x: cols[i], y, size: 9.5, font: fonte, color: preto }));
-      pagina.drawLine({ start: { x: margem, y: y - 4 }, end: { x: 595.28 - margem, y: y - 4 }, thickness: 0.4, color: linhaCor });
-      novaLinha(16);
-    }
-    novaLinha(10);
-  } else {
-    texto("Tráfego pago: sem campanha vinculada a este evento.", margem, 11, fonte, cinza); novaLinha(24);
+    y -= Math.ceil(Math.min(criativos.length, 10) / 5) * (alturaCard + gap) + 8;
   }
 
-  if (vendas && !("sem_ticketeira" in vendas && vendas.sem_ticketeira)) {
+  // ---- ingressos (Zig), se houver espaço
+  if (vendas && !("sem_ticketeira" in vendas && vendas.sem_ticketeira) && y > MY + 70) {
     const v = vendas as Exclude<typeof vendas, { sem_ticketeira: true }>;
-    bloco("Ingressos (Zig)", [
-      ["Total vendido", int(v.total.ingressos)], ["Receita", brl(v.total.valor)], ["Hoje", int(v.hoje.ingressos)],
-      ["Ontem", int(v.ontem.ingressos)], ["Últimos 7 dias", int(v.ultimos_7_dias.ingressos)], ["Última venda", v.ultima_venda ? new Date(v.ultima_venda).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "-"],
-    ]);
-  } else {
-    texto("Ingressos: evento sem Zig vinculada.", margem, 11, fonte, cinza); novaLinha(24);
+    linha(y + 8, 0.14);
+    texto("Ingressos (Zig)", MX, y - 8, 13, fonte); y -= 26;
+    const its: Array<[string, string]> = [["TOTAL VENDIDO", n(v.total.ingressos)], ["RECEITA", reais2(v.total.valor)], ["HOJE", n(v.hoje.ingressos)], ["ONTEM", n(v.ontem.ingressos)], ["ÚLTIMOS 7 DIAS", n(v.ultimos_7_dias.ingressos)]];
+    const cw3 = (W - 2 * MX) / its.length;
+    its.forEach(([r, val], i) => { texto(r, MX + i * cw3, y, 6.8, negrito, fraco(0.5)); texto(val, MX + i * cw3, y - 16, 13, negrito); });
+    y -= 30;
   }
-  if (ev.relatorio_token) {
-    texto(`Relatório completo com criativos: ${RELATORIO_BASE}${ev.relatorio_token}`, margem, 9, fonte, cinza);
-  }
+
+  // ---- rodapé
+  linha(MY + 16, 0.12);
+  texto(`Gerado em ${new Date().toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })} · dados da conta conectada`, MX, MY + 4, 7.5, fonte, fraco(0.55));
+  direita("lagunvitoria.com.br", W - MX, MY + 4, 7.5, fonte, fraco(0.55));
   return await doc.save();
 }
 
@@ -616,13 +804,20 @@ async function tratarEscolha(sb: any, socio: Socio, eventos: Evento[], id: strin
       return [{ tipo: "texto", texto: textoDisparos(d) }, botoesDepois(evento)];
     }
     if (op === "relatorio") {
-      const [ads, vendas] = await Promise.all([campanhasMeta(sb, evento, "maximum"), evento.zig ? vendasIngressos(sb, evento) : Promise.resolve(null)]);
-      const pdf = await gerarPdfRelatorio(evento, ads, vendas);
+      const [ads, vendas, criativos] = await Promise.all([
+        campanhasMeta(sb, evento, "maximum"),
+        evento.zig ? vendasIngressos(sb, evento) : Promise.resolve(null),
+        criativosDoEvento(sb, evento),
+      ]);
+      if (ads.sem_campanhas || ads.erro) {
+        return [{ tipo: "texto", texto: ads.erro ? `Não consegui ler o Meta Ads agora: ${ads.erro}` : `*${evento.nome}* ainda não tem campanha vinculada no painel, então não há relatório de tráfego.` }, botoesDepois(evento)];
+      }
+      const pdf = await gerarPdfRelatorio(evento, ads, criativos, vendas);
       const nome = `relatorio-${evento.nome.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-|-$/g, "").toLowerCase() || "evento"}-${hojeBrasilia()}.pdf`;
-      const saidas: Saida[] = [{ tipo: "documento", nome, legenda: `Relatório geral · ${evento.nome} · ${dataCurta(evento.data)}`, pdf }];
-      if (evento.relatorio_token) saidas.push({ tipo: "texto", texto: `Versão completa, com os criativos: ${RELATORIO_BASE}${evento.relatorio_token}` });
-      saidas.push(botoesDepois(evento));
-      return saidas;
+      return [
+        { tipo: "documento", nome, legenda: `Relatório · ${evento.nome} · ${dataCurta(evento.data)} · Meta Ads, todo o período`, pdf },
+        botoesDepois(evento),
+      ];
     }
   }
   return [menuDeEventos(socio, eventos, "Não entendi essa opção.")];
