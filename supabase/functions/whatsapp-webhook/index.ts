@@ -3,7 +3,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 import { encontrarSocio } from "../_shared/socios.ts";
 
-const VERIFY_TOKEN = Deno.env.get("WHATSAPP_VERIFY_TOKEN") || "triade_whatsapp_verify_2024";
+// Sem valor padrão: cada sistema tem o seu, gravado no secret.
+const VERIFY_TOKEN = Deno.env.get("WHATSAPP_VERIFY_TOKEN") || "";
 
 // Bot dos sócios (bot-socios): responde só a quem está em Parceiros. A chamada
 // não é aguardada, porque a Meta espera o webhook responder rápido e a
@@ -131,7 +132,7 @@ Deno.serve(async (req) => {
     const token = url.searchParams.get("hub.verify_token");
     const challenge = url.searchParams.get("hub.challenge");
 
-    if (mode === "subscribe" && token === VERIFY_TOKEN) {
+    if (mode === "subscribe" && VERIFY_TOKEN && token === VERIFY_TOKEN) {
       console.log("Webhook verified successfully");
       return new Response(challenge, { status: 200 });
     }

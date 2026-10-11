@@ -598,7 +598,7 @@ async function gerarPdfRelatorio(ev: Evento, ads: ResumoAds, criativos: Criativo
   // ---- rodapé
   linha(MY + 16, 0.12);
   texto(`Gerado em ${new Date().toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })} · dados da conta conectada`, MX, MY + 4, 7.5, fonte, fraco(0.55));
-  direita("lagunvitoria.com.br", W - MX, MY + 4, 7.5, fonte, fraco(0.55));
+  direita(PAINEL_URL.replace(/^https?:\/\//, ""), W - MX, MY + 4, 7.5, fonte, fraco(0.55));
   return await doc.save();
 }
 
