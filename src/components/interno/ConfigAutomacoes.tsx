@@ -87,6 +87,11 @@ export function ConfigAutomacoes() {
       icone: RefreshCw, link: '/interno/automacoes', ligada: null,
     },
     {
+      chave: 'tarefa-lembrete', nome: 'Lembrete de tarefa', quando: 'Todo dia às 9h',
+      descricao: 'Para tarefa pendente com prazo amanhã, hoje ou vencido, o responsável recebe o template no WhatsApp com os botões "Abrir tarefa" e "Já fiz". Um por dia. Precisa de telefone no perfil.',
+      icone: CalendarClock, link: '/interno/tarefas', ligada: null,
+    },
+    {
       chave: 'ig-token', nome: 'Renovação do acesso ao Instagram', quando: 'Toda segunda, 3h',
       descricao: 'Renova o token da conta conectada antes de vencer.',
       icone: Instagram, link: '/interno/instagram', ligada: null,
@@ -98,6 +103,11 @@ export function ConfigAutomacoes() {
       chave: 'bot', nome: 'Bot dos sócios no WhatsApp', quando: 'Quando um sócio manda mensagem',
       descricao: `Responde só a quem está em Parceiros (${socios.fixos} ${socios.fixos === 1 ? 'fixo' : 'fixos'}, ${socios.parceiros} ${socios.parceiros === 1 ? 'parceiro' : 'parceiros'}): eventos, Ads, vendas, disparos, relatório em PDF e perguntas livres.`,
       icone: Bot, link: '/interno/admin', ligada: null,
+    },
+    {
+      chave: 'tarefa-nova', nome: 'Aviso de tarefa', quando: 'Quando uma tarefa ganha responsável',
+      descricao: 'O responsável recebe no WhatsApp quem pediu, evento, prazo e os botões "Abrir tarefa" e "Já fiz" (marca como feita na hora). Precisa de telefone no perfil.',
+      icone: Zap, link: '/interno/tarefas', ligada: null,
     },
     {
       chave: 'carrinho', nome: 'Carrinho abandonado (Blueticket)', quando: 'Quando a Blueticket avisa compra não concluída',

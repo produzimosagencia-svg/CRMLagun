@@ -35,6 +35,7 @@ interface UserWithRoles {
   email: string;
   full_name: string;
   username: string | null;
+  telefone: string | null;
   roles: AppRole[];
 }
 
@@ -76,7 +77,7 @@ export default function InternoAdmin() {
   const [loteResultado, setLoteResultado] = useState<{ usuario: string; ok: boolean; erro?: string }[]>([]);
   const [savingKey, setSavingKey] = useState<string | null>(null);
   const [expandedUser, setExpandedUser] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState({ full_name: '', username: '', password: '' });
+  const [editForm, setEditForm] = useState({ full_name: '', username: '', password: '', telefone: '' });
   const [userOverrides, setUserOverrides] = useState<Record<string, boolean>>({});
   const [savingUser, setSavingUser] = useState(false);
   const [deletingUser, setDeletingUser] = useState(false);
@@ -109,7 +110,7 @@ export default function InternoAdmin() {
   const fetchUsers = async () => {
     setLoading(true);
     // No banco live, profiles usa `id` como referência ao usuário (não user_id) e não tem coluna email
-    const { data: profiles, error: profilesError } = await supabase.from('profiles').select('id, full_name, username');
+    const { data: profiles, error: profilesError } = await supabase.from('profiles').select('id, full_name, username, telefone');
     const { data: rolesData } = await supabase.from('user_roles').select('user_id, role');
 
     if (profilesError) toast.error('Erro ao carregar usuários: ' + profilesError.message);
@@ -127,6 +128,7 @@ export default function InternoAdmin() {
       email: '',
       full_name: p.full_name || '',
       username: p.username,
+      telefone: (p as any).telefone ?? null,
       roles: roleMap.get(p.id) || [],
     }));
 
@@ -175,7 +177,7 @@ export default function InternoAdmin() {
       return;
     }
     setExpandedUser(u.user_id);
-    setEditForm({ full_name: u.full_name, username: u.username || '', password: '' });
+    setEditForm({ full_name: u.full_name, username: u.username || '', password: '', telefone: u.telefone || '' });
     setUserOverrides({});
     const { data } = await supabase
       .from('user_menu_overrides')
@@ -200,6 +202,7 @@ export default function InternoAdmin() {
           full_name: editForm.full_name.trim(),
           username: editForm.username.trim(),
           password: editForm.password || undefined,
+          telefone: editForm.telefone,
         },
       });
       if (res.error) throw res.error;
@@ -485,7 +488,7 @@ export default function InternoAdmin() {
                   <div className="mt-4 pt-4 border-t border-border space-y-5">
                     <div>
                       <p className="font-mono text-[11px] font-medium uppercase tracking-wider text-muted-foreground mb-2">Dados do usuário</p>
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                         <div>
                           <label className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground mb-1 block">Nome Completo</label>
                           <Input value={editForm.full_name} onChange={(e) => setEditForm((f) => ({ ...f, full_name: e.target.value }))} />
@@ -493,6 +496,10 @@ export default function InternoAdmin() {
                         <div>
                           <label className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground mb-1 block">Username (login)</label>
                           <Input value={editForm.username} onChange={(e) => setEditForm((f) => ({ ...f, username: e.target.value }))} />
+                        </div>
+                        <div>
+                          <label className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground mb-1 block">WhatsApp (avisos de tarefa)</label>
+                          <Input value={editForm.telefone} onChange={(e) => setEditForm((f) => ({ ...f, telefone: e.target.value }))} placeholder="DDD + número" inputMode="tel" />
                         </div>
                         <div>
                           <label className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground mb-1 block">Nova senha</label>

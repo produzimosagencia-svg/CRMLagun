@@ -45,7 +45,7 @@ Deno.serve(async (req) => {
       .maybeSingle();
     if (!roleRow) return json({ error: "Forbidden" }, 403);
 
-    const { action, user_id, full_name, username, password } = await req.json();
+    const { action, user_id, full_name, username, password, telefone } = await req.json();
     if (!user_id) return json({ error: "user_id obrigatório" }, 400);
 
     if (action === "delete") {
@@ -72,6 +72,11 @@ Deno.serve(async (req) => {
       const profileFields: Record<string, unknown> = { id: user_id };
       if (full_name !== undefined) profileFields.full_name = full_name;
       if (username !== undefined) profileFields.username = username;
+      // Telefone do WhatsApp (avisos de tarefa): só dígitos, com 55; vazio limpa.
+      if (telefone !== undefined) {
+        const d = String(telefone ?? "").replace(/\D/g, "");
+        profileFields.telefone = !d ? null : d.length === 10 || d.length === 11 ? `55${d}` : d;
+      }
       // Admin redefiniu a senha: a pessoa volta a cadastrar a própria no próximo login.
       if (password) profileFields.precisa_definir_senha = true;
       const { error: profileError } = await supabaseAdmin.from("profiles").upsert(profileFields);

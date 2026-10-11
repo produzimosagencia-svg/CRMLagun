@@ -49,3 +49,6 @@ verify_jwt = false
 [functions.bot-socios]
 verify_jwt = false
 static_files = ["./functions/bot-socios/conhecimento.md", "./functions/bot-socios/marca.png"]
+
+[functions.tarefas-notificar]
+verify_jwt = false

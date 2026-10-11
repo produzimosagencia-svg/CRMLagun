@@ -8,9 +8,17 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Camera, Save, Shield } from 'lucide-react';
 import { toast } from 'sonner';
 
+// Só dígitos, com 55 na frente; vazio vira null.
+const telefoneNormalizado = (raw: string) => {
+  const d = raw.replace(/\D/g, '');
+  if (!d) return null;
+  return d.length === 10 || d.length === 11 ? `55${d}` : d;
+};
+
 export default function InternoPerfil() {
   const { user, roles } = useAuth();
   const [fullName, setFullName] = useState('');
+  const [telefone, setTelefone] = useState('');
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [squad, setSquad] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -22,12 +30,13 @@ export default function InternoPerfil() {
     if (!user) return;
     supabase
       .from('profiles')
-      .select('full_name, avatar_url, squad')
+      .select('full_name, avatar_url, squad, telefone')
       .eq('id', user.id)
       .maybeSingle()
       .then(({ data }) => {
         if (data) {
           setFullName(data.full_name ?? '');
+          setTelefone((data as any).telefone ?? '');
           setAvatarUrl(data.avatar_url ?? null);
           setSquad(data.squad ?? null);
         }
@@ -75,7 +84,7 @@ export default function InternoPerfil() {
 
     const { error } = await supabase
       .from('profiles')
-      .update({ full_name: fullName })
+      .update({ full_name: fullName, telefone: telefoneNormalizado(telefone) })
       .eq('id', user.id);
 
     setSaving(false);
@@ -150,6 +159,16 @@ export default function InternoPerfil() {
               onChange={(e) => setFullName(e.target.value)}
               placeholder="Seu nome"
             />
+          </div>
+          <div>
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 block">WhatsApp</label>
+            <Input
+              value={telefone}
+              onChange={(e) => setTelefone(e.target.value)}
+              placeholder="DDD + número"
+              inputMode="tel"
+            />
+            <p className="mt-1 text-xs text-muted-foreground">É aqui que chegam os avisos e lembretes de tarefa.</p>
           </div>
           <div>
             <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 block">E-mail</label>

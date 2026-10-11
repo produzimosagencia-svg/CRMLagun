@@ -6,6 +6,23 @@ import { encontrarSocio } from "../_shared/socios.ts";
 // Sem valor padrão: cada sistema tem o seu, gravado no secret.
 const VERIFY_TOKEN = Deno.env.get("WHATSAPP_VERIFY_TOKEN") || "";
 
+// "Já fiz" do aviso de tarefa: a tarefas-notificar confere o telefone, marca a
+// tarefa como finalizada e responde no chat.
+async function concluirTarefaPeloBotao(phone: string, taskId: string) {
+  try {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const r = await fetch(`${supabaseUrl}/functions/v1/tarefas-notificar`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${supabaseKey}` },
+      body: JSON.stringify({ tipo: "concluir", task_id: taskId, phone }),
+    });
+    console.log("tarefa concluir:", r.status, (await r.text()).slice(0, 200));
+  } catch (e) {
+    console.error("concluirTarefaPeloBotao:", e);
+  }
+}
+
 // Bot dos sócios (bot-socios): responde só a quem está em Parceiros. A chamada
 // não é aguardada, porque a Meta espera o webhook responder rápido e a
 // consulta (OpenAI + Zig + Meta Ads) pode levar vários segundos.
@@ -235,6 +252,11 @@ Deno.serve(async (req) => {
           // Qualquer outro número fica em silêncio: o chat é atendido pela equipe.
           if ((msg.type === "text" || msg.type === "interactive") && record.message_text) {
             const escolha = msg.type === "interactive" ? (msg.interactive?.button_reply ?? msg.interactive?.list_reply ?? null) : null;
+            // Botão "Já fiz" do aviso de tarefa (template): marca a tarefa como feita.
+            if (escolha?.id && String(escolha.id).startsWith("tarefa_feita:")) {
+              await concluirTarefaPeloBotao(msg.from, String(escolha.id).slice("tarefa_feita:".length));
+              continue;
+            }
             await acionarBotDosSocios(
               supabase, msg.from, String(record.message_text), contact?.profile?.name || null,
               value.metadata?.phone_number_id ?? null,
