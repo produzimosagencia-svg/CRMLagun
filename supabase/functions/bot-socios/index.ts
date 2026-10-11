@@ -69,7 +69,7 @@ const cortar = (s: string, n: number) => (s.length <= n ? s : s.slice(0, n - 1).
 // ------------------------------------------------------------------- eventos
 type Evento = {
   id: string; nome: string; data: string | null; local: string | null; artista: string | null;
-  show_on_landing: boolean | null; relatorio_token: string | null; zig: boolean; campanhas: number;
+  show_on_landing: boolean | null; relatorio_token: string | null; link: string | null; zig: boolean; campanhas: number;
 };
 
 // Eventos que o sócio pode consultar: dos últimos 30 dias em diante, só os do
@@ -92,6 +92,7 @@ async function eventosDoSocio(sb: any, socio: Socio): Promise<Evento[]> {
     id: e.id, nome: String(e.nome ?? "Evento"), data: e.data ? String(e.data).slice(0, 10) : null,
     local: e.local ?? null, artista: e.artista ?? null,
     show_on_landing: e.show_on_landing ?? null, relatorio_token: e.relatorio_token ?? null,
+    link: typeof e.link === "string" && e.link.trim() ? e.link.trim() : null,
     zig: comZig.has(e.id), campanhas: nCamp.get(e.id) ?? 0,
   }));
 }
@@ -842,6 +843,7 @@ const FERRAMENTAS = [
   { type: "function", function: { name: "disparos_recentes", description: "Disparos de WhatsApp (templates em massa) dos últimos 7 dias: enviados, entregues, lidos, falhas, por template.", parameters: { type: "object", properties: {} } } },
   { type: "function", function: { name: "contatos_do_dia", description: "Quantas pessoas mandaram mensagem para a casa num dia, no WhatsApp e no direct do Instagram, e quantas eram novas.", parameters: { type: "object", properties: { dia: { type: "string", description: "AAAA-MM-DD; omita para hoje" } } } } },
   { type: "function", function: { name: "link_relatorio", description: "Link público do relatório de tráfego pago de um evento.", parameters: { type: "object", properties: { event_id: { type: "string" } }, required: ["event_id"] } } },
+  { type: "function", function: { name: "link_vendas", description: "Link de vendas (ticketeira) de um evento, o mesmo cadastrado na aba Landing do painel.", parameters: { type: "object", properties: { event_id: { type: "string" } }, required: ["event_id"] } } },
 ];
 
 async function executarFerramenta(sb: any, nome: string, args: any, eventos: Evento[]) {
@@ -859,13 +861,17 @@ async function executarFerramenta(sb: any, nome: string, args: any, eventos: Eve
       const ev = acharEvento();
       return ev.relatorio_token ? { evento: ev.nome, link: `${RELATORIO_BASE}${ev.relatorio_token}` } : { evento: ev.nome, sem_link: true };
     }
+    case "link_vendas": {
+      const ev = acharEvento();
+      return ev.link ? { evento: ev.nome, link: ev.link } : { evento: ev.nome, sem_link: true, aviso: "Evento sem link de vendas cadastrado na aba Landing do painel." };
+    }
     default: throw new Error(`Ferramenta desconhecida: ${nome}`);
   }
 }
 
 async function promptDoSistema(socio: Socio, eventos: Evento[], eventoAtual: Evento | null) {
   const linhas = eventos.map((e) =>
-    `- ${e.nome} | id: ${e.id} | ${dataLonga(e.data)} (${quando(e.data)})${e.zig ? " | Zig" : " | sem Zig"}${e.campanhas ? ` | ${e.campanhas} campanha(s)` : " | sem campanha"}${e.relatorio_token ? " | tem relatório" : ""}`);
+    `- ${e.nome} | id: ${e.id} | ${dataLonga(e.data)} (${quando(e.data)})${e.zig ? " | Zig" : " | sem Zig"}${e.campanhas ? ` | ${e.campanhas} campanha(s)` : " | sem campanha"}${e.relatorio_token ? " | tem relatório" : ""}${e.link ? " | tem link de vendas" : " | sem link de vendas"}`);
   return [
     `Você é o assistente da ${NOME_DA_CASA} para os sócios e produtores, no WhatsApp. Está falando com ${socio.nome} (${socio.tipo === "fixo" ? "sócio da casa" : "produtor parceiro"}).`,
     `Agora: ${agoraTexto()} (Brasília).`,

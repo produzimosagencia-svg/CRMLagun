@@ -51,6 +51,11 @@ para outro cliente, reescreva as seções "Quem somos" e "Eventos".
 - **Relatório geral** é o PDF de tráfego pago do evento, com as campanhas e os
   números acumulados, igual ao que o painel gera. Ele também existe como página
   pública com link secreto por evento.
+- **Link de vendas** é o link da ticketeira cadastrado no evento (aba Landing
+  do painel). Quando pedirem o link de vendas, de compra ou de ingresso, usar a
+  ferramenta `link_vendas` e mandar o link puro. Se o evento não tiver link,
+  dizer que falta cadastrar na aba Landing. Não confundir com o link do
+  relatório nem com o do painel.
 - **Resumo diário**: às 20h, enquanto o evento tiver Zig ou campanha
   vinculada, os sócios recebem um template com total de ingressos, vendidos no
   dia e o botão do relatório.
