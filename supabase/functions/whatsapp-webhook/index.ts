@@ -8,7 +8,10 @@ const VERIFY_TOKEN = Deno.env.get("WHATSAPP_VERIFY_TOKEN") || "triade_whatsapp_v
 // Bot dos sócios (bot-socios): responde só a quem está em Parceiros. A chamada
 // não é aguardada, porque a Meta espera o webhook responder rápido e a
 // consulta (OpenAI + Zig + Meta Ads) pode levar vários segundos.
-async function acionarBotDosSocios(supabase: any, phone: string, texto: string, nome: string | null, phoneNumberId: string | null = null) {
+async function acionarBotDosSocios(
+  supabase: any, phone: string, texto: string, nome: string | null,
+  phoneNumberId: string | null = null, escolha: { id: string; title: string } | null = null,
+) {
   try {
     const socio = await encontrarSocio(supabase, phone);
     if (!socio) return;
@@ -18,7 +21,8 @@ async function acionarBotDosSocios(supabase: any, phone: string, texto: string, 
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${supabaseKey}` },
       // phone_number_id: responde pelo mesmo número que recebeu a mensagem.
-      body: JSON.stringify({ phone, message: texto, contact_name: nome, phone_number_id: phoneNumberId }),
+      // escolha: id do botão/item de lista tocado, quando for o caso.
+      body: JSON.stringify({ phone, message: texto, contact_name: nome, phone_number_id: phoneNumberId, escolha }),
     }).then(async (r) => console.log("bot-socios:", r.status, (await r.text()).slice(0, 200)))
       .catch((e) => console.error("bot-socios erro:", e));
     const runtime = (globalThis as any).EdgeRuntime;
@@ -207,6 +211,11 @@ Deno.serve(async (req) => {
             } else {
               record.media_url = mediaId || null;
             }
+          } else if (msg.type === "interactive") {
+            // Toque em botão ou item de lista: guarda o título e o id da opção.
+            const escolha = msg.interactive?.button_reply ?? msg.interactive?.list_reply ?? null;
+            record.message_text = escolha?.title ? String(escolha.title) : "[Opção]";
+            record.message_type = "text";
           } else if (msg.type === "reaction") {
             record.message_text = `Reação: ${msg.reaction?.emoji || ""}`;
           } else if (msg.type === "sticker") {
@@ -223,8 +232,13 @@ Deno.serve(async (req) => {
 
           // Resposta automática só para os sócios (cadastro de Parceiros).
           // Qualquer outro número fica em silêncio: o chat é atendido pela equipe.
-          if (msg.type === "text" && record.message_text) {
-            await acionarBotDosSocios(supabase, msg.from, String(record.message_text), contact?.profile?.name || null, value.metadata?.phone_number_id ?? null);
+          if ((msg.type === "text" || msg.type === "interactive") && record.message_text) {
+            const escolha = msg.type === "interactive" ? (msg.interactive?.button_reply ?? msg.interactive?.list_reply ?? null) : null;
+            await acionarBotDosSocios(
+              supabase, msg.from, String(record.message_text), contact?.profile?.name || null,
+              value.metadata?.phone_number_id ?? null,
+              escolha?.id ? { id: String(escolha.id), title: String(escolha.title ?? "") } : null,
+            );
           }
         }
       }
