@@ -476,8 +476,8 @@ async function gerarPdfRelatorio(ev: Evento, ads: ResumoAds, criativos: Criativo
       const img = await doc.embedPng(logo);
       const alt = 16, larg = (img.width / img.height) * alt;
       pagina.drawImage(img, { x: MX, y: y - alt, width: larg, height: alt });
-    } catch { texto("LAGUN", MX, y - 12, 12, negrito, OURO); }
-  } else texto("LAGUN", MX, y - 12, 12, negrito, OURO);
+    } catch { texto(NOME_DA_CASA.toUpperCase(), MX, y - 12, 12, negrito, OURO); }
+  } else texto(NOME_DA_CASA.toUpperCase(), MX, y - 12, 12, negrito, OURO);
   direita(`Campanhas · Meta Ads · Todo o período`, W - MX, y - 12, 8.5, fonte, fraco(0.55));
   y -= 26; linha(y); y -= 24;
 
