@@ -7,6 +7,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { MessageCircle, ArrowLeft, Send, Clock, Check, CheckCheck, Bot, UserRound, DollarSign, Loader2, UserCircle, MapPin, Phone, ShoppingCart, AlertTriangle, Power, Smartphone, BrainCircuit, Plus, Trash2, Calendar, MapPinned, Music, ShieldAlert, FileText, Link as LinkIcon, Pencil, Instagram, RefreshCw, ChevronDown, UserCheck, Megaphone, TicketCheck, Armchair } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { InteracoesInstagram } from '@/components/interno/InteracoesInstagram';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -1754,6 +1755,36 @@ export default function InternoWhatsAppChat() {
           </>
         )}
       </div>
+
+      {/* Conversa do Instagram: o perfil mostra quanto a pessoa interage com a conta. */}
+      {selectedPhone && activeChannel === 'instagram' && (
+        <div className="hidden lg:flex w-80 border-l flex-col shrink-0">
+          <div className="p-4 border-b">
+            <h3 className="text-sm font-bold flex items-center gap-2">
+              <UserCircle className="w-4 h-4 text-muted-foreground" />
+              Perfil do Cliente
+            </h3>
+          </div>
+          <ScrollArea className="flex-1">
+            <div className="p-4 space-y-4">
+              {(() => {
+                const conversa = conversations.find(c => c.phone === selectedPhone);
+                const usuario = (conversa?.contact_username || '').replace(/^@/, '').trim();
+                return (
+                  <div className="text-sm">
+                    <p className="font-semibold truncate">{conversa?.contact_name || (usuario ? `@${usuario}` : 'Contato do Instagram')}</p>
+                    {usuario && <a href={`https://instagram.com/${usuario}`} target="_blank" rel="noreferrer" className="text-xs text-muted-foreground hover:underline">@{usuario}</a>}
+                  </div>
+                );
+              })()}
+              <div>
+                <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase text-muted-foreground"><Instagram className="w-3.5 h-3.5" /> Interações</p>
+                <InteracoesInstagram igsid={selectedPhone} username={conversations.find(c => c.phone === selectedPhone)?.contact_username} />
+              </div>
+            </div>
+          </ScrollArea>
+        </div>
+      )}
 
       {selectedPhone && activeChannel === 'whatsapp' && (
         <div className="hidden lg:flex w-80 border-l flex-col shrink-0">

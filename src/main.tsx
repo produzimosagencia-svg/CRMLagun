@@ -28,6 +28,7 @@ const InternoSocialMedia = lazy(() => import("./pages/interno/InternoSocialMedia
 const InternoComentarios = lazy(() => import("./pages/interno/InternoComentarios.tsx"));
 const InternoCampanhas = lazy(() => import("./pages/interno/InternoCampanhas.tsx"));
 const InternoRelatorios = lazy(() => import("./pages/interno/InternoRelatorios.tsx"));
+const InternoVendedores = lazy(() => import("./pages/interno/InternoVendedores.tsx"));
 const InternoRelatorioEvento = lazy(() => import("./pages/interno/InternoRelatorioEvento.tsx"));
 const InternoCriativosCampeoes = lazy(() => import("./pages/interno/InternoCriativosCampeoes.tsx"));
 const InternoAdsCriarCampanha = lazy(() => import("./pages/interno/InternoAdsCriarCampanha.tsx"));
@@ -39,6 +40,7 @@ const InternoBase = lazy(() => import("./pages/interno/InternoBase.tsx"));
 const InternoInstagram = lazy(() => import("./pages/interno/InternoInstagram.tsx"));
 const InternoWhatsApp = lazy(() => import("./pages/interno/InternoWhatsApp.tsx"));
 const InternoWhatsAppChat = lazy(() => import("./pages/interno/InternoWhatsAppChat.tsx"));
+const InternoRanking = lazy(() => import("./pages/interno/InternoRanking.tsx"));
 const InternoWhatsAppDashboard = lazy(() => import("./pages/interno/InternoWhatsAppDashboard.tsx"));
 const InternoWhatsAppCampaign = lazy(() => import("./pages/interno/InternoWhatsAppCampaign.tsx"));
 const InternoRastreamento = lazy(() => import("./pages/interno/InternoRastreamento.tsx"));
@@ -110,6 +112,8 @@ createRoot(document.getElementById("root")!).render(
           <Route index element={<Navigate to="/interno/dashboard" replace />} />
           <Route path="dashboard" element={<InternoDashboardSocial />} />
           <Route path="crm-visao-geral" element={<InternoCrmVisaoGeral />} />
+          <Route path="vendedores" element={<Navigate to="/interno/vendedores/ranking" replace />} />
+          <Route path="vendedores/:aba" element={<InternoVendedores />} />
           <Route path="zig-tickets" element={<InternoZigTicketsGeral />} />
           <Route path="zig-tickets/geral" element={<InternoZigTicketsGeral />} />
           <Route path="zig-tickets/:eventId" element={<InternoZigTickets />} />
@@ -127,6 +131,7 @@ createRoot(document.getElementById("root")!).render(
           <Route path="whatsapp/status" element={<InternoWhatsApp inicial="status" />} />
           <Route path="whatsapp/dashboard" element={<InternoWhatsAppDashboard />} />
           <Route path="whatsapp/chat" element={<InternoWhatsAppChat />} />
+          <Route path="ranking" element={<InternoRanking />} />
           <Route path="whatsapp/carrinho-abandonado" element={<InternoWhatsAppCampaign campaignKey="carrinho_abandonado" />} />
           <Route path="whatsapp/aniversario" element={<InternoWhatsAppCampaign campaignKey="aniversario" />} />
           <Route path="whatsapp/estornos" element={<InternoWhatsAppCampaign campaignKey="estornos" />} />

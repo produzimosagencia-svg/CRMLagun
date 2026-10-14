@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 export type SidebarKey =
   | 'dashboard' | 'landing' | 'crm' | 'blueticket' | 'prive' | 'zig_tickets'
   | 'base' | 'tarefas' | 'calendario' | 'chat' | 'whatsapp' | 'ads'
-  | 'social_media' | 'comentarios' | 'automacoes';
+  | 'social_media' | 'comentarios' | 'automacoes' | 'vendedores';
 
 interface SidebarState {
   global: Record<string, boolean>;

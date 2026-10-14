@@ -8,7 +8,7 @@ import {
   Megaphone, BarChart3, Trophy, Users, ClipboardList, Cake, Globe, CalendarRange, LayoutDashboard,
   TrendingUp, MessagesSquare, ShoppingCart, RotateCcw, MousePointerClick, Zap, Crown, Database, Activity,
   type LucideIcon,
-  Handshake,
+  Handshake, BadgeDollarSign, Target, UserPlus,
 } from 'lucide-react';
 import SplashScreen from '@/components/SplashScreen';
 import { DefinirSenha } from '@/components/interno/DefinirSenha';
@@ -195,14 +195,25 @@ export default function InternoLayout() {
     [
       canSeeCRM && isEnabled('crm') && {
         key: 'crm', label: 'CRM', icon: Users, to: '/interno/crm-visao-geral',
-        isActive: startsWith('/interno/crm-visao-geral', '/interno/eventos', '/interno/clientes', '/interno/aniversariantes', '/interno/divulgadores', '/interno/superclientes', '/interno/base'),
+        isActive: startsWith('/interno/crm-visao-geral', '/interno/eventos', '/interno/clientes', '/interno/aniversariantes', '/interno/divulgadores', '/interno/superclientes', '/interno/base', '/interno/ranking'),
         children: [
           { label: 'Visão geral', to: '/interno/crm-visao-geral', end: true, icon: LayoutDashboard },
           { label: 'Clientes', to: '/interno/clientes', icon: Users },
           { label: 'Superclientes', to: '/interno/superclientes', icon: Crown },
           { label: 'Aniversariantes', to: '/interno/aniversariantes', icon: Cake },
+          { label: 'Ranking de interação', to: '/interno/ranking', icon: Trophy },
           { label: 'Influenciadores', to: '/interno/divulgadores', icon: Megaphone },
           ...(canSeeHome && isEnabled('base') ? [{ label: 'Base', to: '/interno/base', icon: Database }] : []),
+        ],
+      },
+      canSeeCRM && isEnabled('vendedores') && {
+        key: 'vendedores', label: 'Vendedores', icon: BadgeDollarSign, to: '/interno/vendedores/ranking', isActive: startsWith('/interno/vendedores'),
+        children: [
+          { label: 'Ranking mensal', to: '/interno/vendedores/ranking', icon: Trophy },
+          { label: 'Panorama geral', to: '/interno/vendedores/panorama', icon: LayoutDashboard },
+          { label: 'Performance', to: '/interno/vendedores/performance', icon: TrendingUp },
+          { label: 'Metas pessoais', to: '/interno/vendedores/metas', icon: Target },
+          { label: 'Cadastro', to: '/interno/vendedores/cadastro', icon: UserPlus },
         ],
       },
       isEnabled('tarefas') && { key: 'tarefas', label: 'Tarefas', icon: ClipboardList, to: '/interno/tarefas', isActive: startsWith('/interno/tarefas') },
@@ -235,6 +246,7 @@ export default function InternoLayout() {
 
   const getPageTitle = () => {
     if (path === '/interno/dashboard') return 'Redes Sociais';
+    if (path.startsWith('/interno/vendedores')) return 'Vendedores';
     if (path.startsWith('/interno/trafego-gpt')) return 'TráfegoGPT';
     if (path.startsWith('/interno/ads/campanhas')) return 'Campanhas';
     if (path === '/interno/ads/criativos') return 'Criativos Campeões';
@@ -253,6 +265,7 @@ export default function InternoLayout() {
     if (path === '/interno/tarefas') return 'Tarefas';
     if (path === '/interno/whatsapp/chat') return 'Chat';
     if (path === '/interno/comentarios') return 'Comentários';
+    if (path === '/interno/ranking') return 'Ranking de interação';
     if (path.startsWith('/interno/automacoes')) return 'Automações';
     if (path === '/interno/marketing/social-media') return 'Social Media';
     if (path.startsWith('/interno/whatsapp')) return 'Disparo';
