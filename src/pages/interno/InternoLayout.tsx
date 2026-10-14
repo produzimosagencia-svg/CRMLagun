@@ -8,7 +8,7 @@ import {
   Megaphone, BarChart3, Trophy, Users, ClipboardList, Cake, Globe, CalendarRange, LayoutDashboard,
   TrendingUp, MessagesSquare, ShoppingCart, RotateCcw, MousePointerClick, Zap, Crown, Database, Activity,
   type LucideIcon,
-  Handshake, BadgeDollarSign, Target, UserPlus,
+  Handshake, BadgeDollarSign, Target, UserPlus, Wallet, History,
 } from 'lucide-react';
 import SplashScreen from '@/components/SplashScreen';
 import { DefinirSenha } from '@/components/interno/DefinirSenha';
@@ -56,6 +56,15 @@ function TransicaoPagina({ chave, children }: { chave: string; children: ReactNo
 
 export default function InternoLayout() {
   const { user, loading, isPartner, isAdmin, roles, signOut } = useAuth();
+  // Pagamentos: só quem está na lista lagun_pagamentos_usuarios (Bruno e Peset).
+  const [podePagar, setPodePagar] = useState(false);
+  useEffect(() => {
+    if (!user) { setPodePagar(false); return; }
+    let vivo = true;
+    (supabase as any).from('lagun_pagamentos_usuarios').select('user_id').eq('user_id', user.id).maybeSingle()
+      .then(({ data }: { data: unknown }) => { if (vivo) setPodePagar(!!data); });
+    return () => { vivo = false; };
+  }, [user?.id]);
   const { isEnabled: isEnabledSetting } = useSidebarSettings();
   const isEnabled = (key: SidebarKey) => !DISABLED_SIDEBAR_MODULES.has(key) && isEnabledSetting(key);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -216,6 +225,14 @@ export default function InternoLayout() {
           { label: 'Cadastro', to: '/interno/vendedores/cadastro', icon: UserPlus },
         ],
       },
+      podePagar && isEnabled('pagamentos') && {
+        key: 'pagamentos', label: 'Pagamentos', icon: Wallet, to: '/interno/pagamentos/a-pagar', isActive: startsWith('/interno/pagamentos'),
+        children: [
+          { label: 'A pagar', to: '/interno/pagamentos/a-pagar', icon: Send },
+          { label: 'Histórico', to: '/interno/pagamentos/historico', icon: History },
+          { label: 'Favorecidos', to: '/interno/pagamentos/favorecidos', icon: UserPlus },
+        ],
+      },
       isEnabled('tarefas') && { key: 'tarefas', label: 'Tarefas', icon: ClipboardList, to: '/interno/tarefas', isActive: startsWith('/interno/tarefas') },
       isEnabled('calendario') && { key: 'calendario', label: 'Calendário', icon: CalendarRange, to: '/interno/calendario', isActive: startsWith('/interno/calendario') },
       canSeeHome && isEnabled('blueticket') && {
@@ -247,6 +264,7 @@ export default function InternoLayout() {
   const getPageTitle = () => {
     if (path === '/interno/dashboard') return 'Redes Sociais';
     if (path.startsWith('/interno/vendedores')) return 'Vendedores';
+    if (path.startsWith('/interno/pagamentos')) return 'Pagamentos';
     if (path.startsWith('/interno/trafego-gpt')) return 'TráfegoGPT';
     if (path.startsWith('/interno/ads/campanhas')) return 'Campanhas';
     if (path === '/interno/ads/criativos') return 'Criativos Campeões';

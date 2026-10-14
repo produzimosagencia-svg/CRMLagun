@@ -29,6 +29,7 @@ const InternoComentarios = lazy(() => import("./pages/interno/InternoComentarios
 const InternoCampanhas = lazy(() => import("./pages/interno/InternoCampanhas.tsx"));
 const InternoRelatorios = lazy(() => import("./pages/interno/InternoRelatorios.tsx"));
 const InternoVendedores = lazy(() => import("./pages/interno/InternoVendedores.tsx"));
+const InternoPagamentos = lazy(() => import("./pages/interno/InternoPagamentos.tsx"));
 const InternoRelatorioEvento = lazy(() => import("./pages/interno/InternoRelatorioEvento.tsx"));
 const InternoCriativosCampeoes = lazy(() => import("./pages/interno/InternoCriativosCampeoes.tsx"));
 const InternoAdsCriarCampanha = lazy(() => import("./pages/interno/InternoAdsCriarCampanha.tsx"));
@@ -114,6 +115,8 @@ createRoot(document.getElementById("root")!).render(
           <Route path="crm-visao-geral" element={<InternoCrmVisaoGeral />} />
           <Route path="vendedores" element={<Navigate to="/interno/vendedores/ranking" replace />} />
           <Route path="vendedores/:aba" element={<InternoVendedores />} />
+          <Route path="pagamentos" element={<Navigate to="/interno/pagamentos/a-pagar" replace />} />
+          <Route path="pagamentos/:aba" element={<InternoPagamentos />} />
           <Route path="zig-tickets" element={<InternoZigTicketsGeral />} />
           <Route path="zig-tickets/geral" element={<InternoZigTicketsGeral />} />
           <Route path="zig-tickets/:eventId" element={<InternoZigTickets />} />

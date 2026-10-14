@@ -28,6 +28,7 @@ const SIDEBAR_ITEMS: { key: SidebarKey; label: string }[] = [
   { key: 'comentarios', label: 'Comentários' },
   { key: 'automacoes', label: 'Automações' },
   { key: 'vendedores', label: 'Vendedores' },
+  { key: 'pagamentos', label: 'Pagamentos' },
 ];
 
 interface UserWithRoles {
