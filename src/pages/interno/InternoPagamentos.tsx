@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Navigate, useParams } from 'react-router-dom';
-import { AlertTriangle, Ban, Banknote, CheckCircle2, Copy, History, Loader2, Pencil, Plus, RefreshCw, Send, ShieldCheck, UserPlus, Wallet, XCircle } from 'lucide-react';
+import { AlertTriangle, ArrowDown, ArrowUp, Ban, Banknote, CalendarDays, CheckCircle2, Copy, History, Loader2, Pencil, Plus, RefreshCw, Send, ShieldCheck, UserPlus, Wallet, XCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { confirmDialog } from '@/components/ConfirmDialog';
 import { toast } from 'sonner';
 import {
-  CATEGORIAS, STATUS, TIPOS_CHAVE, chamarFuncao, chaveBonita, fmtBRL, fmtData, fmtDataHora, normalizarChave,
+  CATEGORIAS, STATUS, TIPOS_CHAVE, chamarFuncao, chaveBonita, fmtBRL, fmtData, fmtDataHora, moverNaSequencia, normalizarChave,
   useBanco, useEventosRecentes, useFavorecidos, useLimiteDiario, usePagamentos,
   type Categoria, type Favorecido, type LogItem, type Pagamento,
 } from '@/components/pagamentos/usePagamentos';
@@ -25,7 +25,7 @@ const ABAS = ['a-pagar', 'historico', 'favorecidos'] as const;
 type Aba = typeof ABAS[number];
 
 const TITULOS: Record<Aba, { titulo: string; sub: string }> = {
-  'a-pagar': { titulo: 'A pagar', sub: 'Pix lançados e ainda não enviados. Pagar manda na hora pela conta da Lagun.' },
+  'a-pagar': { titulo: 'A pagar', sub: 'Separado por evento, na ordem em que vai ser pago. Pagar manda na hora pela conta da Lagun.' },
   historico: { titulo: 'Histórico', sub: 'Tudo que já foi pago, falhou ou foi cancelado, com o comprovante do banco.' },
   favorecidos: { titulo: 'Favorecidos', sub: 'Quem recebe: artista, fornecedor, staff. Uma chave Pix por favorecido.' },
 };
@@ -99,15 +99,31 @@ function ChipBanco({ banco }: { banco: { configurado: boolean; banco: string; am
 
 // ── A pagar ────────────────────────────────────────────────────────────────
 function APagar({ versao, onMudou, bancoPronto }: { versao: number; onMudou: () => void; bancoPronto: boolean }) {
-  const { pagamentos, carregando, recarregar } = usePagamentos('abertos');
+  const { pagamentos, pagosPorEvento, carregando, recarregar } = usePagamentos('abertos');
   const { limite, salvar: salvarLimite } = useLimiteDiario();
   const [pagando, setPagando] = useState<string | null>(null);
+  const [movendo, setMovendo] = useState(false);
   const [editandoLimite, setEditandoLimite] = useState(false);
   const [limiteTexto, setLimiteTexto] = useState('');
   useEffect(() => { recarregar(); }, [versao, recarregar]);
 
   const total = useMemo(() => pagamentos.filter((p) => p.status === 'a_pagar').reduce((s, p) => s + p.valor, 0), [pagamentos]);
   const hoje = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date());
+
+  // Um grupo por evento (próximos eventos primeiro), "Sem evento" por último.
+  const grupos = useMemo(() => {
+    const mapa = new Map<string, { chave: string; nome: string; data: string | null; itens: Pagamento[] }>();
+    for (const p of pagamentos) {
+      const chave = p.event_id ?? '__sem__';
+      if (!mapa.has(chave)) mapa.set(chave, { chave, nome: p.evento?.nome ?? 'Sem evento', data: p.evento?.data ?? null, itens: [] });
+      mapa.get(chave)!.itens.push(p);
+    }
+    return [...mapa.values()].sort((a, b) => {
+      if (a.chave === '__sem__') return 1;
+      if (b.chave === '__sem__') return -1;
+      return (a.data ?? '9999').localeCompare(b.data ?? '9999');
+    });
+  }, [pagamentos]);
 
   async function pagar(p: Pagamento) {
     if (!bancoPronto) { toast.error('A conta do banco ainda não foi conectada. Dá pra lançar, mas não pagar.'); return; }
@@ -136,12 +152,20 @@ function APagar({ versao, onMudou, bancoPronto }: { versao: number; onMudou: () 
   }
 
   async function cancelar(p: Pagamento) {
-    const ok = await confirmDialog({ title: 'Cancelar pagamento', description: `${p.descricao}, ${fmtBRL(p.valor)} para ${p.favorecido?.nome ?? ''}. Ele sai da lista e vai pro histórico como cancelado.`, confirmText: 'Cancelar pagamento', destructive: true });
+    const ok = await confirmDialog({ title: 'Cancelar pagamento', description: `${p.descricao}, ${fmtBRL(p.valor)} para ${p.favorecido?.nome ?? ''}. Ele sai da sequência e vai pro histórico como cancelado.`, confirmText: 'Cancelar pagamento', destructive: true });
     if (!ok) return;
     const { error } = await (supabase as any).from('lagun_pagamentos').update({ status: 'cancelado' }).eq('id', p.id);
     if (error) { toast.error('Erro ao cancelar: ' + error.message); return; }
     toast.success('Pagamento cancelado');
     onMudou();
+  }
+
+  async function mover(grupo: Pagamento[], indice: number, direcao: -1 | 1) {
+    setMovendo(true);
+    const error = await moverNaSequencia(grupo, indice, direcao);
+    setMovendo(false);
+    if (error) { toast.error('Erro ao reordenar: ' + error.message); return; }
+    recarregar();
   }
 
   async function gravarLimite() {
@@ -156,7 +180,7 @@ function APagar({ versao, onMudou, bancoPronto }: { versao: number; onMudou: () 
   return (
     <div className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-3">
-        <Indicador rotulo="A pagar" valor={fmtBRL(total)} sub={`${pagamentos.filter((p) => p.status === 'a_pagar').length} pagamento(s)`} />
+        <Indicador rotulo="A pagar" valor={fmtBRL(total)} sub={`${pagamentos.filter((p) => p.status === 'a_pagar').length} pagamento(s) em ${grupos.length} evento(s)`} />
         <Indicador rotulo="Processando" valor={String(pagamentos.filter((p) => p.status === 'processando').length)} sub="aguardando o banco" />
         <Indicador rotulo="Limite por dia" valor={limite === null ? '…' : limite > 0 ? fmtBRL(limite) : 'Sem limite'} sub={
           editandoLimite ? (
@@ -170,48 +194,80 @@ function APagar({ versao, onMudou, bancoPronto }: { versao: number; onMudou: () 
         } />
       </div>
 
-      <Quadro titulo="Pagamentos abertos">
-        {carregando ? <Carregando /> : pagamentos.length === 0 ? (
-          <Vazio icone={<Wallet size={28} />}>Nada a pagar. Lance um pagamento pelo botão acima.</Vazio>
-        ) : (
-          <div className="divide-y divide-border">
-            {pagamentos.map((p) => {
-              const atrasado = p.status === 'a_pagar' && p.vencimento && p.vencimento < hoje;
-              const vence = p.status === 'a_pagar' && p.vencimento === hoje;
-              return (
-                <div key={p.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="flex flex-wrap items-center gap-2 text-sm font-semibold text-foreground">
-                      {p.favorecido?.nome ?? 'Favorecido removido'}
-                      <Etiqueta status={p.status} />
-                      {atrasado && <span className="inline-flex items-center gap-1 rounded-full bg-red-500/10 px-2 py-0.5 text-[10px] font-medium text-red-400"><AlertTriangle size={10} /> atrasado</span>}
-                      {vence && <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-400">vence hoje</span>}
-                    </p>
-                    <p className="mt-0.5 text-[11px] text-muted-foreground">
-                      {p.descricao}{p.evento ? ` · ${p.evento.nome}` : ''}{p.vencimento ? ` · vence ${fmtData(p.vencimento)}` : ''}
-                    </p>
-                    <p className="mt-0.5 text-[11px] text-muted-foreground/80">{p.favorecido ? `${TIPOS_CHAVE[p.favorecido.tipo_chave]} ${chaveBonita(p.favorecido)}` : ''}</p>
+      {carregando ? <Carregando /> : grupos.length === 0 ? (
+        <Quadro titulo="Pagamentos abertos"><Vazio icone={<Wallet size={28} />}>Nada a pagar. Lance um pagamento pelo botão acima.</Vazio></Quadro>
+      ) : grupos.map((g) => {
+        const abertos = g.itens.filter((p) => p.status === 'a_pagar');
+        const subtotal = abertos.reduce((s, p) => s + p.valor, 0);
+        const pagos = g.chave !== '__sem__' ? pagosPorEvento.get(g.chave) : undefined;
+        const proximo = abertos[0];
+        return (
+          <Quadro
+            key={g.chave}
+            titulo={
+              <span className="flex flex-wrap items-center gap-2">
+                {g.chave !== '__sem__' && <CalendarDays size={14} className="text-muted-foreground" />}
+                {g.nome}
+                {g.data && <span className="text-xs font-normal text-muted-foreground">{fmtData(g.data)}</span>}
+                {pagos && pagos.quantidade > 0 && <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-400">{pagos.quantidade} pago(s) · {fmtBRL(pagos.total)}</span>}
+              </span>
+            }
+            extra={
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-muted-foreground">Falta <span className="font-semibold text-foreground">{fmtBRL(subtotal)}</span> em {abertos.length}</span>
+                {proximo && (
+                  <button onClick={() => void pagar(proximo)} disabled={pagando === proximo.id} className="inline-flex h-8 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold text-white hover:brightness-110 disabled:opacity-60" style={{ background: OURO }} title={`Próximo da sequência: ${proximo.favorecido?.nome ?? ''}`}>
+                    {pagando === proximo.id ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />} Pagar próximo
+                  </button>
+                )}
+              </div>
+            }
+          >
+            <div className="divide-y divide-border">
+              {g.itens.map((p, i) => {
+                const atrasado = p.status === 'a_pagar' && p.vencimento && p.vencimento < hoje;
+                const vence = p.status === 'a_pagar' && p.vencimento === hoje;
+                const ehProximo = p.id === proximo?.id;
+                return (
+                  <div key={p.id} className={`flex flex-wrap items-center gap-3 px-4 py-3 ${ehProximo ? 'bg-white/[0.025]' : ''}`}>
+                    <div className="flex flex-col items-center gap-0.5">
+                      <button onClick={() => void mover(g.itens, i, -1)} disabled={movendo || i === 0} className="rounded p-0.5 text-muted-foreground hover:text-foreground disabled:opacity-20" title="Subir na sequência"><ArrowUp size={12} /></button>
+                      <span className="flex h-7 w-7 items-center justify-center rounded-full border text-xs font-semibold" style={ehProximo ? { borderColor: OURO, color: OURO } : { borderColor: 'hsl(var(--border))', color: 'hsl(var(--muted-foreground))' }}>{i + 1}</span>
+                      <button onClick={() => void mover(g.itens, i, 1)} disabled={movendo || i === g.itens.length - 1} className="rounded p-0.5 text-muted-foreground hover:text-foreground disabled:opacity-20" title="Descer na sequência"><ArrowDown size={12} /></button>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="flex flex-wrap items-center gap-2 text-sm font-semibold text-foreground">
+                        {p.favorecido?.nome ?? 'Favorecido removido'}
+                        {p.favorecido && <span className="rounded-full border border-border px-2 py-0.5 text-[10px] font-normal text-foreground/70">{CATEGORIAS[p.favorecido.categoria]}</span>}
+                        <Etiqueta status={p.status} />
+                        {ehProximo && <span className="text-[10px] font-medium" style={{ color: OURO }}>próximo</span>}
+                        {atrasado && <span className="inline-flex items-center gap-1 rounded-full bg-red-500/10 px-2 py-0.5 text-[10px] font-medium text-red-400"><AlertTriangle size={10} /> atrasado</span>}
+                        {vence && <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-400">vence hoje</span>}
+                      </p>
+                      <p className="mt-0.5 text-[11px] text-muted-foreground">{p.descricao}{p.vencimento ? ` · vence ${fmtData(p.vencimento)}` : ''}</p>
+                      <p className="mt-0.5 text-[11px] text-muted-foreground/80">{p.favorecido ? `${TIPOS_CHAVE[p.favorecido.tipo_chave]} ${chaveBonita(p.favorecido)}` : ''}</p>
+                    </div>
+                    <p className="font-display text-base font-semibold text-foreground">{fmtBRL(p.valor)}</p>
+                    <div className="flex items-center gap-1.5">
+                      {p.status === 'a_pagar' && (
+                        <>
+                          <button onClick={() => void pagar(p)} disabled={pagando === p.id} className={`inline-flex h-8 items-center gap-1.5 rounded-lg border px-3 text-xs font-medium disabled:opacity-60 ${ehProximo ? 'border-transparent text-white hover:brightness-110' : 'border-border text-foreground hover:bg-muted'}`} style={ehProximo ? { background: OURO } : undefined}>
+                            {pagando === p.id ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />} Pagar
+                          </button>
+                          <button onClick={() => void cancelar(p)} title="Cancelar" className="rounded-lg border border-border p-1.5 text-muted-foreground hover:text-red-400"><Ban size={14} /></button>
+                        </>
+                      )}
+                      {p.status === 'processando' && (
+                        <button onClick={() => void consultar(p)} className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border px-3 text-xs font-medium text-foreground hover:bg-muted"><RefreshCw size={13} /> Consultar</button>
+                      )}
+                    </div>
                   </div>
-                  <p className="font-display text-base font-semibold text-foreground">{fmtBRL(p.valor)}</p>
-                  <div className="flex items-center gap-1.5">
-                    {p.status === 'a_pagar' && (
-                      <>
-                        <button onClick={() => void pagar(p)} disabled={pagando === p.id} className="inline-flex h-8 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold text-white hover:brightness-110 disabled:opacity-60" style={{ background: OURO }}>
-                          {pagando === p.id ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />} Pagar
-                        </button>
-                        <button onClick={() => void cancelar(p)} title="Cancelar" className="rounded-lg border border-border p-1.5 text-muted-foreground hover:text-red-400"><Ban size={14} /></button>
-                      </>
-                    )}
-                    {p.status === 'processando' && (
-                      <button onClick={() => void consultar(p)} className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border px-3 text-xs font-medium text-foreground hover:bg-muted"><RefreshCw size={13} /> Consultar</button>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </Quadro>
+                );
+              })}
+            </div>
+          </Quadro>
+        );
+      })}
     </div>
   );
 }
@@ -221,10 +277,16 @@ function Historico({ versao, onMudou }: { versao: number; onMudou: () => void })
   const { pagamentos, carregando, recarregar } = usePagamentos('historico');
   const [aberto, setAberto] = useState<Pagamento | null>(null);
   const [filtro, setFiltro] = useState<'todos' | 'pago' | 'falhou' | 'cancelado'>('todos');
+  const [evento, setEvento] = useState('');
   useEffect(() => { recarregar(); }, [versao, recarregar]);
 
-  const lista = filtro === 'todos' ? pagamentos : pagamentos.filter((p) => p.status === filtro);
-  const totalPago = useMemo(() => pagamentos.filter((p) => p.status === 'pago').reduce((s, p) => s + p.valor, 0), [pagamentos]);
+  const eventos = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const p of pagamentos) if (p.event_id && p.evento) m.set(p.event_id, p.evento.nome);
+    return [...m.entries()];
+  }, [pagamentos]);
+  const lista = pagamentos.filter((p) => (filtro === 'todos' || p.status === filtro) && (!evento || (evento === '__sem__' ? !p.event_id : p.event_id === evento)));
+  const totalPago = useMemo(() => lista.filter((p) => p.status === 'pago').reduce((s, p) => s + p.valor, 0), [lista]);
 
   async function relancar(p: Pagamento) {
     const { error } = await (supabase as any).from('lagun_pagamentos').insert({ favorecido_id: p.favorecido_id, event_id: p.event_id, descricao: p.descricao, valor: p.valor, vencimento: p.vencimento });
@@ -237,7 +299,12 @@ function Historico({ versao, onMudou }: { versao: number; onMudou: () => void })
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-xs text-muted-foreground">Total pago: <span className="font-semibold text-foreground">{fmtBRL(totalPago)}</span></p>
-        <div className="flex gap-1">
+        <div className="flex flex-wrap items-center gap-1">
+          <select value={evento} onChange={(e) => setEvento(e.target.value)} className="mr-1 h-7 rounded-full border border-border bg-background px-2 text-[11px] text-foreground">
+            <option value="">Todos os eventos</option>
+            {eventos.map(([id, nome]) => <option key={id} value={id}>{nome}</option>)}
+            <option value="__sem__">Sem evento</option>
+          </select>
           {(['todos', 'pago', 'falhou', 'cancelado'] as const).map((f) => (
             <button key={f} onClick={() => setFiltro(f)} className={`rounded-full px-3 py-1 text-[11px] font-medium ${filtro === f ? 'bg-foreground text-background' : 'border border-border text-muted-foreground hover:text-foreground'}`}>
               {f === 'todos' ? 'Todos' : STATUS[f].rotulo}
@@ -407,7 +474,7 @@ function Favorecidos({ favorecidos, carregando, onMudou }: { favorecidos: Favore
 
 // ── Lançar pagamento ───────────────────────────────────────────────────────
 function DialogoLancar({ aberto, onFechar, favorecidos, onSalvou }: { aberto: boolean; onFechar: () => void; favorecidos: Favorecido[]; onSalvou: () => void }) {
-  const eventos = useEventosRecentes();
+  const eventos = useEventosRecentes(120);
   const [form, setForm] = useState({ favorecido: '', descricao: '', valor: '', vencimento: '', evento: '' });
   const [salvando, setSalvando] = useState(false);
   useEffect(() => { if (aberto) setForm((f) => ({ ...f, favorecido: f.favorecido || favorecidos[0]?.id || '', descricao: '', valor: '', vencimento: '' })); }, [aberto, favorecidos]);
@@ -450,7 +517,7 @@ function DialogoLancar({ aberto, onFechar, favorecidos, onSalvou }: { aberto: bo
             <Campo rotulo="Descrição *" ajuda="Vai no Pix e no extrato. Até 140 caracteres.">
               <input value={form.descricao} onChange={(e) => setForm((f) => ({ ...f, descricao: e.target.value.slice(0, 140) }))} placeholder="ex: Cachê show 24/10" className={ENTRADA} />
             </Campo>
-            <Campo rotulo="Evento">
+            <Campo rotulo="Evento" ajuda="O pagamento entra no fim da sequência desse evento. A ordem se ajusta na aba A pagar.">
               <select value={form.evento} onChange={(e) => setForm((f) => ({ ...f, evento: e.target.value }))} className={ENTRADA}>
                 <option value="">Sem evento</option>
                 {eventos.map((e) => <option key={e.id} value={e.id}>{e.nome}{e.data ? ` · ${fmtData(e.data)}` : ''}</option>)}

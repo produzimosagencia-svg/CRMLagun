@@ -20,7 +20,7 @@ export interface Favorecido {
 
 export interface Pagamento {
   id: string; favorecido_id: string; event_id: string | null; descricao: string; valor: number;
-  vencimento: string | null; status: Status; chave_pix_usada: string | null; nome_no_banco: string | null;
+  vencimento: string | null; ordem: number | null; status: Status; chave_pix_usada: string | null; nome_no_banco: string | null;
   end_to_end_id: string | null; erro: string | null; criado_por: string | null; pago_por: string | null;
   pago_em: string | null; created_at: string;
   favorecido?: Pick<Favorecido, 'id' | 'nome' | 'chave_pix' | 'tipo_chave' | 'categoria'> | null;
@@ -105,8 +105,11 @@ export function useFavorecidos() {
   return { favorecidos, carregando, recarregar };
 }
 
+export interface PagosDoEvento { quantidade: number; total: number }
+
 export function usePagamentos(filtro: 'abertos' | 'historico') {
   const [pagamentos, setPagamentos] = useState<Pagamento[]>([]);
+  const [pagosPorEvento, setPagosPorEvento] = useState<Map<string, PagosDoEvento>>(new Map());
   const [carregando, setCarregando] = useState(true);
   const [versao, setVersao] = useState(0);
   const recarregar = useCallback(() => setVersao((v) => v + 1), []);
@@ -116,27 +119,57 @@ export function usePagamentos(filtro: 'abertos' | 'historico') {
       let q = (supabase as any).from('lagun_pagamentos')
         .select('*, favorecido:lagun_favorecidos(id, nome, chave_pix, tipo_chave, categoria), evento:lagun_events(id, nome, data)');
       q = filtro === 'abertos'
-        ? q.in('status', ['a_pagar', 'processando']).order('vencimento', { ascending: true, nullsFirst: false }).order('created_at', { ascending: false })
+        ? q.in('status', ['a_pagar', 'processando']).order('ordem', { ascending: true, nullsFirst: false }).order('created_at', { ascending: true })
         : q.in('status', ['pago', 'falhou', 'cancelado']).order('pago_em', { ascending: false, nullsFirst: false }).order('created_at', { ascending: false }).limit(300);
       const { data, error } = await q;
       if (!vivo) return;
       if (error) console.error('[Pagamentos] lista', error);
-      setPagamentos(((data || []) as any[]).map((p) => ({ ...p, valor: Number(p.valor) })) as Pagamento[]);
+      const lista = ((data || []) as any[]).map((p) => ({ ...p, valor: Number(p.valor) })) as Pagamento[];
+      setPagamentos(lista);
+      // Quantos já foram pagos em cada evento que ainda tem pagamento aberto.
+      if (filtro === 'abertos') {
+        const ids = [...new Set(lista.map((p) => p.event_id).filter(Boolean))] as string[];
+        const mapa = new Map<string, PagosDoEvento>();
+        if (ids.length) {
+          const { data: pagos } = await (supabase as any).from('lagun_pagamentos').select('event_id, valor').eq('status', 'pago').in('event_id', ids);
+          for (const p of (pagos || []) as { event_id: string; valor: number }[]) {
+            const atual = mapa.get(p.event_id) ?? { quantidade: 0, total: 0 };
+            mapa.set(p.event_id, { quantidade: atual.quantidade + 1, total: atual.total + Number(p.valor) });
+          }
+        }
+        if (vivo) setPagosPorEvento(mapa);
+      }
       setCarregando(false);
     })();
     return () => { vivo = false; };
   }, [filtro, versao]);
-  return { pagamentos, carregando, recarregar };
+  return { pagamentos, pagosPorEvento, carregando, recarregar };
 }
 
-export function useEventosRecentes() {
+/** Troca a posição de dois pagamentos na sequência do evento. Se o grupo ainda não tem ordem, numera todos antes. */
+export async function moverNaSequencia(grupo: Pagamento[], indice: number, direcao: -1 | 1) {
+  const alvo = indice + direcao;
+  if (alvo < 0 || alvo >= grupo.length) return null;
+  const precisaNumerar = grupo.some((p) => p.ordem === null);
+  const ordens = grupo.map((p, i) => (precisaNumerar ? i + 1 : p.ordem!));
+  const trocas = grupo.map((p, i) => ({ id: p.id, ordem: ordens[i] }));
+  const t = trocas[indice].ordem; trocas[indice].ordem = trocas[alvo].ordem; trocas[alvo].ordem = t;
+  const paraAtualizar = precisaNumerar ? trocas : [trocas[indice], trocas[alvo]];
+  for (const u of paraAtualizar) {
+    const { error } = await (supabase as any).from('lagun_pagamentos').update({ ordem: u.ordem }).eq('id', u.id);
+    if (error) return error;
+  }
+  return null;
+}
+
+export function useEventosRecentes(dias = 90) {
   const [eventos, setEventos] = useState<{ id: string; nome: string; data: string | null }[]>([]);
   useEffect(() => {
-    const limite = new Date(); limite.setDate(limite.getDate() - 90);
+    const limite = new Date(); limite.setDate(limite.getDate() - dias);
     (supabase as any).from('lagun_events').select('id, nome, data').gte('data', limite.toISOString().slice(0, 10))
-      .order('data', { ascending: false }).limit(60)
+      .order('data', { ascending: false }).limit(dias > 90 ? 200 : 60)
       .then(({ data }: { data: any[] | null }) => setEventos(data || []));
-  }, []);
+  }, [dias]);
   return eventos;
 }
 
