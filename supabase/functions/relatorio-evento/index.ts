@@ -99,7 +99,8 @@ Deno.serve(async (req) => {
       { auth: { persistSession: false } },
     );
 
-    const { data: evento, error: erroEvento } = await supabase
+    // 1) Token do evento (link fixo, usado nos testes e no painel).
+    let { data: evento, error: erroEvento } = await supabase
       .from("lagun_events")
       .select("id, nome, data")
       .eq("relatorio_token", token)
@@ -107,6 +108,29 @@ Deno.serve(async (req) => {
     if (erroEvento) {
       console.error("[relatorio-evento] erro ao buscar evento", erroEvento.message);
       return json({ error: "erro_interno" }, 500);
+    }
+
+    // 2) Código individual do resumo diário (um por produtor por envio):
+    //    registra o clique e descobre o evento daquele envio.
+    if (!evento) {
+      const { data: eventIdClique, error: erroClique } = await supabase
+        .rpc("lagun_resumo_registrar_clique", { p_codigo: token });
+      if (erroClique) {
+        console.error("[relatorio-evento] erro ao registrar clique", erroClique.message);
+        return json({ error: "erro_interno" }, 500);
+      }
+      if (eventIdClique) {
+        const r = await supabase
+          .from("lagun_events")
+          .select("id, nome, data")
+          .eq("id", eventIdClique)
+          .maybeSingle();
+        if (r.error) {
+          console.error("[relatorio-evento] erro ao buscar evento do envio", r.error.message);
+          return json({ error: "erro_interno" }, 500);
+        }
+        evento = r.data;
+      }
     }
     if (!evento) return json({ error: "link_invalido" }, 404);
 
