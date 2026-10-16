@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
+import { AnimatePresence, motion } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
 import { useManifestInterno } from '@/hooks/useManifestInterno';
 import { useAppMobile } from '@/hooks/useAppMobile';
@@ -8,6 +9,8 @@ import palavraGold from '@/assets/palavra-lagun.png';
 import flamingoLagun from '@/assets/flamingo-solo.png';
 import { toast } from 'sonner';
 import { FundoEscultura } from '@/components/interno/FundoEscultura';
+import { marcarAberturaPosLogin } from '@/components/interno/AberturaSistema';
+import { esquecerSessao } from '@/components/interno/sessoes';
 import { ArrowLeft, Eye, EyeOff, Loader2 } from 'lucide-react';
 
 export default function InternoLogin() {
@@ -16,6 +19,10 @@ export default function InternoLogin() {
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [mostrarSenha, setMostrarSenha] = useState(false);
+  // Depois do login o cartão e o fundo esmaecem e o painel abre com a abertura
+  // (AberturaSistema). Enquanto isso a tela não redireciona sozinha.
+  const [saindo, setSaindo] = useState(false);
+  const navigate = useNavigate();
   useManifestInterno();
   useSemZoom(useAppMobile());
 
@@ -27,9 +34,9 @@ export default function InternoLogin() {
     );
   }
 
-  if (user && isPartner) return <Navigate to="/interno" replace />;
+  if (user && isPartner && !saindo && !submitting) return <Navigate to="/interno" replace />;
 
-  if (user && !isPartner) {
+  if (user && !isPartner && !saindo && !submitting) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4" style={{ backgroundColor: '#000' }}>
         <div className="text-center">
@@ -48,11 +55,13 @@ export default function InternoLogin() {
     const { error } = await signInByUsername(username.trim(), password);
     if (error) {
       toast.error(error.message || 'Usuário ou senha incorretos');
-    } else {
-      // Sinaliza login recém-sucedido: o InternoLayout consome este flag uma
-      // única vez para exibir a SplashScreen (nunca em refresh/rotas internas).
-      sessionStorage.setItem('interno-splash', '1');
+      setSubmitting(false);
+      return;
     }
+    // A abertura com os ícones substitui a SplashScreen preta.
+    marcarAberturaPosLogin();
+    esquecerSessao();
+    setSaindo(true);
     setSubmitting(false);
   };
 
@@ -63,14 +72,24 @@ export default function InternoLogin() {
       <div data-app-arrastar aria-hidden className="fixed inset-x-0 top-0 z-50 h-10" />
 
       {/* Fundo: escultura dourada de fitas e areia que se deforma com o mouse */}
+      {/* O fundo fica: a mesma escultura passa para a abertura sem reiniciar. */}
       <FundoEscultura className="absolute inset-0" />
-      <div aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_45%,rgba(0,0,0,.7)_100%)]" />
 
       <a data-app-voltar-site href="/" aria-label="Voltar ao site"
         className="absolute left-5 top-5 z-20 grid h-9 w-9 place-items-center rounded-full border border-white/10 bg-black/50 text-white/70 backdrop-blur-sm transition hover:text-white">
         <ArrowLeft size={17} />
       </a>
 
+      <AnimatePresence onExitComplete={() => {
+        if (isPartner) navigate('/interno', { replace: true });
+        else setSaindo(false);
+      }}>
+      {!saindo && (
+      <motion.div key="cartao" className="relative z-10 w-full max-w-[400px]"
+        initial={{ opacity: 0, scale: 0.96, y: 14, filter: 'blur(6px)' }}
+        animate={{ opacity: 1, scale: 1, y: 0, filter: 'blur(0px)' }}
+        exit={{ opacity: 0, scale: 0.94, y: -12, filter: 'blur(6px)' }}
+        transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}>
       {/* Cartão de login, no centro */}
       <div className="relative z-10 w-full max-w-[400px] rounded-[28px] border border-[#FFE14D]/25 bg-black/60 px-8 py-10 shadow-[0_0_60px_-18px_rgba(255,225,77,.45),inset_0_1px_0_rgba(255,255,255,.07)] backdrop-blur-xl max-md:px-6 max-md:py-8">
         <img src={flamingoLagun} alt="" aria-hidden className="mx-auto h-20 w-auto" />
@@ -109,6 +128,9 @@ export default function InternoLogin() {
           <span className="h-px flex-1 bg-white/10" />
         </div>
       </div>
+      </motion.div>
+      )}
+      </AnimatePresence>
     </div>
   );
 }

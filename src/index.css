@@ -167,13 +167,45 @@
    ela que deixava rastro preto ao rolar. A classe também é retirada no fim da
    animação (ver TransicaoPagina no InternoLayout). */
 .n-entra { animation: n-entra .34s cubic-bezier(.2,.7,.2,1); }
+
+/* Troca de página em cascata: cada bloco da página (filho direto da raiz) entra
+   um depois do outro, e os cards de uma grade entram em sequência dentro do
+   bloco. `backwards` só segura o estado inicial durante o atraso e solta no fim,
+   então não sobra camada de GPU. A classe sai quando a última animação acaba
+   (TransicaoPagina no InternoLayout). */
+@keyframes n-cascata {
+  from { opacity: 0; transform: translateY(14px) scale(.985); }
+  to   { opacity: 1; transform: none; }
+}
+.n-cascata > * > * {
+  --n-d: 0ms;
+  animation: n-cascata .42s cubic-bezier(.2,.7,.2,1) backwards;
+  animation-delay: var(--n-d);
+}
+.n-cascata > * > :nth-child(2) { --n-d: 50ms; }
+.n-cascata > * > :nth-child(3) { --n-d: 100ms; }
+.n-cascata > * > :nth-child(4) { --n-d: 150ms; }
+.n-cascata > * > :nth-child(5) { --n-d: 200ms; }
+.n-cascata > * > :nth-child(n+6) { --n-d: 240ms; }
+/* Cards de uma grade: o bloco fica parado e os cards entram um a um. */
+.n-cascata > * > .grid { animation: none; }
+.n-cascata > * > .grid > * {
+  animation: n-cascata .42s cubic-bezier(.2,.7,.2,1) backwards;
+  animation-delay: var(--n-d);
+}
+.n-cascata > * > .grid > :nth-child(2) { animation-delay: calc(var(--n-d) + 40ms); }
+.n-cascata > * > .grid > :nth-child(3) { animation-delay: calc(var(--n-d) + 80ms); }
+.n-cascata > * > .grid > :nth-child(4) { animation-delay: calc(var(--n-d) + 120ms); }
+.n-cascata > * > .grid > :nth-child(5) { animation-delay: calc(var(--n-d) + 160ms); }
+.n-cascata > * > .grid > :nth-child(n+6) { animation-delay: calc(var(--n-d) + 190ms); }
 /* Segundo sidebar aparecendo */
 .n-painel { animation: n-painel .28s cubic-bezier(.2,.7,.2,1) both; }
 /* Sub-itens entram em cascata */
 .n-item { animation: n-item .3s cubic-bezier(.2,.7,.2,1) both; }
 
 @media (prefers-reduced-motion: reduce) {
-  .n-entra, .n-painel, .n-item { animation: none; }
+  .n-entra, .n-painel, .n-item,
+  .n-cascata > * > *, .n-cascata > * > .grid > * { animation: none; }
 }
 
 /* App mobile (AppMobile.tsx): folha "Mais" subindo de baixo */

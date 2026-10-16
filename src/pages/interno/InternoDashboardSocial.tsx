@@ -42,7 +42,7 @@ interface SerieDia { dia: string; dms: number; cliques: number }
 interface EventoClique { nome: string; cliques: number }
 interface ResumoAutomacoes { ativas: number; disparos: number; dms: number; cliques: number }
 /** Comentário ou direct recebido — o RPC já descarta os que são só emoji. */
-interface Interacao { texto: string | null; autor: string | null; arroba?: string | null; quando: string }
+interface Interacao { texto: string | null; autor: string | null; arroba?: string | null; avatar?: string | null; quando: string }
 
 const nf = new Intl.NumberFormat('pt-BR');
 const pct = (n: number) => `${n.toFixed(1).replace('.', ',')}%`;
@@ -135,13 +135,22 @@ function ListaInteracoes({ itens, vazio, carregando }: { itens: Interacao[]; vaz
         const hue = [...(nome || String(i))].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 7);
         return (
           <div key={`${it.quando}-${i}`} className="flex items-start gap-2.5 rounded-lg border border-border/60 px-2.5 py-2">
-            <span className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-full text-[10px] font-bold text-white"
+            <span className="relative mt-0.5 grid h-7 w-7 shrink-0 place-items-center overflow-hidden rounded-full text-[10px] font-bold text-white"
               style={{ background: `radial-gradient(circle at 30% 30%, oklch(.70 .15 ${hue}), oklch(.42 .17 ${hue}) 70%)` }}>
               {(nome || '?').replace(/^@/, '').slice(0, 2).toUpperCase()}
+              {/* A foto do Instagram expira; se não carregar, ficam as iniciais por baixo. */}
+              {it.avatar && (
+                <img src={it.avatar} alt="" referrerPolicy="no-referrer" loading="lazy"
+                  className="absolute inset-0 h-full w-full object-cover"
+                  onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+              )}
             </span>
             <div className="min-w-0 flex-1">
               <div className="flex items-baseline justify-between gap-2">
-                <span className="truncate text-xs font-semibold">{nome ? `@${String(nome).replace(/^@/, '')}` : 'Sem nome'}</span>
+                <span className="truncate text-xs font-semibold">
+                  {it.arroba ? `@${String(it.arroba).replace(/^@/, '')}` : it.autor || 'Perfil do Instagram'}
+                  {it.arroba && it.autor && it.autor !== it.arroba && <span className="ml-1 font-normal text-muted-foreground">{it.autor}</span>}
+                </span>
                 <span className="shrink-0 text-[10px] text-muted-foreground">{quando(it.quando)}</span>
               </div>
               <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{it.texto}</p>
@@ -195,7 +204,8 @@ export default function InternoDashboardSocial() {
         setTotais({ dms: resumo.dms ?? 0, comentarios: resumo.comentarios ?? 0, cliques: resumo.cliques ?? 0 });
         setAutomacoes(resumo.automacoes ?? { ativas: 0, disparos: 0, dms: 0, cliques: 0 });
       }
-      setUltimosComentarios((coments ?? []) as Interacao[]);
+      // Nos comentários o autor já é o @.
+      setUltimosComentarios(((coments ?? []) as Interacao[]).map((c) => ({ ...c, arroba: c.autor })));
       setUltimosDirects((dms ?? []) as Interacao[]);
     })();
 

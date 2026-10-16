@@ -1,4 +1,4 @@
-import { useState, useEffect, Suspense, type ReactNode } from 'react';
+import { useState, useEffect, useCallback, Suspense, type ReactNode, type AnimationEvent } from 'react';
 import { Navigate, Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useSidebarSettings, type SidebarKey } from '@/hooks/useSidebarSettings';
@@ -11,6 +11,11 @@ import {
   Handshake, BadgeDollarSign, Target, UserPlus, Wallet, History,
 } from 'lucide-react';
 import SplashScreen from '@/components/SplashScreen';
+import { AberturaSistema, SinalPaginaPronta, deveMostrarAbertura } from '@/components/interno/AberturaSistema';
+import { EscolhaSessao } from '@/components/interno/EscolhaSessao';
+import { SESSOES, CHAVES_COMUNS, esquecerSessao, noAppDesktop, useSessao } from '@/components/interno/sessoes';
+import { LayoutGrid } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { DefinirSenha } from '@/components/interno/DefinirSenha';
 import { supabase } from '@/integrations/supabase/client';
 import { useAppMobile } from '@/hooks/useAppMobile';
@@ -39,22 +44,50 @@ interface Section {
 }
 
 /**
- * Envolve o conteúdo da página só para a animação de entrada e se livra da
- * classe assim que ela termina. Enquanto a classe existe o navegador mantém
- * uma camada de composição do tamanho da página; retirá-la devolve o elemento
- * ao fluxo normal e o scroll volta a repintar sem rastro.
+ * Envolve o conteúdo da página para a entrada em cascata (blocos e cards um
+ * depois do outro) e se livra da classe assim que a última animação termina.
+ * Enquanto a classe existe o navegador mantém camadas de composição; retirá-la
+ * devolve os elementos ao fluxo normal e o scroll volta a repintar sem rastro.
+ * Página carregada sob demanda (Suspense) também anima: os blocos que chegam
+ * depois ainda encontram a classe. O limite de 2s garante a retirada.
  */
 function TransicaoPagina({ chave, children }: { chave: string; children: ReactNode }) {
   const [animando, setAnimando] = useState(true);
-  useEffect(() => { setAnimando(true); }, [chave]);
+  useEffect(() => {
+    setAnimando(true);
+    const t = window.setTimeout(() => setAnimando(false), 2000);
+    return () => window.clearTimeout(t);
+  }, [chave]);
+  const terminou = (e: AnimationEvent<HTMLDivElement>) => {
+    if (e.animationName !== 'n-cascata') return;
+    const resta = e.currentTarget.getAnimations({ subtree: true })
+      .some((a) => (a as CSSAnimation).animationName === 'n-cascata');
+    if (!resta) setAnimando(false);
+  };
   return (
-    <div className={animando ? 'n-entra' : undefined} onAnimationEnd={() => setAnimando(false)}>
+    <div className={animando ? 'n-cascata' : undefined} onAnimationEnd={terminou}>
       {children}
     </div>
   );
 }
 
+/**
+ * A abertura (ícones sobre o fundo de areia) fica aqui fora, num ponto fixo da
+ * árvore: dentro do layout ela seria remontada a cada troca entre carregando,
+ * celular e computador, e recomeçaria do zero.
+ */
 export default function InternoLayout() {
+  const [abertura, setAbertura] = useState(deveMostrarAbertura);
+  const fecharAbertura = useCallback(() => setAbertura(false), []);
+  return (
+    <>
+      <AberturaSistema visivel={abertura} onFim={fecharAbertura} />
+      <InternoLayoutConteudo />
+    </>
+  );
+}
+
+function InternoLayoutConteudo() {
   const { user, loading, isPartner, isAdmin, roles, signOut } = useAuth();
   // Pagamentos: só quem está na lista lagun_pagamentos_usuarios (Bruno e Peset).
   const [podePagar, setPodePagar] = useState(false);
@@ -79,6 +112,14 @@ export default function InternoLayout() {
   const path = location.pathname;
   // Celular (abaixo de 768px): casca de aplicativo no lugar do trilho e da gaveta.
   const appMobile = useAppMobile();
+  // App de computador: sessão escolhida (Marketing, Vendedores, Financeiro, Admin).
+  const [sessao, setSessao] = useSessao();
+  // "Trocar sessão": a escolha aparece por cima do painel atual.
+  const [trocando, setTrocando] = useState(false);
+  // Sair: o painel esmaece antes de encerrar a sessão (o login entra em seguida).
+  const [saindoConta, setSaindoConta] = useState(false);
+  // Conta as escolhas de sessão: cada uma faz o menu e a página entrarem de novo.
+  const [revela, setRevela] = useState(0);
   useManifestInterno();
 
   useEffect(() => { if (splash) sessionStorage.removeItem('interno-splash'); }, [splash]);
@@ -261,6 +302,77 @@ export default function InternoLayout() {
   const activeSection = sections.find((s) => s.isActive(path));
   const panelItems = activeSection?.children ?? [];
 
+  // App de computador: o painel se divide em sessões (ver sessoes.ts). Cada
+  // pessoa vê as sessões que têm ao menos uma seção liberada para ela.
+  const modoSessoes = noAppDesktop() && !appMobile;
+  const sessoesDisponiveis = SESSOES.filter((s) => s.chaves.some((k) => sections.some((x) => x.key === k)));
+  const sessaoAtual = modoSessoes ? sessoesDisponiveis.find((s) => s.id === sessao) : undefined;
+  const naSessao = (s: Section) => !sessaoAtual || sessaoAtual.chaves.includes(s.key) || CHAVES_COMUNS.has(s.key);
+  // Dentro de uma sessão o menu segue a ordem da sessão (ex.: Vendedores antes
+  // do CRM) e as seções comuns ficam num grupo à parte, embaixo.
+  const ordem = (s: Section) => sessaoAtual?.chaves.indexOf(s.key) ?? 0;
+  const gruposVisiveis = sessaoAtual
+    ? [
+        navGroups.flat().filter((s) => sessaoAtual.chaves.includes(s.key)).sort((a, b) => ordem(a) - ordem(b)),
+        navGroups.flat().filter((s) => CHAVES_COMUNS.has(s.key)),
+      ].filter((g) => g.length > 0)
+    : navGroups.map((g) => g.filter(naSessao)).filter((g) => g.length > 0);
+  const contaVisivel = contaSections.filter(naSessao);
+  const inicioDaSessao = (id: string) => {
+    const def = SESSOES.find((x) => x.id === id);
+    for (const chave of def?.chaves ?? []) {
+      const s = sections.find((x) => x.key === chave);
+      if (s) return s.to;
+    }
+    return undefined;
+  };
+
+  const sair = () => {
+    if (saindoConta) return;
+    setSaindoConta(true);
+    window.setTimeout(() => { esquecerSessao(); signOut(); }, 360);
+  };
+
+  // A escolha de sessão é uma camada por cima do painel, sempre no mesmo ponto
+  // da árvore (primeiro filho), para poder animar a saída quando o painel entra.
+  const mostrarEscolha = modoSessoes && sessoesDisponiveis.length > 0 && (!sessaoAtual || trocando);
+  const camadaEscolha = (
+    <AnimatePresence>
+      {mostrarEscolha && (
+        <EscolhaSessao
+          key="escolha"
+          sessoes={sessoesDisponiveis}
+          nome={userName}
+          onSair={sair}
+          onEscolher={(id) => {
+            const destino = inicioDaSessao(id);
+            setSessao(id);
+            setTrocando(false);
+            setRevela((n) => n + 1);
+            if (destino) navigate(destino, { replace: true });
+          }}
+        />
+      )}
+    </AnimatePresence>
+  );
+
+  // Ainda sem sessão escolhida: só a escolha, sobre preto.
+  if (modoSessoes && !sessaoAtual && sessoesDisponiveis.length > 0) {
+    return (
+      <>
+        {camadaEscolha}
+        {splashOverlay}
+        <div className="h-screen bg-black" />
+      </>
+    );
+  }
+
+  // Página de outra sessão: leva para o início da sessão atual.
+  if (sessaoAtual && activeSection && !naSessao(activeSection)) {
+    const destino = inicioDaSessao(sessaoAtual.id);
+    if (destino) return <Navigate to={destino} replace />;
+  }
+
   const getPageTitle = () => {
     if (path === '/interno/dashboard') return 'Redes Sociais';
     if (path.startsWith('/interno/vendedores')) return 'Vendedores';
@@ -342,6 +454,7 @@ export default function InternoLayout() {
         <TransicaoPagina key={path} chave={path}>
           <Suspense fallback={carregandoPagina}>
             <Outlet />
+                <SinalPaginaPronta />
           </Suspense>
         </TransicaoPagina>
       </AppMobile>
@@ -349,12 +462,14 @@ export default function InternoLayout() {
   }
 
   return (
+    <>
+    {camadaEscolha}
     <TooltipProvider delayDuration={80}>
       {/* Altura fixa e sem rolagem aqui: o único container que rola é o <main>.
           Com min-h-screen quem rolava era a janela, e a barra lateral (altura
           cheia, sticky e com transform) era repintada a cada quadro — era daí
           que vinha o rastro preto. */}
-      <div className="interno-noturno flex h-screen overflow-hidden bg-background">
+      <div className={`interno-noturno flex h-screen overflow-hidden bg-background transition-opacity duration-300 ease-out ${saindoConta ? 'opacity-0' : ''}`}>
         {splashOverlay}
         {sidebarOpen && !isHome && (
           <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40 lg:hidden" onClick={() => setSidebarOpen(false)} />
@@ -367,12 +482,23 @@ export default function InternoLayout() {
             ${isHome ? '-translate-x-full lg:hidden' : sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
         >
           {/* ── Trilho de ícones ── */}
-          <nav data-app-trilho className="flex w-[64px] flex-col items-center bg-[#0A0A0F] border-r border-white/[0.06]">
+          <motion.nav data-app-trilho key={`trilho-${revela}`} className="flex w-[64px] flex-col items-center bg-[#0A0A0F] border-r border-white/[0.06]"
+            initial={revela ? { opacity: 0, x: -18 } : false}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.55, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}>
             <div data-app-topo className="flex h-14 w-full items-center justify-center border-b border-white/[0.06]">
               <img data-app-logo-trilho src={flamingoLagun} alt="Lagun" className="h-6 w-auto" />
             </div>
             <div className="flex-1 w-full flex flex-col items-center gap-1 py-2 overflow-y-auto">
-              {navGroups.map((grupo, gi) => (
+              {sessaoAtual && (
+                <>
+                  <RailItem label={`${sessaoAtual.nome} · trocar sessão`} active={false} onClick={() => setTrocando(true)}>
+                    <LayoutGrid size={18} />
+                  </RailItem>
+                  <span aria-hidden className="my-2 h-px w-8 bg-white/[0.16]" />
+                </>
+              )}
+              {gruposVisiveis.map((grupo, gi) => (
                 <div key={gi} className="flex w-full flex-col items-center gap-1">
                   {gi > 0 && <span aria-hidden className="my-2 h-px w-8 bg-white/[0.16]" />}
                   {grupo.map((s) => {
@@ -387,7 +513,7 @@ export default function InternoLayout() {
               ))}
             </div>
             <div className="w-full flex flex-col items-center gap-1 py-2 border-t border-white/[0.06]">
-              {contaSections.map((s) => {
+              {contaVisivel.map((s) => {
                 const Icon = s.icon!;
                 return (
                   <RailItem key={s.key} label={s.label} active={activeSection?.key === s.key} onClick={() => go(s.to)}>
@@ -406,7 +532,7 @@ export default function InternoLayout() {
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <button type="button" onClick={signOut} aria-label={`Sair (${userName})`}
+                  <button type="button" onClick={sair} aria-label={`Sair (${userName})`}
                     className="flex h-10 w-10 items-center justify-center rounded-lg text-[#8B8A9B] hover:bg-red-950/40 hover:text-red-400 transition-colors">
                     <LogOut size={18} />
                   </button>
@@ -416,7 +542,7 @@ export default function InternoLayout() {
                 </TooltipContent>
               </Tooltip>
             </div>
-          </nav>
+          </motion.nav>
 
           {/* ── Painel de sub-itens da seção ativa ── */}
           {panelItems.length > 0 && activeSection && (
@@ -470,15 +596,23 @@ export default function InternoLayout() {
           )}
           <main className="flex-1 overflow-auto bg-background p-4 lg:p-6">
             {/* key por rota: a animação de entrada roda a cada troca de página */}
+            {/* Depois de escolher a sessão, a página entra enquanto a escolha esmaece. */}
+            <motion.div key={`pagina-${revela}`}
+              initial={revela ? { opacity: 0, y: 16 } : false}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.38, ease: [0.16, 1, 0.3, 1] }}>
             <TransicaoPagina key={path} chave={path}>
               {/* Suspense aqui: trocar de página só troca o conteúdo, o menu fica. */}
               <Suspense fallback={<div className="flex h-[60vh] items-center justify-center"><div className="h-7 w-7 animate-spin rounded-full border-2 border-[#FFE14D] border-t-transparent" /></div>}>
                 <Outlet />
+                <SinalPaginaPronta />
               </Suspense>
             </TransicaoPagina>
+            </motion.div>
           </main>
         </div>
       </div>
     </TooltipProvider>
+    </>
   );
 }
