@@ -73,9 +73,13 @@ export default function InternoLogin() {
 
       {/* Cartão de login, no centro */}
       <div className="relative z-10 w-full max-w-[400px] rounded-[28px] border border-[#FFE14D]/25 bg-black/60 px-8 py-10 shadow-[0_0_60px_-18px_rgba(255,225,77,.45),inset_0_1px_0_rgba(255,255,255,.07)] backdrop-blur-xl max-md:px-6 max-md:py-8">
-        <img src={flamingoLagun} alt="" aria-hidden className="login-flamingo mx-auto h-16 w-auto" />
+        {/* Flamingo com halo dourado pulsando atrás */}
+        <div className="relative mx-auto grid h-24 w-24 place-items-center">
+          <span aria-hidden className="absolute -inset-5 animate-pulse rounded-full bg-[radial-gradient(circle,rgba(255,214,80,.7)_0%,rgba(255,190,60,.22)_40%,transparent_68%)] blur-lg [animation-duration:3.2s]" />
+          <img src={flamingoLagun} alt="" aria-hidden className="login-flamingo relative h-20 w-auto" />
+        </div>
 
-        <h1 className="mt-6 text-center text-[26px] font-bold tracking-tight text-white">Bem-vindo de volta</h1>
+        <h1 className="mt-5 text-center text-[26px] font-bold tracking-tight text-white">Acesso restrito.</h1>
         <p className="mt-1.5 text-center text-sm text-white/45">Acesso exclusivo para o time Lagun.</p>
 
         <form onSubmit={handleSubmit} className="mt-8 space-y-5">
