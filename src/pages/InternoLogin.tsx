@@ -59,12 +59,13 @@ export default function InternoLogin() {
   const campo = 'h-11 w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 text-sm text-white placeholder:text-white/30 outline-none transition focus:border-[#FFE14D]/70 focus:bg-white/[0.06]';
 
   return (
-    <div className="flex min-h-screen bg-black p-3 sm:p-4 max-md:min-h-[100dvh]">
+    <div data-app-login className="flex min-h-screen bg-black p-3 sm:p-4 max-md:min-h-[100dvh]">
+      <div data-app-arrastar aria-hidden className="fixed inset-x-0 top-0 z-50 h-10" />
       {/* Foto: painel arredondado à esquerda, como um quadro dentro da página */}
       <div className="relative hidden overflow-hidden rounded-[22px] lg:block lg:w-1/2">
         <img src={loginPhoto} alt="Lagun" className="absolute inset-0 h-full w-full object-cover" />
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/20" />
-        <a href="/" aria-label="Voltar ao site"
+        <a data-app-voltar-site href="/" aria-label="Voltar ao site"
           className="absolute left-5 top-5 grid h-9 w-9 place-items-center rounded-full bg-black/40 text-white backdrop-blur-sm transition hover:bg-black/60">
           <ArrowLeft size={17} />
         </a>

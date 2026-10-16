@@ -336,9 +336,9 @@ export default function InternoLayout() {
             ${isHome ? '-translate-x-full lg:hidden' : sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
         >
           {/* ── Trilho de ícones ── */}
-          <nav className="flex w-[64px] flex-col items-center bg-[#0A0A0F] border-r border-white/[0.06]">
-            <div className="flex h-14 w-full items-center justify-center border-b border-white/[0.06]">
-              <img src={flamingoLagun} alt="Lagun" className="h-6 w-auto" />
+          <nav data-app-trilho className="flex w-[64px] flex-col items-center bg-[#0A0A0F] border-r border-white/[0.06]">
+            <div data-app-topo className="flex h-14 w-full items-center justify-center border-b border-white/[0.06]">
+              <img data-app-logo-trilho src={flamingoLagun} alt="Lagun" className="h-6 w-auto" />
             </div>
             <div className="flex-1 w-full flex flex-col items-center gap-1 py-2 overflow-y-auto">
               {navGroups.map((grupo, gi) => (
@@ -390,7 +390,7 @@ export default function InternoLayout() {
           {/* ── Painel de sub-itens da seção ativa ── */}
           {panelItems.length > 0 && activeSection && (
             <div key={activeSection.key} className="n-painel flex w-[196px] flex-col bg-[#0D0D14] border-r border-white/[0.06]">
-              <div className="flex h-14 items-center justify-between px-4 border-b border-white/[0.06]">
+              <div data-app-topo className="flex h-14 items-center justify-between px-4 border-b border-white/[0.06]">
                 <span className="text-[13px] font-semibold text-[#F2F1F7] truncate">{activeSection.label}</span>
                 <button onClick={() => setSidebarOpen(false)} className="lg:hidden text-[#6B6A7B] hover:text-[#F2F1F7]" aria-label="Fechar menu">
                   <X size={16} />
@@ -423,7 +423,9 @@ export default function InternoLayout() {
         </aside>
 
         {/* Main content */}
-        <div className="flex min-h-0 flex-1 flex-col min-w-0">
+        <div className="relative flex min-h-0 flex-1 flex-col min-w-0">
+          {/* Só no app de computador: faixa fina no topo para arrastar a janela. */}
+          <div data-app-arrastar aria-hidden className="absolute inset-x-0 top-0 z-40 h-3" />
           {/* A faixa do topo saiu para ganhar altura: o nome da página já está no
               trilho e no painel lateral. No celular ela continua, porque é de lá
               que se abre o menu. */}
