@@ -377,3 +377,15 @@
     max-width: 100vw;
   }
 }
+
+/* App de computador (Projeto Lagun/launcher): o preload do app liga
+   html.app-desktop. A janela não tem barra de título; o menu lateral sobe até
+   o topo e os botões do Mac ficam sobre ele. No navegador nada disso vale. */
+[data-app-arrastar] { display: none; }
+html.app-desktop [data-app-arrastar] { display: block; -webkit-app-region: drag; }
+html.app-desktop [data-app-topo] { -webkit-app-region: drag; }
+html.app-desktop [data-app-topo] :is(button, a, input) { -webkit-app-region: no-drag; }
+html.app-desktop [data-app-trilho] { width: 76px; }
+html.app-desktop [data-app-logo-trilho],
+html.app-desktop [data-app-voltar-site] { display: none; }
+html.app-desktop [data-app-login] { padding-top: 40px; }
