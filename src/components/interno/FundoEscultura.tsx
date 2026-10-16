@@ -2,8 +2,8 @@ import { useEffect, useRef } from 'react';
 
 /**
  * Fundo do login: escultura dourada de fitas finas que se entrelaçam num laço
- * no centro e se desmancham em areia e contas nas pontas, sobre preto. O mouse
- * deforma e espalha os fios por onde passa; parado, tudo volta ao lugar.
+ * em volta do cartão e se desmancham em areia e contas nas pontas, sobre preto.
+ * O mouse deforma e espalha os grãos por onde passa; parado, tudo volta ao lugar.
  *
  * Tudo é uma nuvem de pontos (three.js) calculada uma vez; o movimento é feito
  * no shader. O three é carregado só aqui, para não pesar o resto do sistema.
@@ -25,7 +25,6 @@ const VERTICE = /* glsl */ `
   varying float vLuz;
   varying float vTipo;
   varying float vAlfa;
-  varying float vSemente;
 
   void main() {
     vec3 p = position;
@@ -62,7 +61,6 @@ const VERTICE = /* glsl */ `
 
     vLuz = aLuz;
     vTipo = aTipo;
-    vSemente = aSemente;
     vAlfa = (1.0 - smoothstep(0.82, 1.0, aCauda)) * (0.75 + 0.25 * sin(t * 0.8 + aSemente * 20.0));
   }
 `;
@@ -71,7 +69,6 @@ const FRAGMENTO = /* glsl */ `
   varying float vLuz;
   varying float vTipo;
   varying float vAlfa;
-  varying float vSemente;
 
   void main() {
     vec2 c = gl_PointCoord - 0.5;
@@ -91,26 +88,12 @@ const FRAGMENTO = /* glsl */ `
       float borda = smoothstep(0.5, 0.36, r);
       cor = mix(ouro * 0.45, luz, brilho * 0.9 + 0.1);
       a = borda * 0.95;
-    } else {
+    } else if (vTipo > 0.5) {
       a = smoothstep(0.5, 0.1, r) * 0.7;
+    } else {
+      a = smoothstep(0.5, 0.0, r) * 0.5;
     }
     a *= vAlfa;
-    gl_FragColor = vec4(cor * a, a);
-  }
-`;
-
-// Fios das fitas: linhas contínuas de 1px; o brilho de cetim vem de aLuz.
-const FRAGMENTO_FIO = /* glsl */ `
-  varying float vLuz;
-  varying float vAlfa;
-
-  void main() {
-    vec3 sombra = vec3(0.30, 0.20, 0.07);
-    vec3 ouro = vec3(0.93, 0.71, 0.30);
-    vec3 luz = vec3(1.0, 0.95, 0.78);
-    vec3 cor = mix(sombra, ouro, smoothstep(0.0, 0.5, vLuz));
-    cor = mix(cor, luz, smoothstep(0.7, 1.0, vLuz));
-    float a = (0.16 + 0.5 * vLuz * vLuz) * vAlfa;
     gl_FragColor = vec4(cor * a, a);
   }
 `;
@@ -157,7 +140,7 @@ export function FundoEscultura({ className = '' }: { className?: string }) {
       const camera = new THREE.PerspectiveCamera(34, 1, 0.1, 50);
       camera.position.set(0, 0, 6.5);
 
-      // ── Caminho: cauda esquerda → laço de 1,5 volta → cauda direita ──
+      // ── Caminho: cauda esquerda → laço de 1,5 volta em volta do cartão → cauda direita ──
       const R = 1.15;
       const controle: InstanceType<typeof THREE.Vector3>[] = [
         new THREE.Vector3(-4.4, 0.18, -0.3),
@@ -186,32 +169,26 @@ export function FundoEscultura({ className = '' }: { className?: string }) {
       const pontosCurva = curva.getSpacedPoints(AMOSTRAS);
 
       const rnd = aleatorio(20261016);
-      const novaNuvem = () => ({ pos: [] as number[], semente: [] as number[], tipo: [] as number[], luz: [] as number[], cauda: [] as number[] });
-      const graos = novaNuvem();  // areia e contas (pontos)
-      const fios = novaNuvem();   // fitas (segmentos de linha)
+      const pos: number[] = [];
+      const semente: number[] = [];
+      const tipo: number[] = [];
+      const luz: number[] = [];
+      const cauda: number[] = [];
 
       // Quanto o ponto t está para a ponta (0 no laço, 1 no fim da cauda).
       const pontaDe = (t: number) => Math.min(1, Math.max(0, (Math.abs(t - 0.5) * 2 - 0.42) / 0.58));
 
-      type Nuvem = ReturnType<typeof novaNuvem>;
-      const adicionar = (n: Nuvem, t: number, lado: number, prof: number, tp: number, l: number, sem = rnd()) => {
-        // Interpola entre amostras vizinhas para os fios saírem lisos.
-        const x = Math.min(AMOSTRAS, Math.max(0, t * AMOSTRAS));
-        const k0 = Math.floor(x), k1 = Math.min(AMOSTRAS, k0 + 1), f = x - k0;
-        const c0 = pontosCurva[k0], c1 = pontosCurva[k1];
-        const N = quadros.normals[k0], B = quadros.binormals[k0];
-        n.pos.push(
-          c0.x + (c1.x - c0.x) * f + N.x * lado + B.x * prof,
-          c0.y + (c1.y - c0.y) * f + N.y * lado + B.y * prof,
-          c0.z + (c1.z - c0.z) * f + N.z * lado + B.z * prof,
-        );
-        n.semente.push(sem);
-        n.tipo.push(tp);
-        n.luz.push(l);
-        n.cauda.push(pontaDe(t));
+      const adicionar = (t: number, lado: number, prof: number, tp: number, l: number) => {
+        const k = Math.min(AMOSTRAS, Math.max(0, Math.round(t * AMOSTRAS)));
+        const c = pontosCurva[k], N = quadros.normals[k], B = quadros.binormals[k];
+        pos.push(c.x + N.x * lado + B.x * prof, c.y + N.y * lado + B.y * prof, c.z + N.z * lado + B.z * prof);
+        semente.push(rnd());
+        tipo.push(tp);
+        luz.push(l);
+        cauda.push(pontaDe(t));
       };
 
-      // Fitas: faixas finas e sedosas que torcem ao longo do caminho.
+      // Fitas: faixas de grãos finos que torcem ao longo do caminho.
       const FITAS = [
         { largura: 0.42, fase: 0.0, torcao: 6.0, fios: 90 },
         { largura: 0.30, fase: 2.1, torcao: -5.0, fios: 70 },
@@ -221,31 +198,22 @@ export function FundoEscultura({ className = '' }: { className?: string }) {
       for (const fita of FITAS) {
         for (let f = 0; f < fita.fios; f++) {
           const a = (f / (fita.fios - 1)) * 2 - 1;      // posição do fio na largura
-          const sem = rnd();                              // o fio inteiro se move junto
           const desvio = (rnd() - 0.5) * 0.02;
-          const fiapoL = (rnd() - 0.5) * 0.7, fiapoP = (rnd() - 0.5) * 0.7, fiapoF = rnd() * 6;
-          // Cada fio termina num ponto diferente: as pontas da fita se desfiam.
-          const inicio = 0.17 + rnd() ** 2 * 0.12;
-          const fim = 0.83 - rnd() ** 2 * 0.12;
-          const passos = 420;
-          let anterior: number[] | null = null;
+          const inicio = 0.18 + rnd() * 0.06;
+          const fim = 0.82 - rnd() * 0.06;
+          const passos = 700;
           for (let s = 0; s <= passos; s++) {
             const t = inicio + (fim - inicio) * (s / passos);
             const ponta = pontaDe(t);
             // A fita afina e se abre em fiapos perto das pontas.
             const larg = fita.largura * (1 - 0.55 * ponta) * (0.85 + 0.15 * Math.sin(t * 40 + fita.fase));
             const giro = fita.fase + t * fita.torcao;
-            const solto = ponta * ponta * (1 + 0.3 * Math.sin(t * 30 + fiapoF));
-            const lado = a * larg * Math.cos(giro) + desvio + fiapoL * solto;
-            const prof = a * larg * Math.sin(giro) * 0.35 + fiapoP * solto;
+            const lado = a * larg * Math.cos(giro) + desvio + (rnd() - 0.5) * 0.25 * ponta * ponta;
+            const prof = a * larg * Math.sin(giro) * 0.35 + (rnd() - 0.5) * 0.25 * ponta * ponta;
             // Brilho de cetim: depende do ângulo da fita e de onde o fio está nela.
-            const l = (0.5 + 0.5 * Math.cos(giro + a * 1.4)) ** 1.6;
-            const atual = [t, lado, prof, l];
-            if (anterior) {
-              adicionar(fios, anterior[0], anterior[1], anterior[2], TIPO_FIO, anterior[3], sem);
-              adicionar(fios, t, lado, prof, TIPO_FIO, l, sem);
-            }
-            anterior = atual;
+            const l = 0.5 + 0.5 * Math.cos(giro * 1.0 + a * 1.4);
+            if (ponta > 0.7 && rnd() < ponta * 0.7) continue; // fio se desfaz
+            adicionar(t, lado, prof, TIPO_FIO, l);
           }
         }
       }
@@ -257,27 +225,22 @@ export function FundoEscultura({ className = '' }: { className?: string }) {
         const ponta = pontaDe(t);
         const espalha = 0.12 + 0.6 * ponta ** 1.4;
         const g = () => (rnd() + rnd() + rnd() - 1.5) / 1.5;
-        adicionar(graos, t, g() * espalha, g() * espalha * 0.8, TIPO_AREIA, 0.25 + rnd() * 0.75);
+        adicionar(t, g() * espalha, g() * espalha * 0.8, TIPO_AREIA, 0.25 + rnd() * 0.75);
       }
 
       // Contas: esferas soltas que acompanham a escultura.
       for (let i = 0; i < 150; i++) {
         const t = 0.12 + rnd() * 0.76;
         const espalha = 0.18 + 0.4 * pontaDe(t);
-        adicionar(graos, t, (rnd() - 0.5) * 2 * espalha, (rnd() - 0.5) * 2 * espalha, TIPO_CONTA, 0.6 + rnd() * 0.4);
+        adicionar(t, (rnd() - 0.5) * 2 * espalha, (rnd() - 0.5) * 2 * espalha, TIPO_CONTA, 0.6 + rnd() * 0.4);
       }
 
-      const geometria = (n: Nuvem) => {
-        const g = new THREE.BufferGeometry();
-        g.setAttribute('position', new THREE.Float32BufferAttribute(n.pos, 3));
-        g.setAttribute('aSemente', new THREE.Float32BufferAttribute(n.semente, 1));
-        g.setAttribute('aTipo', new THREE.Float32BufferAttribute(n.tipo, 1));
-        g.setAttribute('aLuz', new THREE.Float32BufferAttribute(n.luz, 1));
-        g.setAttribute('aCauda', new THREE.Float32BufferAttribute(n.cauda, 1));
-        return g;
-      };
-      const geoGraos = geometria(graos);
-      const geoFios = geometria(fios);
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+      geo.setAttribute('aSemente', new THREE.Float32BufferAttribute(semente, 1));
+      geo.setAttribute('aTipo', new THREE.Float32BufferAttribute(tipo, 1));
+      geo.setAttribute('aLuz', new THREE.Float32BufferAttribute(luz, 1));
+      geo.setAttribute('aCauda', new THREE.Float32BufferAttribute(cauda, 1));
 
       const uniforms = {
         uTempo: { value: 0 },
@@ -285,12 +248,17 @@ export function FundoEscultura({ className = '' }: { className?: string }) {
         uForca: { value: 0 },
         uPixel: { value: pixel },
       };
-      const comum = { vertexShader: VERTICE, uniforms, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending };
-      const matGraos = new THREE.ShaderMaterial({ ...comum, fragmentShader: FRAGMENTO });
-      const matFios = new THREE.ShaderMaterial({ ...comum, fragmentShader: FRAGMENTO_FIO });
+      const material = new THREE.ShaderMaterial({
+        vertexShader: VERTICE,
+        fragmentShader: FRAGMENTO,
+        uniforms,
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+      });
+      const escultura = new THREE.Points(geo, material);
       const grupo = new THREE.Group();
-      grupo.add(new THREE.LineSegments(geoFios, matFios));
-      grupo.add(new THREE.Points(geoGraos, matGraos));
+      grupo.add(escultura);
       grupo.rotation.z = -0.07;
       cena.add(grupo);
 
@@ -360,10 +328,8 @@ export function FundoEscultura({ className = '' }: { className?: string }) {
         observador.disconnect();
         window.removeEventListener('pointermove', mover);
         document.removeEventListener('visibilitychange', visibilidade);
-        geoGraos.dispose();
-        geoFios.dispose();
-        matGraos.dispose();
-        matFios.dispose();
+        geo.dispose();
+        material.dispose();
         renderer.dispose();
         renderer.domElement.remove();
       };
