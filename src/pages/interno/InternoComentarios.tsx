@@ -4,6 +4,12 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { lazy, Suspense } from 'react';
+import { noAppDesktop } from '@/components/interno/sessoes';
+
+// Dentro do app de computador a mesma rota mostra a tela desenhada para o app.
+const ComentariosApp = lazy(() => import('@/app-desktop/paginas/Comentarios'));
+const esperando = <div className="app-esqueleto h-[60vh]" />;
 
 interface InstagramAccount {
   id: string;
@@ -70,6 +76,11 @@ function commentAuthor(comment: InstagramComment) {
 }
 
 export default function InternoComentarios() {
+  if (noAppDesktop()) return <Suspense fallback={esperando}><ComentariosApp /></Suspense>;
+  return <ComentariosSite />;
+}
+
+function ComentariosSite() {
   const [accounts, setAccounts] = useState<InstagramAccount[]>([]);
   const [selectedAccountId, setSelectedAccountId] = useState('');
   const [media, setMedia] = useState<InstagramMedia[]>([]);

@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
+import { noAppDesktop } from '@/components/interno/sessoes';
 import { Cake, RefreshCw, RotateCcw, ShoppingCart } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -11,7 +12,15 @@ const config = {
   estornos: { title: 'Estornos', description: 'Acompanhe mensagens de estorno sem depender dos painéis Zig Tickets ou Blueticket.', icon: RotateCcw },
 } as const;
 
+// Dentro do app de computador a mesma rota mostra a tela desenhada para o app.
+const CampanhaApp = lazy(() => import('@/app-desktop/paginas/CampanhaWhatsApp'));
+
 export default function InternoWhatsAppCampaign({ campaignKey }: { campaignKey: Exclude<TrackingCampaign, 'disparo'> }) {
+  if (noAppDesktop()) return <Suspense fallback={<div className="app-esqueleto h-[60vh]" />}><CampanhaApp campaignKey={campaignKey} /></Suspense>;
+  return <CampanhaSite campaignKey={campaignKey} />;
+}
+
+function CampanhaSite({ campaignKey }: { campaignKey: Exclude<TrackingCampaign, 'disparo'> }) {
   const item = config[campaignKey];
   const Icon = item.icon;
   const [messages, setMessages] = useState<Message[]>([]);

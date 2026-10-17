@@ -1,4 +1,5 @@
-import { useEffect, useState, useCallback } from "react";
+import { lazy, Suspense, useEffect, useState, useCallback } from "react";
+import { noAppDesktop } from "@/components/interno/sessoes";
 import { supabase } from "@/integrations/supabase/client";
 import { BarraIndicadores, CORES } from "@/components/interno/BarraIndicadores";
 import { RelatorioSocialMedia } from "@/components/interno/RelatorioSocialMedia";
@@ -105,7 +106,16 @@ function PostCard({ post }: { post: IGMedia }) {
   );
 }
 
+// Dentro do app de computador a mesma rota mostra a tela desenhada para o app
+// (publicações separadas por evento).
+const SocialMediaApp = lazy(() => import('@/app-desktop/paginas/SocialMedia'));
+
 export default function InternoSocialMedia() {
+  if (noAppDesktop()) return <Suspense fallback={<div className="app-esqueleto h-[60vh]" />}><SocialMediaApp /></Suspense>;
+  return <SocialMediaSite />;
+}
+
+function SocialMediaSite() {
   const [accounts, setAccounts] = useState<IGAccount[]>([]);
   const [selectedAccount, setSelectedAccount] = useState<IGAccount | null>(null);
   const [kpis, setKpis] = useState<Record<string, number>>({});
