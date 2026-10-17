@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { ArrowUpRight, Check, FileDown, Heart, History, Instagram, Loader2, MessageCircle, Play, Sparkles, X } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { ArrowUpRight, Check, FileDown, Heart, History, Instagram, Loader2, MessageCircle, Play, Sparkles, Tag, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { contasInstagram, publicacoesInstagram, nf, dataCurta, type ContaInstagram, type PublicacaoInstagram } from '@/lib/instagramApi';
@@ -12,33 +12,66 @@ import { lembrado, lembrar } from '@/app-desktop/memoria';
  * Social Media no APP: as publicações do feed separadas por evento, como o
  * Performance faz com as campanhas pagas.
  *
- * O vínculo publicação → evento fica em lagun_event_posts. A tela sugere o
- * evento pela legenda (nome do evento ou do artista aparece no texto) e a
- * equipe confirma com um clique; dá para aceitar todas as sugestões de uma
- * vez. Publicações sem evento ficam no fim, esperando classificação.
+ * O vínculo publicação → evento fica em lagun_event_posts. A tela classifica
+ * sozinha o que dá para ter certeza pela legenda (nome do evento, artistas do
+ * line-up, hashtags) e pela data (post perto da data do evento), gravando com
+ * origem 'auto'. O que fica em dúvida vira sugestão para confirmar. Post que
+ * não é de evento (institucional) é marcado como "Geral" e sai da fila.
  */
 interface Evento {
   id: string; nome: string; data: string | null; dia_semana: string | null; artista: string | null;
   show_on_landing: boolean; flyer_mobile_url: string | null; flyer_desktop_url: string | null;
 }
-interface Vinculo { media_id: string; event_id: string }
+interface Vinculo { media_id: string; event_id: string | null; tipo: 'evento' | 'geral'; origem: 'manual' | 'auto' }
 
-const semAcento = (t: string) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+const DIA = 86400_000;
+const normalizar = (t: string) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
+// Palavras que aparecem em todo evento e não identificam nenhum.
+const GENERICAS = new Set(['lagun', 'na', 'no', 'de', 'do', 'da', 'e', 'o', 'a', 'in', 'the', 'special', 'guests', 'guest', 'convidados', 'convidado', 'none', 'dj', 'mc', 'night', 'music', 'electronic', 'eletronic', 'experience', 'line', 'secret', 'welcome', 'party', 'festa']);
 
-/** Evento cuja chave (nome ou artista) aparece na legenda. Em empate, o de data mais perto da publicação. */
-function sugerirEvento(post: PublicacaoInstagram, eventos: Evento[]): Evento | null {
-  const legenda = semAcento(post.caption || '');
-  if (!legenda) return null;
+/** Chaves que identificam o evento: nome inteiro, nome sem palavras genéricas e cada artista do line-up. */
+function chavesDoEvento(e: Evento): { chave: string; peso: number }[] {
+  const chaves: { chave: string; peso: number }[] = [];
+  const nome = normalizar(e.nome);
+  if (nome.length >= 4) chaves.push({ chave: nome, peso: 3 });
+  const nomeLimpo = nome.split(' ').filter((p) => !GENERICAS.has(p)).join(' ');
+  if (nomeLimpo.length >= 4 && nomeLimpo !== nome) chaves.push({ chave: nomeLimpo, peso: 2.5 });
+  for (const parte of (e.artista || '').split(/[,&+]| e |\/|\n/)) {
+    const a = normalizar(parte).split(' ').filter((p) => !GENERICAS.has(p)).join(' ');
+    if (a.length >= 4) chaves.push({ chave: a, peso: 2 });
+  }
+  return chaves;
+}
+
+/**
+ * Pontua cada evento para a publicação. Chave encontrada na legenda soma o
+ * peso (chave mais longa vale mais); post publicado até 21 dias antes ou 3
+ * dias depois do evento ganha bônus; longe da data perde força. Devolve o
+ * melhor e se há certeza (melhor bem acima do segundo).
+ */
+function classificar(post: PublicacaoInstagram, eventos: Evento[]): { melhor: Evento | null; certo: boolean } {
+  const legenda = ` ${normalizar(post.caption || '')} `;
+  if (legenda.trim().length < 3) return { melhor: null, certo: false };
   const quando = new Date(post.timestamp).getTime();
-  const candidatos = eventos.filter((e) => {
-    const chaves = [e.nome, e.artista].filter((x): x is string => !!x && semAcento(x).length >= 3);
-    return chaves.some((c) => legenda.includes(semAcento(c)));
-  });
-  return candidatos.sort((a, b) => {
-    const da = a.data ? Math.abs(new Date(`${a.data.slice(0, 10)}T12:00:00`).getTime() - quando) : Infinity;
-    const db = b.data ? Math.abs(new Date(`${b.data.slice(0, 10)}T12:00:00`).getTime() - quando) : Infinity;
-    return da - db;
-  })[0] || null;
+  const pontuados = eventos.map((e) => {
+    let pontos = 0;
+    for (const { chave, peso } of chavesDoEvento(e)) {
+      if (legenda.includes(` ${chave} `) || legenda.includes(chave.replace(/ /g, ''))) pontos += peso + Math.min(chave.length, 20) / 20;
+    }
+    if (pontos === 0) return { e, pontos: 0 };
+    if (e.data) {
+      const dataEvento = new Date(`${e.data.slice(0, 10)}T12:00:00`).getTime();
+      const dias = (dataEvento - quando) / DIA; // positivo = post antes do evento
+      if (dias >= -3 && dias <= 21) pontos += 2;
+      else if (dias >= -10 && dias <= 45) pontos += 0.5;
+      else pontos -= 2.5;
+    }
+    return { e, pontos };
+  }).filter((x) => x.pontos > 0).sort((a, b) => b.pontos - a.pontos);
+  const [primeiro, segundo] = pontuados;
+  if (!primeiro) return { melhor: null, certo: false };
+  const certo = primeiro.pontos >= 4 && (!segundo || primeiro.pontos - segundo.pontos >= 1.5);
+  return { melhor: primeiro.e, certo };
 }
 
 const formatarData = (e: Evento) => {
@@ -48,6 +81,8 @@ const formatarData = (e: Evento) => {
 };
 const flyer = (e: Evento) => e.flyer_mobile_url || e.flyer_desktop_url || null;
 const engaj = (p: PublicacaoInstagram) => (p.like_count ?? 0) + (p.comments_count ?? 0);
+const pctTxt = (n: number) => `${n.toFixed(1).replace('.', ',')}%`;
+const porDataDesc = (a: PublicacaoInstagram, b: PublicacaoInstagram) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
 
 function Superficie({ titulo, sub, acao, className = '', children }: { titulo: string; sub?: ReactNode; acao?: ReactNode; className?: string; children: ReactNode }) {
   return (
@@ -64,19 +99,28 @@ function Superficie({ titulo, sub, acao, className = '', children }: { titulo: s
   );
 }
 
-/** Miniatura de publicação: foto quadrada, curtidas e comentários por cima ao passar o mouse. */
-function Miniatura({ p, tamanho = 'h-24 w-24' }: { p: PublicacaoInstagram; tamanho?: string }) {
+/** Miniatura de publicação: foto quadrada; curtidas e comentários aparecem ao passar o mouse. */
+function Miniatura({ p, tamanho = 64, onRemover, auto }: { p: PublicacaoInstagram; tamanho?: number; onRemover?: () => void; auto?: boolean }) {
   const foto = p.thumbnail_url || p.media_url;
   return (
-    <a href={p.permalink} target="_blank" rel="noreferrer" title={p.caption?.slice(0, 140)}
-      className={`group relative shrink-0 overflow-hidden rounded-[14px] bg-white/[0.05] ring-1 ring-white/10 transition-[box-shadow] hover:ring-[#FFE14D]/60 ${tamanho}`}>
-      {foto && <img src={foto} alt="" loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden'; }} />}
-      {p.media_type === 'VIDEO' && <span className="absolute right-1.5 top-1.5 grid h-5 w-5 place-items-center rounded-full bg-black/60"><Play size={10} className="fill-white text-white" /></span>}
-      <span className="absolute inset-x-0 bottom-0 flex items-center justify-between bg-gradient-to-t from-black/85 to-transparent px-2 pb-1.5 pt-5 text-[10.5px] font-semibold text-white">
-        <span className="flex items-center gap-1"><Heart size={10} className="fill-[#F9A8D4] text-[#F9A8D4]" />{nf.format(p.like_count ?? 0)}</span>
-        <span className="flex items-center gap-1"><MessageCircle size={10} className="text-[#8FB4FF]" />{nf.format(p.comments_count ?? 0)}</span>
-      </span>
-    </a>
+    <div className="group/post relative shrink-0" style={{ width: tamanho, height: tamanho }}>
+      <a href={p.permalink} target="_blank" rel="noreferrer" title={`${p.caption?.slice(0, 160) || 'Publicação'}${auto ? '\n(classificada automaticamente pela legenda)' : ''}`}
+        className="relative block h-full w-full overflow-hidden rounded-[12px] bg-white/[0.05] ring-1 ring-white/10 transition-[box-shadow] hover:ring-[#FFE14D]/60">
+        {foto && <img src={foto} alt="" loading="lazy" className="h-full w-full object-cover" onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden'; }} />}
+        {p.media_type === 'VIDEO' && <span className="absolute right-1 top-1 grid h-4 w-4 place-items-center rounded-full bg-black/60"><Play size={8} className="fill-white text-white" /></span>}
+        {auto && <span className="absolute left-1 top-1 grid h-4 w-4 place-items-center rounded-full bg-black/60 text-[#FFE14D]"><Sparkles size={9} /></span>}
+        <span className="absolute inset-x-0 bottom-0 flex items-center justify-between bg-gradient-to-t from-black/90 to-transparent px-1.5 pb-1 pt-4 text-[9.5px] font-semibold text-white opacity-0 transition-opacity group-hover/post:opacity-100">
+          <span className="flex items-center gap-0.5"><Heart size={9} className="fill-[#F9A8D4] text-[#F9A8D4]" />{nf.format(p.like_count ?? 0)}</span>
+          <span className="flex items-center gap-0.5"><MessageCircle size={9} className="text-[#8FB4FF]" />{nf.format(p.comments_count ?? 0)}</span>
+        </span>
+      </a>
+      {onRemover && (
+        <button type="button" title="Tirar daqui" onClick={onRemover}
+          className="absolute -right-1.5 -top-1.5 hidden h-5 w-5 place-items-center rounded-full bg-black text-white/70 ring-1 ring-white/20 hover:text-red-400 group-hover/post:grid">
+          <X size={11} />
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -86,12 +130,14 @@ export default function SocialMedia() {
   const [posts, setPosts] = useState<PublicacaoInstagram[]>(guardado?.posts ?? []);
   const [limite, setLimite] = useState(guardado?.limite ?? 100);
   const [eventos, setEventos] = useState<Evento[]>([]);
-  const [vinculos, setVinculos] = useState<Map<string, string>>(new Map());
+  const [vinculos, setVinculos] = useState<Map<string, Vinculo>>(new Map());
   const [carregando, setCarregando] = useState(!guardado);
   const [salvando, setSalvando] = useState<Set<string>>(new Set());
   const [verPassados, setVerPassados] = useState(false);
   const [aberto, setAberto] = useState<string | null>(null);
   const [gerandoPdf, setGerandoPdf] = useState(false);
+  const [classificando, setClassificando] = useState(0);
+  const jaClassificou = useRef(new Set<string>());
 
   useEffect(() => { lembrar('social-media', { conta, posts, limite }); }, [conta, posts, limite]);
 
@@ -101,10 +147,10 @@ export default function SocialMedia() {
       const [contas, { data: evs }, { data: vs }] = await Promise.all([
         contasInstagram(),
         (supabase as any).from('lagun_events').select('id, nome, data, dia_semana, artista, show_on_landing, flyer_mobile_url, flyer_desktop_url').order('data', { ascending: false }),
-        (supabase as any).from('lagun_event_posts').select('media_id, event_id'),
+        (supabase as any).from('lagun_event_posts').select('media_id, event_id, tipo, origem'),
       ]);
       setEventos((evs ?? []) as Evento[]);
-      setVinculos(new Map(((vs ?? []) as Vinculo[]).map((v) => [v.media_id, v.event_id])));
+      setVinculos(new Map(((vs ?? []) as Vinculo[]).map((v) => [v.media_id, v])));
       const c = contas[0] ?? null;
       setConta(c);
       if (c) setPosts(await publicacoesInstagram(c.id, limite));
@@ -117,34 +163,55 @@ export default function SocialMedia() {
 
   useEffect(() => { void carregar(); }, [carregar]);
 
-  const vincular = useCallback(async (p: PublicacaoInstagram, eventId: string | null) => {
+  const gravar = useCallback(async (p: PublicacaoInstagram, v: Omit<Vinculo, 'media_id'> | null) => {
     setSalvando((s) => new Set(s).add(p.id));
-    setVinculos((m) => { const n = new Map(m); if (eventId) n.set(p.id, eventId); else n.delete(p.id); return n; });
-    const { error } = eventId
-      ? await (supabase as any).from('lagun_event_posts').upsert({ media_id: p.id, event_id: eventId, caption: p.caption ?? null, permalink: p.permalink ?? null, posted_at: p.timestamp, updated_at: new Date().toISOString() })
+    setVinculos((m) => { const n = new Map(m); if (v) n.set(p.id, { media_id: p.id, ...v }); else n.delete(p.id); return n; });
+    const { error } = v
+      ? await (supabase as any).from('lagun_event_posts').upsert({ media_id: p.id, event_id: v.event_id, tipo: v.tipo, origem: v.origem, caption: p.caption ?? null, permalink: p.permalink ?? null, posted_at: p.timestamp, updated_at: new Date().toISOString() })
       : await (supabase as any).from('lagun_event_posts').delete().eq('media_id', p.id);
     setSalvando((s) => { const n = new Set(s); n.delete(p.id); return n; });
-    if (error) { toast.error('Não foi possível salvar o vínculo.'); void carregar(); }
+    if (error) { toast.error('Não foi possível salvar a classificação.'); void carregar(); }
   }, [carregar]);
+
+  const vincular = (p: PublicacaoInstagram, eventId: string) => gravar(p, { event_id: eventId, tipo: 'evento', origem: 'manual' });
+  const marcarGeral = (p: PublicacaoInstagram) => gravar(p, { event_id: null, tipo: 'geral', origem: 'manual' });
+  const desfazer = (p: PublicacaoInstagram) => gravar(p, null);
+
+  // Classificação automática: o que a legenda e a data deixam certo entra
+  // sozinho (origem 'auto'); roda uma vez por publicação carregada.
+  const classificacoes = useMemo(() => new Map(posts.map((p) => [p.id, classificar(p, eventos)] as const)), [posts, eventos]);
+  useEffect(() => {
+    if (carregando || !eventos.length) return;
+    const certos = posts.filter((p) => !vinculos.has(p.id) && !jaClassificou.current.has(p.id) && classificacoes.get(p.id)?.certo);
+    if (!certos.length) return;
+    certos.forEach((p) => jaClassificou.current.add(p.id));
+    (async () => {
+      setClassificando(certos.length);
+      for (const p of certos) await gravar(p, { event_id: classificacoes.get(p.id)!.melhor!.id, tipo: 'evento', origem: 'auto' });
+      setClassificando(0);
+      toast.success(`${certos.length} ${certos.length === 1 ? 'publicação classificada' : 'publicações classificadas'} pela legenda.`);
+    })();
+  }, [carregando, posts, eventos, vinculos, classificacoes, gravar]);
 
   const hoje = hojeSaoPaulo();
   const ativos = useMemo(() => eventos.filter((e) => e.show_on_landing && (!e.data || e.data.slice(0, 10) >= hoje)).sort((a, b) => (a.data ?? '').localeCompare(b.data ?? '')), [eventos, hoje]);
   const passados = useMemo(() => eventos.filter((e) => !ativos.includes(e)), [eventos, ativos]);
   const porEvento = useMemo(() => {
     const m = new Map<string, PublicacaoInstagram[]>();
-    for (const p of posts) { const ev = vinculos.get(p.id); if (ev) m.set(ev, [...(m.get(ev) ?? []), p]); }
+    for (const p of posts) { const ev = vinculos.get(p.id)?.event_id; if (ev) m.set(ev, [...(m.get(ev) ?? []), p]); }
     return m;
   }, [posts, vinculos]);
-  const semEvento = useMemo(() => posts.filter((p) => !vinculos.has(p.id)).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()), [posts, vinculos]);
-  const sugestoes = useMemo(() => new Map(semEvento.map((p) => [p.id, sugerirEvento(p, eventos)] as const).filter(([, e]) => e)), [semEvento, eventos]);
-  // Passados só aparecem se tiverem publicação; os ativos sempre, mesmo vazios.
+  const gerais = useMemo(() => posts.filter((p) => vinculos.get(p.id)?.tipo === 'geral').sort(porDataDesc), [posts, vinculos]);
+  const semEvento = useMemo(() => posts.filter((p) => !vinculos.has(p.id)).sort(porDataDesc), [posts, vinculos]);
+  const sugestoes = useMemo(() => new Map(semEvento.map((p) => [p.id, classificacoes.get(p.id)?.melhor ?? null] as const).filter(([, e]) => e)), [semEvento, classificacoes]);
   const passadosComPosts = passados.filter((e) => (porEvento.get(e.id)?.length ?? 0) > 0);
+  const listaEventos = verPassados ? passadosComPosts : ativos;
 
   const seguidores = conta?.followers_count ?? 0;
   const curtidas = posts.reduce((t, p) => t + (p.like_count ?? 0), 0);
   const comentarios = posts.reduce((t, p) => t + (p.comments_count ?? 0), 0);
   const taxa = posts.length && seguidores ? ((curtidas + comentarios) / posts.length / seguidores) * 100 : 0;
-  const pctTxt = (n: number) => `${n.toFixed(1).replace('.', ',')}%`;
+  const classificados = posts.length - semEvento.length;
 
   const aceitarTodas = async () => {
     const pares = [...sugestoes.entries()];
@@ -164,58 +231,51 @@ export default function SocialMedia() {
     } catch (e) { toast.error(e instanceof Error ? e.message : 'Falha ao gerar o PDF'); } finally { setGerandoPdf(false); }
   };
 
+  /** Cartão compacto de um evento: capa pequena, nome, números em linha e uma fileira de miniaturas. */
   const CartaoEvento = ({ e }: { e: Evento }) => {
-    const lista = (porEvento.get(e.id) ?? []).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    const lista = (porEvento.get(e.id) ?? []).sort(porDataDesc);
     const c = lista.reduce((t, p) => t + (p.like_count ?? 0), 0);
     const k = lista.reduce((t, p) => t + (p.comments_count ?? 0), 0);
     const tx = lista.length && seguidores ? ((c + k) / lista.length / seguidores) * 100 : 0;
     const expandido = aberto === e.id;
     const f = flyer(e);
+    const visiveis = expandido ? lista : lista.slice(0, 5);
     return (
-      <article className="app-superficie overflow-hidden">
-        <div className="flex items-stretch gap-4 p-4">
-          <div className="relative h-[92px] w-[92px] shrink-0 overflow-hidden rounded-[14px] bg-white/[0.05] ring-1 ring-white/10">
-            {f ? <img src={f} alt="" className="h-full w-full object-cover" /> : <span className="grid h-full place-items-center text-white/30"><Instagram size={20} /></span>}
+      <article className="app-superficie flex flex-col p-4">
+        <div className="flex items-center gap-3">
+          <div className="h-12 w-12 shrink-0 overflow-hidden rounded-[10px] bg-white/[0.05] ring-1 ring-white/10">
+            {f ? <img src={f} alt="" className="h-full w-full object-cover" /> : <span className="grid h-full place-items-center text-white/30"><Instagram size={16} /></span>}
           </div>
           <div className="min-w-0 flex-1">
-            <p className="app-eyebrow">{formatarData(e)}</p>
-            <h3 className="app-titulo mt-1 truncate text-[24px] text-white">{e.nome}</h3>
-            {e.artista && <p className="truncate text-[12.5px] text-white/50">{e.artista}</p>}
-            <div className="mt-2 flex items-end gap-6">
-              {([['Posts', nf.format(lista.length), '#F4F2EA'], ['Curtidas', nf.format(c), '#F9A8D4'], ['Comentários', nf.format(k), '#8FB4FF'], ['Engajamento', tx ? pctTxt(tx) : '—', '#FFE14D']] as const).map(([l, v, cor]) => (
-                <div key={l}><p className="app-eyebrow text-[9.5px]">{l}</p><p className="app-titulo text-[22px]" style={{ color: cor }}>{v}</p></div>
-              ))}
-            </div>
+            <p className="app-eyebrow text-[9.5px]">{formatarData(e)}</p>
+            <h3 className="app-titulo mt-0.5 truncate text-[19px] text-white">{e.nome}</h3>
+            {e.artista && <p className="truncate text-[11.5px] text-white/45">{e.artista}</p>}
           </div>
         </div>
-        {lista.length > 0 ? (
-          <div className="border-t border-white/[0.07] px-4 py-3">
-            <div className={`flex gap-2 ${expandido ? 'flex-wrap' : 'overflow-hidden'}`}>
-              {(expandido ? lista : lista.slice(0, 6)).map((p) => (
-                <div key={p.id} className="group/post relative">
-                  <Miniatura p={p} tamanho="h-[84px] w-[84px]" />
-                  <button type="button" title="Tirar deste evento" onClick={() => void vincular(p, null)} disabled={salvando.has(p.id)}
-                    className="absolute -right-1 -top-1 hidden h-5 w-5 place-items-center rounded-full bg-black text-white/70 ring-1 ring-white/20 hover:text-red-400 group-hover/post:grid">
-                    <X size={11} />
-                  </button>
-                </div>
-              ))}
+        <div className="mt-3 flex items-end justify-between gap-3 border-t border-white/[0.07] pt-3">
+          {([['Posts', nf.format(lista.length), '#F4F2EA'], ['Curtidas', nf.format(c), '#F9A8D4'], ['Coment.', nf.format(k), '#8FB4FF'], ['Engaj.', tx ? pctTxt(tx) : '—', '#FFE14D']] as const).map(([l, v, cor]) => (
+            <div key={l} className="min-w-0"><p className="app-eyebrow text-[9px]">{l}</p><p className="app-titulo text-[18px]" style={{ color: cor }}>{v}</p></div>
+          ))}
+        </div>
+        <div className="mt-3 min-h-[56px]">
+          {lista.length ? (
+            <div className={`flex gap-2 ${expandido ? 'flex-wrap' : ''}`}>
+              {visiveis.map((p) => <Miniatura key={p.id} p={p} tamanho={56} auto={vinculos.get(p.id)?.origem === 'auto'} onRemover={() => void desfazer(p)} />)}
+              {!expandido && lista.length > 5 && (
+                <button type="button" onClick={() => setAberto(e.id)} className="app-titulo grid h-14 w-14 shrink-0 place-items-center rounded-[12px] border border-white/10 text-[15px] text-white/60 hover:border-[#FFE14D]/60 hover:text-[#FFE14D]">+{lista.length - 5}</button>
+              )}
+              {expandido && <button type="button" onClick={() => setAberto(null)} className="app-aba h-14 px-3 text-[10.5px]">Menos</button>}
             </div>
-            {lista.length > 6 && (
-              <button type="button" onClick={() => setAberto(expandido ? null : e.id)} className="app-aba mt-3 h-8 px-3 text-[11px]">
-                {expandido ? 'Mostrar menos' : `Ver todas as ${lista.length}`}
-              </button>
-            )}
-          </div>
-        ) : (
-          <p className="border-t border-white/[0.07] px-4 py-3 text-[12px] text-white/35">Nenhuma publicação vinculada. Escolha o evento nas publicações sem evento, abaixo.</p>
-        )}
+          ) : (
+            <p className="text-[11.5px] leading-snug text-white/30">Sem publicação ainda.</p>
+          )}
+        </div>
       </article>
     );
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {/* ── Letreiro ───────────────────────────────────────────────────── */}
       <section className="app-superficie app-superficie--alta overflow-hidden">
         <div className="flex items-center justify-between gap-6 border-b border-white/[0.07] px-6 py-4">
@@ -225,7 +285,10 @@ export default function SocialMedia() {
               : <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white/[0.06] text-white/60 ring-1 ring-white/10"><Instagram size={18} /></span>}
             <div className="min-w-0">
               <p className="app-eyebrow">Instagram conectado</p>
-              <p className="mt-0.5 truncate text-[15px] font-semibold text-white">{conta ? `@${conta.username}` : (carregando ? 'carregando…' : 'sem conta vinculada')}</p>
+              <p className="mt-0.5 truncate text-[15px] font-semibold text-white">
+                {conta ? `@${conta.username}` : (carregando ? 'carregando…' : 'sem conta vinculada')}
+                {posts.length > 0 && <span className="ml-2 font-normal text-white/40">· {classificados} de {posts.length} classificadas{classificando ? ` · classificando ${classificando}…` : ''}</span>}
+              </p>
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-2">
@@ -257,10 +320,11 @@ export default function SocialMedia() {
       </section>
 
       {/* ── Eventos ────────────────────────────────────────────────────── */}
-      <div className="flex items-end justify-between gap-4 px-1 pt-2">
-        <div>
-          <p className="app-eyebrow">Publicações por evento</p>
-          <h2 className="app-titulo mt-1 text-[26px] text-white">{verPassados ? 'Eventos passados' : 'Eventos ativos'} <span className="text-white/30">{(verPassados ? passadosComPosts : ativos).length}</span></h2>
+      <div className="flex items-end justify-between gap-4 px-1 pt-1">
+        <div className="flex items-baseline gap-3">
+          <h2 className="app-titulo text-[24px] text-white">{verPassados ? 'Eventos passados' : 'Eventos ativos'}</h2>
+          <span className="app-titulo text-[24px] text-white/30">{listaEventos.length}</span>
+          <span className="app-eyebrow ml-2">Publicações por evento</span>
         </div>
         <button type="button" onClick={() => setVerPassados((v) => !v)} className={`app-aba h-9 px-4 text-[11.5px] ${verPassados ? 'ativo' : ''}`}>
           <History size={13} /> Eventos passados
@@ -268,22 +332,31 @@ export default function SocialMedia() {
       </div>
 
       {carregando && !posts.length ? (
-        <div className="grid grid-cols-2 gap-4"><div className="app-esqueleto h-[220px]" /><div className="app-esqueleto h-[220px]" /></div>
-      ) : (verPassados ? passadosComPosts : ativos).length === 0 ? (
-        <div className="app-superficie px-6 py-12 text-center">
-          <p className="app-titulo text-[22px] text-white/70">{verPassados ? 'Nenhum evento passado com publicação' : 'Nenhum evento ativo na landing'}</p>
+        <div className="grid grid-cols-3 gap-4"><div className="app-esqueleto h-[196px]" /><div className="app-esqueleto h-[196px]" /><div className="app-esqueleto h-[196px]" /></div>
+      ) : listaEventos.length === 0 ? (
+        <div className="app-superficie px-6 py-10 text-center">
+          <p className="app-titulo text-[20px] text-white/70">{verPassados ? 'Nenhum evento passado com publicação' : 'Nenhum evento ativo na landing'}</p>
           <p className="mt-2 text-[12.5px] text-white/40">{verPassados ? 'Vincule publicações a eventos antigos na lista de baixo.' : 'Eventos aparecem aqui quando estão na landing e a data ainda não passou.'}</p>
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-4">
-          {(verPassados ? passadosComPosts : ativos).map((e) => <CartaoEvento key={e.id} e={e} />)}
+        <div className="grid grid-cols-3 gap-4">
+          {listaEventos.map((e) => <CartaoEvento key={e.id} e={e} />)}
         </div>
+      )}
+
+      {/* ── Geral (não é de evento) ────────────────────────────────────── */}
+      {gerais.length > 0 && (
+        <Superficie titulo={`Geral · ${gerais.length}`} sub="Publicações da casa que não são de um evento: institucional, bastidor, aviso. Passe o mouse e clique no X para voltar à fila.">
+          <div className="flex flex-wrap gap-2">
+            {gerais.map((p) => <Miniatura key={p.id} p={p} tamanho={56} onRemover={() => void desfazer(p)} />)}
+          </div>
+        </Superficie>
       )}
 
       {/* ── Sem evento ─────────────────────────────────────────────────── */}
       <Superficie
         titulo={`Sem evento · ${semEvento.length}`}
-        sub="Publicações que ainda não foram classificadas. A sugestão vem da legenda; confirme ou escolha outro evento."
+        sub="O que a legenda não deixou certo. Confirme a sugestão, escolha o evento ou marque como geral."
         acao={sugestoes.size > 0 && (
           <button type="button" onClick={() => void aceitarTodas()} className="app-aba ativo h-9 px-4 text-[11.5px]">
             <Sparkles size={13} /> Aceitar {sugestoes.size} {sugestoes.size === 1 ? 'sugestão' : 'sugestões'}
@@ -291,7 +364,7 @@ export default function SocialMedia() {
         )}
       >
         {semEvento.length === 0 ? (
-          <p className="py-8 text-center text-[13px] text-white/40">{posts.length ? 'Todas as publicações carregadas têm evento.' : 'Nenhuma publicação carregada.'}</p>
+          <p className="py-8 text-center text-[13px] text-white/40">{posts.length ? 'Todas as publicações carregadas estão classificadas.' : 'Nenhuma publicação carregada.'}</p>
         ) : (
           <ul className="-mx-2 flex flex-col">
             {semEvento.map((p) => {
@@ -299,24 +372,27 @@ export default function SocialMedia() {
               const ocupado = salvando.has(p.id);
               return (
                 <li key={p.id} className="flex items-center gap-4 rounded-[14px] px-2 py-2.5 transition-colors hover:bg-white/[0.03]">
-                  <Miniatura p={p} tamanho="h-16 w-16" />
+                  <Miniatura p={p} tamanho={60} />
                   <div className="min-w-0 flex-1">
                     <p className="line-clamp-2 text-[12.5px] leading-snug text-white/75">{p.caption || <span className="text-white/35">Publicação sem legenda.</span>}</p>
                     <p className="mt-1 text-[11px] text-white/35">{dataCurta(p.timestamp)} · {nf.format(engaj(p))} interações</p>
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
                     {sug && (
-                      <button type="button" disabled={ocupado} onClick={() => void vincular(p, sug.id)} title={`Sugestão pela legenda. Clique para vincular a ${sug.nome}.`}
+                      <button type="button" disabled={ocupado} onClick={() => void vincular(p, sug.id)} title={`Sugestão pela legenda e pela data. Clique para vincular a ${sug.nome}.`}
                         className="app-aba h-8 max-w-[220px] gap-1.5 border-dashed border-[#FFE14D]/50 px-3 text-[11px] text-[#FFEC8A] hover:border-[#FFE14D] disabled:opacity-50">
                         <Check size={12} className="shrink-0" /><span className="truncate">{sug.nome}</span>
                       </button>
                     )}
                     <select value="" disabled={ocupado} onChange={(ev) => { if (ev.target.value) void vincular(p, ev.target.value); }}
-                      className="h-8 max-w-[200px] rounded-full border border-white/15 bg-black/40 px-3 text-[11.5px] text-white/70 outline-none focus:border-[#FFE14D]/60">
+                      className="h-8 max-w-[190px] rounded-full border border-white/15 bg-black/40 px-3 text-[11.5px] text-white/70 outline-none focus:border-[#FFE14D]/60">
                       <option value="">{sug ? 'Outro evento…' : 'Escolher evento…'}</option>
                       {ativos.length > 0 && <optgroup label="Ativos">{ativos.map((e) => <option key={e.id} value={e.id}>{e.nome}</option>)}</optgroup>}
-                      {passados.length > 0 && <optgroup label="Passados">{passados.slice(0, 40).map((e) => <option key={e.id} value={e.id}>{e.nome}{e.data ? ` · ${e.data.slice(8, 10)}/${e.data.slice(5, 7)}` : ''}</option>)}</optgroup>}
+                      {passados.length > 0 && <optgroup label="Passados">{passados.slice(0, 60).map((e) => <option key={e.id} value={e.id}>{e.nome}{e.data ? ` · ${e.data.slice(8, 10)}/${e.data.slice(5, 7)}` : ''}</option>)}</optgroup>}
                     </select>
+                    <button type="button" disabled={ocupado} onClick={() => void marcarGeral(p)} title="Não é de evento: institucional, bastidor, aviso" className="app-aba h-8 px-3 text-[11px] disabled:opacity-50">
+                      <Tag size={12} /> Geral
+                    </button>
                     <a href={p.permalink} target="_blank" rel="noreferrer" className="grid h-8 w-8 place-items-center rounded-full text-white/40 hover:text-[#FFEC8A]" title="Abrir no Instagram"><ArrowUpRight size={14} /></a>
                   </div>
                 </li>
