@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { lembrado, lembrar } from '@/app-desktop/memoria';
 
 /* ──────────────────────────────────────────────────────────────────────────
  * Dados do dashboard de redes sociais, compartilhados pela tela do site
@@ -58,21 +59,37 @@ async function chamarInstagram(action: string, params: Record<string, string> = 
   return j;
 }
 
+/** Último resultado carregado, para a tela do app voltar já preenchida. */
+interface Guardado {
+  dias: Dias; perfil: Perfil | null; posts: Post[]; serie: SerieDia[]; porEvento: EventoClique[];
+  totais: { dms: number; comentarios: number; cliques: number }; automacoes: ResumoAutomacoes;
+  ultimosComentarios: Interacao[]; ultimosDirects: Interacao[];
+}
+const CHAVE_MEMORIA = 'dashboard-social';
+
 export function useDashboardSocial() {
-  const [dias, setDias] = useState<Dias>(30);
-  const [carregando, setCarregando] = useState(true);
+  const guardado = lembrado<Guardado>(CHAVE_MEMORIA);
+  const [dias, setDias] = useState<Dias>(guardado?.dias ?? 30);
+  // Com memória: mostra o que tinha e atualiza por baixo, sem esqueleto.
+  const [carregando, setCarregando] = useState(!guardado);
   const [erroIg, setErroIg] = useState('');
-  const [perfil, setPerfil] = useState<Perfil | null>(null);
-  const [posts, setPosts] = useState<Post[]>([]);
-  const [serie, setSerie] = useState<SerieDia[]>([]);
-  const [porEvento, setPorEvento] = useState<EventoClique[]>([]);
-  const [totais, setTotais] = useState({ dms: 0, comentarios: 0, cliques: 0 });
-  const [automacoes, setAutomacoes] = useState<ResumoAutomacoes>({ ativas: 0, disparos: 0, dms: 0, cliques: 0 });
-  const [ultimosComentarios, setUltimosComentarios] = useState<Interacao[]>([]);
-  const [ultimosDirects, setUltimosDirects] = useState<Interacao[]>([]);
+  const [perfil, setPerfil] = useState<Perfil | null>(guardado?.perfil ?? null);
+  const [posts, setPosts] = useState<Post[]>(guardado?.posts ?? []);
+  const [serie, setSerie] = useState<SerieDia[]>(guardado?.serie ?? []);
+  const [porEvento, setPorEvento] = useState<EventoClique[]>(guardado?.porEvento ?? []);
+  const [totais, setTotais] = useState(guardado?.totais ?? { dms: 0, comentarios: 0, cliques: 0 });
+  const [automacoes, setAutomacoes] = useState<ResumoAutomacoes>(guardado?.automacoes ?? { ativas: 0, disparos: 0, dms: 0, cliques: 0 });
+  const [ultimosComentarios, setUltimosComentarios] = useState<Interacao[]>(guardado?.ultimosComentarios ?? []);
+  const [ultimosDirects, setUltimosDirects] = useState<Interacao[]>(guardado?.ultimosDirects ?? []);
+
+  useEffect(() => {
+    lembrar<Guardado>(CHAVE_MEMORIA, { dias, perfil, posts, serie, porEvento, totais, automacoes, ultimosComentarios, ultimosDirects });
+  }, [dias, perfil, posts, serie, porEvento, totais, automacoes, ultimosComentarios, ultimosDirects]);
 
   const carregar = useCallback(async () => {
-    setCarregando(true); setErroIg('');
+    // Só mostra esqueleto quando não há nada na tela ainda.
+    setCarregando((atual) => atual && !lembrado<Guardado>(CHAVE_MEMORIA)?.perfil);
+    setErroIg('');
 
     // Instagram (pode falhar sem derrubar o resto do painel)
     const ig = chamarInstagram('accounts')

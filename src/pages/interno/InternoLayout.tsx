@@ -462,12 +462,9 @@ function InternoLayoutConteudo() {
           onIr={go}
           sobreposicao={splashOverlay}
         >
-          <TransicaoPagina key={path} chave={path}>
-            <Suspense fallback={carregandoPagina}>
-              <Outlet />
-              <SinalPaginaPronta />
-            </Suspense>
-          </TransicaoPagina>
+          {/* A casca cuida da transição e do esqueleto (Suspense fica lá dentro). */}
+          <Outlet />
+          <SinalPaginaPronta />
         </CascaApp>
       </>
     );

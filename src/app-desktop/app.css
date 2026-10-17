@@ -257,3 +257,47 @@ html.app-desktop .interno-noturno ::-webkit-scrollbar-thumb:hover { background: 
 @media (prefers-reduced-motion: reduce) {
   .app-menu-item, .app-submenu-item, .app-aba { transition: none; }
 }
+
+/* ── Comportamento de programa, não de página ──────────────────────────── */
+/* Texto não seleciona ao arrastar (só em campo, texto editável e no que pedir
+   com data-selecionavel); imagem não arrasta; cursor de seta em botão e link. */
+html.app-desktop .app-casca,
+html.app-desktop .app-casca * { -webkit-user-select: none; user-select: none; }
+html.app-desktop .app-casca :is(input, textarea, select, [contenteditable="true"], [data-selecionavel], [data-selecionavel] *, pre, code) {
+  -webkit-user-select: text; user-select: text;
+}
+html.app-desktop .app-casca img, html.app-desktop .app-casca a { -webkit-user-drag: none; }
+html.app-desktop .app-casca :is(a, button, [role="button"], [role="tab"], label) { cursor: default; }
+html.app-desktop .app-casca :is(a, button, [role="button"]):disabled { cursor: not-allowed; }
+
+/* Foco neon no lugar do anel azul do navegador. */
+html.app-desktop .app-casca :focus-visible {
+  outline: 2px solid rgba(255, 225, 77, 0.75);
+  outline-offset: 2px;
+  border-radius: 10px;
+}
+html.app-desktop .app-casca :is(input, textarea, select):focus-visible { outline: none; }
+
+/* A janela não "puxa" na borda e nada rola por trás da tela. */
+html.app-desktop, html.app-desktop body { overscroll-behavior: none; overflow: hidden; }
+html.app-desktop .app-casca main { overscroll-behavior: contain; scroll-behavior: auto; }
+
+/* Barra de rolagem só aparece com o mouse em cima do conteúdo. */
+html.app-desktop .app-casca main::-webkit-scrollbar-thumb { background: transparent; background-clip: padding-box; border: 3px solid transparent; }
+html.app-desktop .app-casca main:hover::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.14); background-clip: padding-box; }
+html.app-desktop .app-casca main:hover::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.26); background-clip: padding-box; }
+
+/* Esqueleto da tela que está entrando: ocupa o lugar do conteúdo com um brilho
+   passando, em vez da bolinha girando. */
+@keyframes app-brilho-passa { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+.app-esqueleto {
+  border-radius: 20px;
+  border: 1px solid var(--app-linha);
+  background: linear-gradient(100deg, rgba(255, 255, 255, 0.025) 35%, rgba(255, 255, 255, 0.06) 50%, rgba(255, 255, 255, 0.025) 65%);
+  background-size: 300% 100%;
+  animation: app-brilho-passa 1.6s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) { .app-esqueleto { animation: none; } }
+
+/* Tela em troca: a atual some rápido e a nova sobe suave. */
+.app-tela { will-change: opacity, transform; }
