@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { ArrowUpRight, Check, FileDown, Heart, History, Instagram, Loader2, MessageCircle, Play, Sparkles, Tag, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -124,14 +124,47 @@ function Miniatura({ p, tamanho = 64, onRemover, auto }: { p: PublicacaoInstagra
   );
 }
 
+/**
+ * Fileira de miniaturas do cartão de evento: mede a largura e mostra só as que
+ * cabem numa linha; se sobrar publicação, o último espaço vira o "+N".
+ */
+const MINI = 56;
+const VAO = 8;
+function FileiraMiniaturas({ lista, auto, onRemover, onMais }: { lista: PublicacaoInstagram[]; auto: (p: PublicacaoInstagram) => boolean; onRemover: (p: PublicacaoInstagram) => void; onMais: () => void }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [cabem, setCabem] = useState(0);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const medir = () => setCabem(Math.max(1, Math.floor((el.clientWidth + VAO) / (MINI + VAO))));
+    medir();
+    const obs = new ResizeObserver(medir);
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+  const sobra = lista.length > cabem;
+  const visiveis = cabem ? lista.slice(0, sobra ? cabem - 1 : cabem) : [];
+  return (
+    <div ref={ref} className="flex min-w-0 gap-2 overflow-hidden">
+      {visiveis.map((p) => <Miniatura key={p.id} p={p} tamanho={MINI} auto={auto(p)} onRemover={() => onRemover(p)} />)}
+      {cabem > 0 && sobra && (
+        <button type="button" onClick={onMais} className="app-titulo grid h-14 w-14 shrink-0 place-items-center rounded-[12px] border border-white/10 text-[15px] text-white/60 hover:border-[#FFE14D]/60 hover:text-[#FFE14D]">+{lista.length - visiveis.length}</button>
+      )}
+    </div>
+  );
+}
+
 export default function SocialMedia() {
-  const guardado = lembrado<{ conta: ContaInstagram | null; posts: PublicacaoInstagram[]; limite: number }>('social-media');
+  const guardado = lembrado<{ conta: ContaInstagram | null; posts: PublicacaoInstagram[]; limite: number; eventos?: Evento[]; vinculos?: Vinculo[] }>('social-media');
   const [conta, setConta] = useState<ContaInstagram | null>(guardado?.conta ?? null);
   const [posts, setPosts] = useState<PublicacaoInstagram[]>(guardado?.posts ?? []);
   const [limite, setLimite] = useState(guardado?.limite ?? 100);
-  const [eventos, setEventos] = useState<Evento[]>([]);
-  const [vinculos, setVinculos] = useState<Map<string, Vinculo>>(new Map());
+  const [eventos, setEventos] = useState<Evento[]>(guardado?.eventos ?? []);
+  const [vinculos, setVinculos] = useState<Map<string, Vinculo>>(new Map((guardado?.vinculos ?? []).map((v) => [v.media_id, v])));
   const [carregando, setCarregando] = useState(!guardado);
+  // Eventos e vínculos chegam separados dos posts (que podem vir da memória):
+  // sem eles não dá para dizer o que está vazio, então até lá é esqueleto.
+  const [eventosCarregados, setEventosCarregados] = useState(Boolean(guardado?.eventos));
   const [salvando, setSalvando] = useState<Set<string>>(new Set());
   const [verPassados, setVerPassados] = useState(false);
   const [aberto, setAberto] = useState<string | null>(null);
@@ -139,7 +172,9 @@ export default function SocialMedia() {
   const [classificando, setClassificando] = useState(0);
   const jaClassificou = useRef(new Set<string>());
 
-  useEffect(() => { lembrar('social-media', { conta, posts, limite }); }, [conta, posts, limite]);
+  useEffect(() => {
+    lembrar('social-media', { conta, posts, limite, ...(eventosCarregados ? { eventos, vinculos: [...vinculos.values()] } : {}) });
+  }, [conta, posts, limite, eventos, vinculos, eventosCarregados]);
 
   const carregar = useCallback(async () => {
     setCarregando((c) => c && posts.length === 0);
@@ -151,6 +186,7 @@ export default function SocialMedia() {
       ]);
       setEventos((evs ?? []) as Evento[]);
       setVinculos(new Map(((vs ?? []) as Vinculo[]).map((v) => [v.media_id, v])));
+      setEventosCarregados(true);
       const c = contas[0] ?? null;
       setConta(c);
       if (c) setPosts(await publicacoesInstagram(c.id, limite));
@@ -158,6 +194,7 @@ export default function SocialMedia() {
       toast.error(e instanceof Error ? e.message : 'Não foi possível carregar o Instagram.');
     } finally {
       setCarregando(false);
+      setEventosCarregados(true);
     }
   }, [limite]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -181,7 +218,7 @@ export default function SocialMedia() {
   // sozinho (origem 'auto'); roda uma vez por publicação carregada.
   const classificacoes = useMemo(() => new Map(posts.map((p) => [p.id, classificar(p, eventos)] as const)), [posts, eventos]);
   useEffect(() => {
-    if (carregando || !eventos.length) return;
+    if (carregando || !eventosCarregados || !eventos.length) return;
     const certos = posts.filter((p) => !vinculos.has(p.id) && !jaClassificou.current.has(p.id) && classificacoes.get(p.id)?.certo);
     if (!certos.length) return;
     certos.forEach((p) => jaClassificou.current.add(p.id));
@@ -191,7 +228,7 @@ export default function SocialMedia() {
       setClassificando(0);
       toast.success(`${certos.length} ${certos.length === 1 ? 'publicação classificada' : 'publicações classificadas'} pela legenda.`);
     })();
-  }, [carregando, posts, eventos, vinculos, classificacoes, gravar]);
+  }, [carregando, eventosCarregados, posts, eventos, vinculos, classificacoes, gravar]);
 
   const hoje = hojeSaoPaulo();
   const ativos = useMemo(() => eventos.filter((e) => e.show_on_landing && (!e.data || e.data.slice(0, 10) >= hoje)).sort((a, b) => (a.data ?? '').localeCompare(b.data ?? '')), [eventos, hoje]);
@@ -239,9 +276,8 @@ export default function SocialMedia() {
     const tx = lista.length && seguidores ? ((c + k) / lista.length / seguidores) * 100 : 0;
     const expandido = aberto === e.id;
     const f = flyer(e);
-    const visiveis = expandido ? lista : lista.slice(0, 5);
     return (
-      <article className="app-superficie flex flex-col p-4">
+      <article className="app-superficie flex min-w-0 flex-col p-4">
         <div className="flex items-center gap-3">
           <div className="h-12 w-12 shrink-0 overflow-hidden rounded-[10px] bg-white/[0.05] ring-1 ring-white/10">
             {f ? <img src={f} alt="" className="h-full w-full object-cover" /> : <span className="grid h-full place-items-center text-white/30"><Instagram size={16} /></span>}
@@ -257,15 +293,16 @@ export default function SocialMedia() {
             <div key={l} className="min-w-0"><p className="app-eyebrow text-[9px]">{l}</p><p className="app-titulo text-[18px]" style={{ color: cor }}>{v}</p></div>
           ))}
         </div>
-        <div className="mt-3 min-h-[56px]">
+        <div className="mt-3 min-h-[56px] min-w-0">
           {lista.length ? (
-            <div className={`flex gap-2 ${expandido ? 'flex-wrap' : ''}`}>
-              {visiveis.map((p) => <Miniatura key={p.id} p={p} tamanho={56} auto={vinculos.get(p.id)?.origem === 'auto'} onRemover={() => void desfazer(p)} />)}
-              {!expandido && lista.length > 5 && (
-                <button type="button" onClick={() => setAberto(e.id)} className="app-titulo grid h-14 w-14 shrink-0 place-items-center rounded-[12px] border border-white/10 text-[15px] text-white/60 hover:border-[#FFE14D]/60 hover:text-[#FFE14D]">+{lista.length - 5}</button>
-              )}
-              {expandido && <button type="button" onClick={() => setAberto(null)} className="app-aba h-14 px-3 text-[10.5px]">Menos</button>}
-            </div>
+            expandido ? (
+              <div className="flex flex-wrap gap-2">
+                {lista.map((p) => <Miniatura key={p.id} p={p} tamanho={MINI} auto={vinculos.get(p.id)?.origem === 'auto'} onRemover={() => void desfazer(p)} />)}
+                <button type="button" onClick={() => setAberto(null)} className="app-aba h-14 px-3 text-[10.5px]">Menos</button>
+              </div>
+            ) : (
+              <FileiraMiniaturas lista={lista} auto={(p) => vinculos.get(p.id)?.origem === 'auto'} onRemover={(p) => void desfazer(p)} onMais={() => setAberto(e.id)} />
+            )
           ) : (
             <p className="text-[11.5px] leading-snug text-white/30">Sem publicação ainda.</p>
           )}
@@ -287,7 +324,7 @@ export default function SocialMedia() {
               <p className="app-eyebrow">Instagram conectado</p>
               <p className="mt-0.5 truncate text-[15px] font-semibold text-white">
                 {conta ? `@${conta.username}` : (carregando ? 'carregando…' : 'sem conta vinculada')}
-                {posts.length > 0 && <span className="ml-2 font-normal text-white/40">· {classificados} de {posts.length} classificadas{classificando ? ` · classificando ${classificando}…` : ''}</span>}
+                {posts.length > 0 && eventosCarregados && <span className="ml-2 font-normal text-white/40">· {classificados} de {posts.length} classificadas{classificando ? ` · classificando ${classificando}…` : ''}</span>}
               </p>
             </div>
           </div>
@@ -323,7 +360,7 @@ export default function SocialMedia() {
       <div className="flex items-end justify-between gap-4 px-1 pt-1">
         <div className="flex items-baseline gap-3">
           <h2 className="app-titulo text-[24px] text-white">{verPassados ? 'Eventos passados' : 'Eventos ativos'}</h2>
-          <span className="app-titulo text-[24px] text-white/30">{listaEventos.length}</span>
+          {eventosCarregados && <span className="app-titulo text-[24px] text-white/30">{listaEventos.length}</span>}
           <span className="app-eyebrow ml-2">Publicações por evento</span>
         </div>
         <button type="button" onClick={() => setVerPassados((v) => !v)} className={`app-aba h-9 px-4 text-[11.5px] ${verPassados ? 'ativo' : ''}`}>
@@ -331,7 +368,7 @@ export default function SocialMedia() {
         </button>
       </div>
 
-      {carregando && !posts.length ? (
+      {!eventosCarregados ? (
         <div className="grid grid-cols-3 gap-4"><div className="app-esqueleto h-[196px]" /><div className="app-esqueleto h-[196px]" /><div className="app-esqueleto h-[196px]" /></div>
       ) : listaEventos.length === 0 ? (
         <div className="app-superficie px-6 py-10 text-center">
@@ -345,7 +382,7 @@ export default function SocialMedia() {
       )}
 
       {/* ── Geral (não é de evento) ────────────────────────────────────── */}
-      {gerais.length > 0 && (
+      {eventosCarregados && gerais.length > 0 && (
         <Superficie titulo={`Geral · ${gerais.length}`} sub="Publicações da casa que não são de um evento: institucional, bastidor, aviso. Passe o mouse e clique no X para voltar à fila.">
           <div className="flex flex-wrap gap-2">
             {gerais.map((p) => <Miniatura key={p.id} p={p} tamanho={56} onRemover={() => void desfazer(p)} />)}
@@ -355,15 +392,17 @@ export default function SocialMedia() {
 
       {/* ── Sem evento ─────────────────────────────────────────────────── */}
       <Superficie
-        titulo={`Sem evento · ${semEvento.length}`}
+        titulo={eventosCarregados ? `Sem evento · ${semEvento.length}` : 'Sem evento'}
         sub="O que a legenda não deixou certo. Confirme a sugestão, escolha o evento ou marque como geral."
-        acao={sugestoes.size > 0 && (
+        acao={eventosCarregados && sugestoes.size > 0 && (
           <button type="button" onClick={() => void aceitarTodas()} className="app-aba ativo h-9 px-4 text-[11.5px]">
             <Sparkles size={13} /> Aceitar {sugestoes.size} {sugestoes.size === 1 ? 'sugestão' : 'sugestões'}
           </button>
         )}
       >
-        {semEvento.length === 0 ? (
+        {!eventosCarregados || (carregando && !posts.length) ? (
+          <div className="flex flex-col gap-2"><div className="app-esqueleto h-[76px]" /><div className="app-esqueleto h-[76px]" /><div className="app-esqueleto h-[76px]" /></div>
+        ) : semEvento.length === 0 ? (
           <p className="py-8 text-center text-[13px] text-white/40">{posts.length ? 'Todas as publicações carregadas estão classificadas.' : 'Nenhuma publicação carregada.'}</p>
         ) : (
           <ul className="-mx-2 flex flex-col">
