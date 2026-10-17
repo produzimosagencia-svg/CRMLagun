@@ -7,6 +7,7 @@ import { ConfirmDialogHost } from "./components/ConfirmDialog.tsx";
 import { ErrorBoundary } from "./components/ErrorBoundary.tsx";
 import { AuthProvider } from "./hooks/useAuth.tsx";
 import "./index.css";
+import "./app-desktop/app.css";
 
 const InternoLogin = lazy(() => import("./pages/InternoLogin.tsx"));
 const InternoLayout = lazy(() => import("./pages/interno/InternoLayout.tsx"));

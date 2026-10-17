@@ -21,6 +21,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAppMobile } from '@/hooks/useAppMobile';
 import { useManifestInterno } from '@/hooks/useManifestInterno';
 import { AppMobile } from '@/components/interno/mobile/AppMobile';
+import { CascaApp } from '@/app-desktop/CascaApp';
 import flamingoLagun from '@/assets/flamingo-solo.png';
 import logoPrive from '@/assets/logo-prive-preto.png';
 
@@ -32,8 +33,8 @@ const DISABLED_SIDEBAR_MODULES = new Set(['prive', 'zig_tickets', 'blueticket'])
 // ─── Estrutura de navegação ─────────────────────────────────────────────────
 // Sidebar 1 (trilho): só ícones, nome no balão ao passar o mouse.
 // Sidebar 2 (painel): sub-itens da seção ativa; só aparece quando a seção tem filhos.
-interface SubItem { label: string; to: string; end?: boolean; icon?: LucideIcon }
-interface Section {
+export interface SubItem { label: string; to: string; end?: boolean; icon?: LucideIcon }
+export interface Section {
   key: string;
   label: string;
   icon?: LucideIcon;
@@ -440,6 +441,37 @@ function InternoLayoutConteudo() {
   const go = (to: string) => { navigate(to); setSidebarOpen(false); };
 
   const carregandoPagina = <div className="flex h-[60vh] items-center justify-center"><div className="h-7 w-7 animate-spin rounded-full border-2 border-[#FFE14D] border-t-transparent" /></div>;
+
+  // App de computador: casca própria (src/app-desktop). Site é uma coisa, app é outra.
+  if (modoSessoes && sessaoAtual) {
+    return (
+      <>
+        {camadaEscolha}
+        <CascaApp
+          sessao={sessaoAtual}
+          grupos={gruposVisiveis}
+          conta={contaVisivel}
+          ativa={activeSection}
+          subitens={panelItems}
+          titulo={getPageTitle()}
+          nome={userName}
+          revela={revela}
+          saindo={saindoConta}
+          onTrocar={() => setTrocando(true)}
+          onSair={sair}
+          onIr={go}
+          sobreposicao={splashOverlay}
+        >
+          <TransicaoPagina key={path} chave={path}>
+            <Suspense fallback={carregandoPagina}>
+              <Outlet />
+              <SinalPaginaPronta />
+            </Suspense>
+          </TransicaoPagina>
+        </CascaApp>
+      </>
+    );
+  }
 
   if (appMobile) {
     return (
