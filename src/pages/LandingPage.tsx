@@ -297,8 +297,8 @@ export default function LandingPage() {
                     <span
                       className="text-[10px] tracking-widest px-2 py-1"
                       style={{
-                        border: `1px solid ${ev.tag === 'ABERTO' ? '#F5D470' : 'rgba(255,255,255,0.15)'}`,
-                        color: ev.tag === 'ABERTO' ? '#F5D470' : 'rgba(255,255,255,0.35)',
+                        border: `1px solid ${(ev.tag || '').includes('ABERT') ? '#F5D470' : 'rgba(255,255,255,0.15)'}`,
+                        color: (ev.tag || '').includes('ABERT') ? '#F5D470' : 'rgba(255,255,255,0.35)',
                         borderRadius: '999px',
                       }}
                     >

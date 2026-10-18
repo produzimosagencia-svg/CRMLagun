@@ -24,7 +24,10 @@ interface LandingEvent {
   show_on_landing: boolean;
   display_order: number;
   sem_parceiro: boolean;
+  ingresso_a_partir: number | null;
 }
+
+interface LoungeOpcao { id: string; nome: string; capacidade: number; minimo: number; preco: number }
 
 interface ParceiroOpcao { id: string; nome: string; telefone: string | null }
 
@@ -41,6 +44,7 @@ const emptyEvent: Omit<LandingEvent, 'id'> = {
   show_on_landing: true,
   display_order: 0,
   sem_parceiro: false,
+  ingresso_a_partir: null,
 };
 
 export default function InternoLanding() {
@@ -60,6 +64,10 @@ export default function InternoLanding() {
   const [parceiros, setParceiros] = useState<ParceiroOpcao[]>([]);
   const [parceirosPorEvento, setParceirosPorEvento] = useState<Record<string, string[]>>({});
   const [parceirosEscolhidos, setParceirosEscolhidos] = useState<string[]>([]);
+  // Lounges do app: catálogo (Admin) e os que abrem neste evento, com preço.
+  const [lounges, setLounges] = useState<LoungeOpcao[]>([]);
+  const [loungesPorEvento, setLoungesPorEvento] = useState<Record<string, Record<string, number>>>({});
+  const [loungesEscolhidos, setLoungesEscolhidos] = useState<Record<string, number>>({});
   const mobileInputRef = useRef<HTMLInputElement>(null);
   const desktopInputRef = useRef<HTMLInputElement>(null);
 
@@ -81,7 +89,7 @@ export default function InternoLanding() {
     const [{ data: evData }, { data: clickData }] = await Promise.all([
       (supabase as any)
         .from('lagun_events')
-        .select('id, nome, data, dia_semana, artista, guests, tag, link, flyer_mobile_url, flyer_desktop_url, show_on_landing, display_order, sem_parceiro')
+        .select('id, nome, data, dia_semana, artista, guests, tag, link, flyer_mobile_url, flyer_desktop_url, show_on_landing, display_order, sem_parceiro, ingresso_a_partir')
         .order('show_on_landing', { ascending: false })
         .order('display_order', { ascending: true }),
       (supabase as any)
@@ -107,6 +115,15 @@ export default function InternoLanding() {
       setClicks(map);
     }
     setLoading(false);
+  
+    const [{ data: cat }, { data: evl }] = await Promise.all([
+      (supabase as any).from('lagun_lounges').select('id, nome, capacidade, minimo, preco').eq('ativo', true).order('ordem'),
+      (supabase as any).from('lagun_evento_lounges').select('event_id, lounge_id, preco'),
+    ]);
+    setLounges(((cat ?? []) as any[]).map((l) => ({ ...l, preco: Number(l.preco) })));
+    const loungesEv: Record<string, Record<string, number>> = {};
+    for (const r of (evl ?? []) as any[]) (loungesEv[r.event_id] ??= {})[r.lounge_id] = Number(r.preco);
+    setLoungesPorEvento(loungesEv);
   }
 
   useEffect(() => { fetchEvents(); }, []);
@@ -115,6 +132,7 @@ export default function InternoLanding() {
     setEditingId(null);
     setForm(emptyEvent);
     setParceirosEscolhidos([]);
+    setLoungesEscolhidos(Object.fromEntries(lounges.map((l) => [l.id, l.preco])));
     setModalOpen(true);
   }
 
@@ -133,8 +151,10 @@ export default function InternoLanding() {
       show_on_landing: ev.show_on_landing ?? true,
       display_order: ev.display_order ?? 0,
       sem_parceiro: ev.sem_parceiro ?? false,
+      ingresso_a_partir: ev.ingresso_a_partir ?? null,
     });
     setParceirosEscolhidos(parceirosPorEvento[ev.id] || []);
+    setLoungesEscolhidos(loungesPorEvento[ev.id] ?? Object.fromEntries(lounges.map((l) => [l.id, l.preco])));
     setModalOpen(true);
   }
 
@@ -171,6 +191,7 @@ export default function InternoLanding() {
       show_on_landing: form.show_on_landing,
       display_order: Number(form.display_order) || 0,
       sem_parceiro: semParceiro,
+      ingresso_a_partir: form.ingresso_a_partir != null && String(form.ingresso_a_partir) !== '' ? Number(form.ingresso_a_partir) : null,
     };
 
     let error: any = null;
@@ -189,6 +210,16 @@ export default function InternoLanding() {
       else if (parceirosEscolhidos.length > 0) {
         ({ error } = await (supabase as any).from('lagun_event_partners')
           .insert(parceirosEscolhidos.map((partner_id) => ({ event_id: eventId, partner_id }))));
+      }
+    }
+
+    // Lounges da noite: substitui pelos escolhidos (com o preço de cada um).
+    if (!error && eventId) {
+      const { error: erroLounges } = await (supabase as any).from('lagun_evento_lounges').delete().eq('event_id', eventId);
+      if (erroLounges) error = erroLounges;
+      else {
+        const linhas = Object.entries(loungesEscolhidos).map(([lounge_id, preco]) => ({ event_id: eventId, lounge_id, preco }));
+        if (linhas.length > 0) ({ error } = await (supabase as any).from('lagun_evento_lounges').insert(linhas));
       }
     }
 
@@ -400,14 +431,52 @@ export default function InternoLanding() {
                   onChange={(e) => setForm((f) => ({ ...f, tag: e.target.value }))}
                   className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#D9B14E]"
                 >
-                  <option value="ABERTO">ABERTO</option>
-                  <option value="ESGOTADO">ESGOTADO</option>
-                  <option value="EM BREVE">EM BREVE</option>
-                  <option value="ENCERRADO">ENCERRADO</option>
+                  <option value="VENDAS EM BREVE">Vendas em breve!</option>
+                  <option value="VENDAS ABERTAS">Vendas abertas!</option>
+                  <option value="SOLDOUT EM BREVE">Soldout em breve!</option>
+                  <option value="SOLDOUT">Soldout!</option>
+                  {['VENDAS EM BREVE', 'VENDAS ABERTAS', 'SOLDOUT EM BREVE', 'SOLDOUT'].includes(form.tag ?? '') ? null : <option value={form.tag ?? 'ABERTO'}>{form.tag || 'ABERTO'} (antigo)</option>}
                 </select>
+                <p className="mt-1 text-[11px] text-gray-400">No app, "Evento passado" entra sozinho pela data.</p>
               </div>
 
-              {field('Link de ingressos', 'link', 'url', 'https://...')}
+              <div className="grid grid-cols-2 gap-3">
+                {field('Link de ingressos', 'link', 'url', 'https://...')}
+                {field('Ingresso a partir de (R$)', 'ingresso_a_partir', 'number', 'ex: 60')}
+              </div>
+
+              {/* Lounges que abrem nesta noite (app do cliente) */}
+              <div className="border-t border-gray-100 pt-3">
+                <div className="mb-2 flex items-center justify-between">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Lounges da noite (app)</p>
+                  <span className="text-[11px] text-gray-400">{Object.keys(loungesEscolhidos).length} de {lounges.length} abertos</span>
+                </div>
+                {lounges.length === 0 ? (
+                  <p className="text-xs text-gray-400">Nenhum lounge no catálogo.</p>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    {lounges.map((l) => {
+                      const aberto = l.id in loungesEscolhidos;
+                      return (
+                        <div key={l.id} className={`flex items-center gap-3 rounded-lg border px-3 py-2 ${aberto ? 'border-[#D9B14E]/60 bg-[#D9B14E]/5' : 'border-gray-200'}`}>
+                          <input type="checkbox" checked={aberto} className="accent-[#D9B14E]"
+                            onChange={(e) => setLoungesEscolhidos((a) => { const n = { ...a }; if (e.target.checked) n[l.id] = l.preco; else delete n[l.id]; return n; })} />
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium text-gray-800">{l.nome}</p>
+                            <p className="text-[11px] text-gray-400">{l.minimo === l.capacidade ? `${l.capacidade} pessoas` : l.capacidade - l.minimo === 1 ? `${l.minimo} ou ${l.capacidade} pessoas` : `${l.minimo} a ${l.capacidade} pessoas`}</p>
+                          </div>
+                          <label className="flex items-center gap-1 text-xs text-gray-500">R$
+                            <input type="number" min={0} step={50} disabled={!aberto} value={aberto ? loungesEscolhidos[l.id] : l.preco}
+                              onChange={(e) => setLoungesEscolhidos((a) => ({ ...a, [l.id]: Number(e.target.value) || 0 }))}
+                              className="w-24 rounded-md border border-gray-200 px-2 py-1 text-sm text-gray-800 disabled:opacity-40" />
+                          </label>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                <p className="mt-1 text-[11px] text-gray-400">Consumação por lounge nesta noite. Desmarcado = não abre no app.</p>
+              </div>
 
               {/* Produtores parceiros (obrigatório escolher: parceiros ou "sem parceiro") */}
               <div className="border-t border-gray-100 pt-3">
@@ -574,7 +643,7 @@ export default function InternoLanding() {
                   <div className="p-3 flex flex-col gap-2">
                     <div className="flex justify-between items-center">
                       <span className="text-[9px] tracking-widest px-2 py-0.5 rounded-full"
-                        style={{ border: `1px solid ${form.tag === 'ABERTO' ? '#E8C766' : 'rgba(255,255,255,0.15)'}`, color: form.tag === 'ABERTO' ? '#E8C766' : 'rgba(255,255,255,0.35)' }}>
+                        style={{ border: `1px solid ${(form.tag ?? '').includes('ABERT') ? '#E8C766' : 'rgba(255,255,255,0.15)'}`, color: (form.tag ?? '').includes('ABERT') ? '#E8C766' : 'rgba(255,255,255,0.35)' }}>
                         {form.tag || 'ABERTO'}
                       </span>
                       <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.4)' }}>
