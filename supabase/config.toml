@@ -55,3 +55,6 @@ verify_jwt = false
 
 [functions.pagamentos-pix]
 verify_jwt = false
+
+[functions.app-cliente]
+verify_jwt = false
