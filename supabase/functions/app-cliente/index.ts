@@ -10,6 +10,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 //                                                   sintético) e devolve um token
 //                                                   de sessão para o app trocar com
 //                                                   auth.verifyOtp(type magiclink)
+//   POST ?action=convidar  (master logado) { nome, email, papel, telefone? } → convida alguém
+//                                                   da equipe por e-mail (senha no 1º acesso)
 //   POST ?action=template  (Authorization: service role) → cria o template no WABA
 //
 // Sem SMS pago: o código vai pelo WhatsApp oficial da Lagun. Enquanto o template
@@ -37,6 +39,50 @@ function normalizarTelefone(bruto: string): string | null {
   if (d.length === 10 || d.length === 11) d = "55" + d;
   if (!/^55\d{10,11}$/.test(d)) return null;
   return d;
+}
+
+/** Campo EMV: id + tamanho (2 dígitos) + valor. */
+const emv = (id: string, v: string) => id + String(v.length).padStart(2, "0") + v;
+function crc16(payload: string) {
+  let crc = 0xffff;
+  for (const ch of new TextEncoder().encode(payload)) {
+    crc ^= ch << 8;
+    for (let i = 0; i < 8; i++) crc = crc & 0x8000 ? ((crc << 1) ^ 0x1021) & 0xffff : (crc << 1) & 0xffff;
+  }
+  return crc.toString(16).toUpperCase().padStart(4, "0");
+}
+/** Pix copia e cola (BR Code estático com valor), padrão do Banco Central. */
+function brCodePix(chave: string, valor: number, txid: string, descricao?: string) {
+  const semAcento = (t: string) => t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Za-z0-9 ]/g, "").trim();
+  const conta = emv("00", "br.gov.bcb.pix") + emv("01", chave) + (descricao ? emv("02", semAcento(descricao).slice(0, 40)) : "");
+  const corpo = emv("00", "01") + emv("26", conta) + emv("52", "0000") + emv("53", "986") + emv("54", valor.toFixed(2))
+    + emv("58", "BR") + emv("59", "LAGUN") + emv("60", "VITORIA") + emv("62", emv("05", txid.slice(0, 25))) + "6304";
+  return corpo + crc16(corpo);
+}
+
+/** Quem está logado no app (token do Supabase Auth no Authorization). */
+async function usuarioLogado(req: Request) {
+  const token = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
+  if (!token) return null;
+  const cli = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, { global: { headers: { Authorization: `Bearer ${token}` } }, auth: { persistSession: false } });
+  const { data } = await cli.auth.getUser();
+  return data.user ?? null;
+}
+
+/** Perfil da equipe (profiles.telefone) com esse telefone, e o e-mail dele no Auth. */
+async function usuarioDaEquipePeloTelefone(admin: ReturnType<typeof sb>, telefone: string): Promise<{ id: string; email: string } | null> {
+  const { data: perfis } = await admin.from("profiles").select("id, telefone").not("telefone", "is", null);
+  const semDdi = telefone.replace(/^55/, "");
+  const sem9 = semDdi.replace(/^(\d{2})9(\d{8})$/, "$1$2");
+  const perfil = (perfis ?? []).find((p) => {
+    const d = String(p.telefone || "").replace(/\D/g, "").replace(/^0/, "");
+    const dSemDdi = d.replace(/^55/, "");
+    return d === telefone || dSemDdi === semDdi || dSemDdi === sem9 || dSemDdi.replace(/^(\d{2})9(\d{8})$/, "$1$2") === sem9;
+  });
+  if (!perfil) return null;
+  const { data } = await admin.auth.admin.getUserById(perfil.id);
+  if (!data.user?.email) return null;
+  return { id: perfil.id, email: data.user.email };
 }
 
 async function sha256(texto: string) {
@@ -140,16 +186,23 @@ Deno.serve(async (req) => {
         await admin.from("lagun_app_codigos").delete().eq("telefone", telefone);
       }
 
-      // Usuário no Auth: e-mail sintético por telefone.
-      const email = `${telefone}@${DOMINIO_EMAIL}`;
+      // Equipe (Bastidor): se o telefone é de alguém com perfil no painel, a
+      // sessão é a desse usuário, e não a de um cliente sintético. Assim a
+      // mesma pessoa tem uma conta só, com os dois acessos.
       let userId: string | null = null;
-      const criado = await admin.auth.admin.createUser({ email, email_confirm: true, phone_confirm: true, user_metadata: { telefone, app: "cliente" } });
-      if (criado.data.user) userId = criado.data.user.id;
+      let email = `${telefone}@${DOMINIO_EMAIL}`;
+      const equipe = await usuarioDaEquipePeloTelefone(admin, telefone);
+      if (equipe) { userId = equipe.id; email = equipe.email; }
       else {
-        // Já existe: acha pelo e-mail.
-        const lista = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
-        userId = lista.data.users.find((u) => u.email === email)?.id ?? null;
-        if (!userId) throw criado.error ?? new Error("Não foi possível criar o usuário.");
+        // Cliente: e-mail sintético por telefone.
+        const criado = await admin.auth.admin.createUser({ email, email_confirm: true, phone_confirm: true, user_metadata: { telefone, app: "cliente" } });
+        if (criado.data.user) userId = criado.data.user.id;
+        else {
+          // Já existe: acha pelo e-mail.
+          const lista = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+          userId = lista.data.users.find((u) => u.email === email)?.id ?? null;
+          if (!userId) throw criado.error ?? new Error("Não foi possível criar o usuário.");
+        }
       }
 
       const nome = typeof body.nome === "string" && body.nome.trim() ? body.nome.trim().slice(0, 80) : null;
@@ -164,6 +217,77 @@ Deno.serve(async (req) => {
       const link = await admin.auth.admin.generateLink({ type: "magiclink", email });
       if (link.error) throw link.error;
       return json({ ok: true, token_hash: link.data.properties.hashed_token, email });
+    }
+
+    // ── Bastidor: master convida alguém da equipe por e-mail (tela M4) ─────
+    if (action === "convidar") {
+      const user = await usuarioLogado(req);
+      if (!user) return json({ error: "Entre de novo no app." }, 401);
+      const admin = sb();
+      const { data: papel } = await admin.rpc("app_papel", { _user_id: user.id });
+      if (papel !== "master") return json({ error: "Só o master convida." }, 403);
+      const nome = String(body.nome || "").trim().slice(0, 80);
+      const email = String(body.email || "").trim().toLowerCase();
+      const novoPapel = String(body.papel || "").trim();
+      const telefoneConvite = body.telefone ? normalizarTelefone(body.telefone) : null;
+      if (!nome || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return json({ error: "Nome e e-mail válidos, por favor." }, 400);
+      if (!["master", "social", "trafego", "design", "vendedor"].includes(novoPapel)) return json({ error: "Papel inválido." }, 400);
+      const convite = await admin.auth.admin.inviteUserByEmail(email, { data: { full_name: nome, app: "bastidor" } });
+      let convidadoId = convite.data.user?.id ?? null;
+      if (!convidadoId) {
+        const lista = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+        convidadoId = lista.data.users.find((u) => (u.email || "").toLowerCase() === email)?.id ?? null;
+        if (!convidadoId) return json({ error: convite.error?.message || "Não deu pra convidar." }, 400);
+      }
+      await admin.from("profiles").upsert({ id: convidadoId, full_name: nome, telefone: telefoneConvite, precisa_definir_senha: true }, { onConflict: "id" });
+      await admin.from("user_roles").delete().eq("user_id", convidadoId).in("role", ["master", "admin", "social", "trafego", "design", "vendedor"]);
+      await admin.from("user_roles").insert({ user_id: convidadoId, role: novoPapel });
+      if (novoPapel === "vendedor") {
+        const { data: vend } = await admin.from("lagun_vendedores").select("id").eq("user_id", convidadoId).maybeSingle();
+        if (!vend) await admin.from("lagun_vendedores").insert({ nome, telefone: telefoneConvite, user_id: convidadoId });
+      }
+      return json({ ok: true, id: convidadoId, enviado: !convite.error });
+    }
+
+    // ── Pedido com Pix: reserva de lounge ou ingressos ────────────────────
+    if (action === "pedido") {
+      const user = await usuarioLogado(req);
+      if (!user) return json({ error: "Entre de novo no app." }, 401);
+      const admin = sb();
+      await admin.rpc("app_expirar_pedidos");
+      const tipo = body.tipo === "ingresso" ? "ingresso" : "reserva";
+      let valor = 0, descricao = "", reservaId: string | null = null, eventId: string | null = null, quantidade = 1;
+      if (tipo === "reserva") {
+        const { data: r } = await admin.from("lagun_lounge_reservas").select("id, pago, status, event_id, lounge:lagun_lounges(nome)").eq("id", body.reserva_id).eq("cliente_id", user.id).maybeSingle();
+        if (!r) return json({ error: "Reserva não encontrada." }, 404);
+        if (r.status !== "aguardando") return json({ error: "Essa reserva não está aguardando pagamento." }, 400);
+        valor = Number(r.pago); reservaId = r.id; eventId = r.event_id; descricao = `Sinal ${(r as any).lounge?.nome ?? "lounge"}`;
+      } else {
+        quantidade = Math.max(1, Math.min(10, Number(body.quantidade) || 1));
+        const { data: ev } = await admin.from("lagun_events").select("id, nome, ingresso_a_partir").eq("id", body.event_id).maybeSingle();
+        if (!ev || !ev.ingresso_a_partir) return json({ error: "Esse evento não vende ingresso pelo app." }, 400);
+        valor = Number(ev.ingresso_a_partir) * quantidade; eventId = ev.id; descricao = `${quantidade}x ingresso ${ev.nome}`;
+      }
+      const chave = Deno.env.get("PIX_CHAVE") || "";
+      const demo = !chave;
+      const txid = crypto.randomUUID().replace(/-/g, "").slice(0, 25).toUpperCase();
+      const copiaCola = brCodePix(chave || "00000000000", valor, txid, descricao);
+      const { data: pedido, error } = await admin.from("lagun_app_pedidos").insert({
+        cliente_id: user.id, tipo, reserva_id: reservaId, event_id: eventId, quantidade, valor, descricao, txid, pix_copia_cola: copiaCola,
+      }).select("*").single();
+      if (error) throw error;
+      return json({ ok: true, pedido, demo });
+    }
+
+    // Teste: marca o pedido como pago (só com APP_DEMO_CODIGO ligado).
+    if (action === "pagar_teste") {
+      if (!Deno.env.get("APP_DEMO_CODIGO")) return json({ error: "Fora do modo de teste." }, 403);
+      const user = await usuarioLogado(req);
+      if (!user) return json({ error: "Entre de novo no app." }, 401);
+      const { data, error } = await sb().from("lagun_app_pedidos").update({ status: "pago" }).eq("id", body.pedido_id).eq("cliente_id", user.id).eq("status", "aguardando").select("*").maybeSingle();
+      if (error) throw error;
+      if (!data) return json({ error: "Pedido não está aguardando." }, 400);
+      return json({ ok: true, pedido: data });
     }
 
     return json({ error: "action inválida" }, 400);
