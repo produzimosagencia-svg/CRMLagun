@@ -510,7 +510,9 @@ const Composer = memo(function Composer({
 
 export default function InternoWhatsAppChat() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [selectedPhone, setSelectedPhone] = useState<string | null>(null);
+  // ?telefone= abre direto a conversa (vem da aba Janela de 24h).
+  const telefoneDaUrl = new URLSearchParams(window.location.search).get('telefone');
+  const [selectedPhone, setSelectedPhone] = useState<string | null>(telefoneDaUrl);
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
@@ -541,7 +543,7 @@ export default function InternoWhatsAppChat() {
   const [savingEvent, setSavingEvent] = useState(false);
 
   // Channel tabs
-  const [activeChannel, setActiveChannel] = useState<'whatsapp' | 'instagram'>('instagram');
+  const [activeChannel, setActiveChannel] = useState<'whatsapp' | 'instagram'>(telefoneDaUrl ? 'whatsapp' : 'instagram');
   const [activeWhatsappInbox, setActiveWhatsappInbox] = useState<'chat' | 'window24h' | 'help' | 'broadcasts'>('chat');
   const [inboxNow, setInboxNow] = useState(Date.now());
   const [syncingInstagram, setSyncingInstagram] = useState(false);

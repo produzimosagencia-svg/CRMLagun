@@ -6,7 +6,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import {
   LogOut, Menu, X, ChevronRight, Ticket, MessageCircle, Send, Settings, User, Sparkles, HelpCircle,
   Megaphone, BarChart3, Trophy, Users, ClipboardList, Cake, Globe, CalendarRange, LayoutDashboard,
-  TrendingUp, MessagesSquare, ShoppingCart, RotateCcw, MousePointerClick, Zap, Crown, Database, Activity,
+  TrendingUp, MessagesSquare, ShoppingCart, RotateCcw, MousePointerClick, Zap, Crown, Database, Activity, Clock,
   type LucideIcon,
   Handshake, BadgeDollarSign, Target, UserPlus, Wallet, History,
 } from 'lucide-react';
@@ -226,6 +226,7 @@ function InternoLayoutConteudo() {
         children: [
           { label: 'Dashboard', to: '/interno/whatsapp', end: true, icon: BarChart3 },
           { label: 'Status', to: '/interno/whatsapp/status', icon: Activity },
+          { label: 'Janela de 24h', to: '/interno/whatsapp/24h', icon: Clock },
           { label: 'Carrinho Abandonado', to: '/interno/whatsapp/carrinho-abandonado', icon: ShoppingCart },
           { label: 'Aniversário', to: '/interno/whatsapp/aniversario', icon: Cake },
           { label: 'Estornos', to: '/interno/whatsapp/estornos', icon: RotateCcw },
