@@ -31,7 +31,7 @@ export const SESSOES: Sessao[] = [
     nome: 'Vendedores',
     descricao: 'CRM, clientes e desempenho da equipe de vendas.',
     icone: BadgeDollarSign,
-    chaves: ['vendedores', 'crm'],   // a sessão abre em Vendedores
+    chaves: ['vendedores', 'crm', 'visao_geral'],   // a sessão abre em Vendedores
   },
   {
     id: 'financeiro',

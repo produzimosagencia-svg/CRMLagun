@@ -55,6 +55,7 @@ const LandingPhotos = lazy(() => import("./pages/LandingPhotos.tsx"));
 const InternoBluetick = lazy(() => import("./pages/interno/InternoBluetick.tsx"));
 const InternoZigTickets = lazy(() => import("./pages/interno/InternoZigTickets.tsx"));
 const InternoZigTicketsGeral = lazy(() => import("./pages/interno/InternoZigTicketsGeral.tsx"));
+const InternoVisaoGeral = lazy(() => import("./pages/interno/InternoVisaoGeral.tsx"));
 const InternoEmail = lazy(() => import("./pages/interno/InternoEmail.tsx"));
 const InternoAdmin = lazy(() => import("./pages/interno/InternoAdmin.tsx"));
 const InternoTarefas = lazy(() => import("./pages/interno/InternoTarefas.tsx"));
@@ -114,6 +115,7 @@ createRoot(document.getElementById("root")!).render(
         <Route path="/interno" element={<InternoLayout />}>
           <Route index element={<Navigate to="/interno/dashboard" replace />} />
           <Route path="dashboard" element={<InternoDashboardSocial />} />
+          <Route path="visao-geral" element={<InternoVisaoGeral />} />
           <Route path="crm-visao-geral" element={<InternoCrmVisaoGeral />} />
           <Route path="vendedores" element={<Navigate to="/interno/vendedores/ranking" replace />} />
           <Route path="vendedores/:aba" element={<InternoVendedores />} />

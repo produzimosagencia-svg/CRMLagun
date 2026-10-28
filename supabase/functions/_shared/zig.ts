@@ -1,9 +1,10 @@
 // ============================================================================
-// Zig (Superticket) — leitura dos compradores de um evento e gravação só das
-// contagens em lagun_zig_orders. Usado pela lagun-zig-sync (cron a cada 10 min)
-// e pela lagun-resumo-produtores (sincroniza o evento antes de montar o resumo).
-// Nenhum dado pessoal do comprador é gravado: só pedido, status, data,
-// quantidade de ingressos e valor.
+// Zig (Superticket): leitura dos compradores de um evento e gravação dos
+// pedidos em lagun_zig_orders e dos ingressos em lagun_zig_tickets. Usado pela
+// lagun-zig-sync (cron a cada 10 min) e pela lagun-resumo-produtores
+// (sincroniza o evento antes de montar o resumo).
+// Nenhum dado pessoal do comprador é gravado: só pedido, status, data, valor,
+// forma de pagamento, cupom e, por ingresso, setor, lote, preço e cortesia.
 // ============================================================================
 
 const API = "https://public-api.superticket.com.br";
@@ -80,7 +81,26 @@ export async function buscarCompradores(zigEventId: string, token: string) {
   return rows;
 }
 
-// Sincroniza um evento: busca na Zig e faz upsert das contagens.
+// Cupom do pedido. A Zig manda {} sem cupom e { coupon_code, discount_value }
+// com cupom; aceita também uma lista, por garantia.
+function lerDesconto(raw: unknown): { cupom: string | null; valor: number } {
+  const item = Array.isArray(raw) ? raw[0] : raw;
+  if (!item || typeof item !== "object") return { cupom: null, valor: 0 };
+  const d = item as Record<string, unknown>;
+  return {
+    cupom: clean(d.coupon_code ?? d.code) || null,
+    valor: Number(d.discount_value ?? d.value) || 0,
+  };
+}
+
+const sim = (v: unknown) => v === true || Number(v) === 1 || clean(v).toLowerCase() === "true";
+
+// Erro de coluna ou tabela que ainda não existe (migração 20261028230000 não
+// aplicada): a sync volta a gravar só as contagens, como antes.
+const faltaMigracao = (msg: string) =>
+  /payment_method|coupon_code|discount_value|lagun_zig_tickets|schema cache|does not exist/i.test(msg);
+
+// Sincroniza um evento: busca na Zig e faz upsert dos pedidos e ingressos.
 export async function sincronizarEvento(sb: any, eventId: string) {
   const [{ data: cfg }, { data: cred }] = await Promise.all([
     sb.from("lagun_event_zig").select("zig_event_id").eq("event_id", eventId).maybeSingle(),
@@ -97,7 +117,7 @@ export async function sincronizarEvento(sb: any, eventId: string) {
       if (orderId) porPedido.set(orderId, buyer);
     }
     const agora = new Date().toISOString();
-    const linhas = [...porPedido.entries()].map(([orderId, buyer]) => ({
+    const base = [...porPedido.entries()].map(([orderId, buyer]) => ({
       order_id: orderId,
       event_id: eventId,
       zig_event_id: cfg.zig_event_id,
@@ -107,14 +127,56 @@ export async function sincronizarEvento(sb: any, eventId: string) {
       total_amount: Number(buyer.order?.total_amount) || 0,
       updated_at: agora,
     }));
+    const linhas = base.map((linha) => {
+      const buyer = porPedido.get(linha.order_id);
+      const desconto = lerDesconto(buyer.order?.discounts);
+      return {
+        ...linha,
+        payment_method: clean(buyer.order?.payment_method) || null,
+        coupon_code: desconto.cupom,
+        discount_value: desconto.valor,
+      };
+    });
+    const ingressos = [...porPedido.entries()].flatMap(([orderId, buyer]) =>
+      (Array.isArray(buyer.tickets) ? buyer.tickets : []).map((t: any, seq: number) => ({
+        order_id: orderId,
+        seq,
+        event_id: eventId,
+        zig_event_id: cfg.zig_event_id,
+        sector: clean(t?.sector) || null,
+        lot: clean(t?.lot) || null,
+        price: Number(t?.price) || 0,
+        is_courtesy: sim(t?.is_courtesy),
+        is_passport: sim(t?.is_passport),
+        synced_at: agora,
+      }))
+    );
+
+    let detalhe = true;
     for (let start = 0; start < linhas.length; start += 500) {
-      const { error } = await sb.from("lagun_zig_orders").upsert(linhas.slice(start, start + 500), { onConflict: "order_id" });
+      const lote = detalhe ? linhas.slice(start, start + 500) : base.slice(start, start + 500);
+      let { error } = await sb.from("lagun_zig_orders").upsert(lote, { onConflict: "order_id" });
+      if (error && detalhe && faltaMigracao(error.message)) {
+        detalhe = false;
+        ({ error } = await sb.from("lagun_zig_orders").upsert(base.slice(start, start + 500), { onConflict: "order_id" }));
+      }
       if (error) throw new Error(error.message);
     }
+
+    if (detalhe) {
+      for (let start = 0; start < ingressos.length; start += 500) {
+        const { error } = await sb.from("lagun_zig_tickets").upsert(ingressos.slice(start, start + 500), { onConflict: "order_id,seq" });
+        if (error) throw new Error(error.message);
+      }
+      // Ingresso que sumiu do pedido na Zig (pedido refeito, troca) sai daqui.
+      const { error: erroLimpeza } = await sb.from("lagun_zig_tickets").delete().eq("event_id", eventId).lt("synced_at", agora);
+      if (erroLimpeza) throw new Error(erroLimpeza.message);
+    }
+
     await sb.from("lagun_event_zig")
       .update({ last_sync_at: agora, last_sync_error: null, orders_count: linhas.length })
       .eq("event_id", eventId);
-    return { pedidos: linhas.length };
+    return { pedidos: linhas.length, ingressos: detalhe ? ingressos.length : null };
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
     await sb.from("lagun_event_zig")

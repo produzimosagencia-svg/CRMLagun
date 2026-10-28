@@ -209,6 +209,7 @@ function InternoLayoutConteudo() {
     // Visão geral
     [
       canSeeHome && isEnabled('dashboard') && { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, to: '/interno/dashboard', isActive: exact('/interno/dashboard') },
+      canSeeHome && { key: 'visao_geral', label: 'Visão geral', icon: Activity, to: '/interno/visao-geral', isActive: exact('/interno/visao-geral') },
       canSeeDesign && !canSeeHome && { key: 'referencias', label: 'Referências', icon: Sparkles, to: '/interno/marketing/referencias', isActive: startsWith('/interno/marketing/referencias') },
       canSeeHome && isEnabled('landing') && { key: 'landing', label: 'Landing Page', icon: Globe, to: '/interno/landing', isActive: startsWith('/interno/landing') },
     ],
@@ -386,6 +387,7 @@ function InternoLayoutConteudo() {
     if (path === '/interno/ads/gerenciar') return 'Gerenciar Meta Ads';
     if (path === '/interno/ads/pixel') return 'Pixel & Públicos';
     if (path.startsWith('/interno/ads')) return 'Performance';
+    if (path === '/interno/visao-geral') return 'Visão geral';
     if (path === '/interno/crm-visao-geral') return 'Visão Geral - CRM';
     if (path === '/interno/eventos') return 'Eventos';
     if (path.startsWith('/interno/clientes')) return 'Clientes';
