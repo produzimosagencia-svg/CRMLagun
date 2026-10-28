@@ -215,6 +215,34 @@ Deno.serve(async (req) => {
         if (!payload.name || !Array.isArray(payload.components) || payload.components.length === 0) {
           throw new Error("name and components required");
         }
+
+        // Cabeçalho com imagem: a Meta exige um exemplo enviado pela API de
+        // upload retomável do app (header_handle), não uma URL.
+        const headerImagem = payload.components.find(
+          (c: { type?: string; format?: string }) => c.type === "HEADER" && c.format === "IMAGE",
+        );
+        if (headerImagem && body.header_image_url) {
+          const img = await fetch(body.header_image_url);
+          if (!img.ok) throw new Error("Não consegui baixar a imagem do cabeçalho");
+          const bytes = new Uint8Array(await img.arrayBuffer());
+          const tipo = img.headers.get("content-type") || "image/jpeg";
+          const dbg = await (await fetch(`${GRAPH_API}/debug_token?input_token=${token}&access_token=${token}`)).json();
+          const appId = dbg?.data?.app_id;
+          if (!appId) throw new Error("Não consegui identificar o app da Meta para o upload");
+          const sessao = await (await fetch(
+            `${GRAPH_API}/${appId}/uploads?file_length=${bytes.length}&file_type=${encodeURIComponent(tipo)}&access_token=${token}`,
+            { method: "POST" },
+          )).json();
+          if (!sessao?.id) throw new Error(sessao?.error?.message || "A Meta recusou abrir o upload da imagem");
+          const envio = await (await fetch(`${GRAPH_API}/${sessao.id}`, {
+            method: "POST",
+            headers: { Authorization: `OAuth ${token}`, file_offset: "0" },
+            body: bytes,
+          })).json();
+          if (!envio?.h) throw new Error(envio?.error?.message || "A Meta recusou o upload da imagem");
+          headerImagem.example = { header_handle: [envio.h] };
+        }
+
         const resp = await fetch(`${GRAPH_API}/${WABA_ID}/message_templates`, {
           method: "POST",
           headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
