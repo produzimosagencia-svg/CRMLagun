@@ -44,6 +44,7 @@ const InternoWhatsApp = lazy(() => import("./pages/interno/InternoWhatsApp.tsx")
 const InternoWhatsAppChat = lazy(() => import("./pages/interno/InternoWhatsAppChat.tsx"));
 const InternoRanking = lazy(() => import("./pages/interno/InternoRanking.tsx"));
 const InternoWhatsAppDashboard = lazy(() => import("./pages/interno/InternoWhatsAppDashboard.tsx"));
+const InternoWhatsApp24h = lazy(() => import("./pages/interno/InternoWhatsApp24h.tsx"));
 const InternoWhatsAppCampaign = lazy(() => import("./pages/interno/InternoWhatsAppCampaign.tsx"));
 const InternoRastreamento = lazy(() => import("./pages/interno/InternoRastreamento.tsx"));
 const InternoResumoProdutores = lazy(() => import("./pages/interno/InternoResumoProdutores.tsx"));
@@ -133,6 +134,7 @@ createRoot(document.getElementById("root")!).render(
           <Route path="automacoes/:id" element={<InternoAutomacaoEditor />} />
           <Route path="whatsapp" element={<InternoWhatsApp />} />
           <Route path="whatsapp/status" element={<InternoWhatsApp inicial="status" />} />
+          <Route path="whatsapp/24h" element={<InternoWhatsApp24h />} />
           <Route path="whatsapp/dashboard" element={<InternoWhatsAppDashboard />} />
           <Route path="whatsapp/chat" element={<InternoWhatsAppChat />} />
           <Route path="ranking" element={<InternoRanking />} />
