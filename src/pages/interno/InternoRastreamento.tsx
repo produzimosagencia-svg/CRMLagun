@@ -11,7 +11,7 @@ type Activity = {
 
 const names: Record<string, string> = {
   disparo: 'Dashboard · Disparo', carrinho_abandonado: 'Carrinho abandonado',
-  aniversario: 'Aniversário', estornos: 'Estornos',
+  aniversario: 'Aniversário', estornos: 'Estornos', fastpass: 'FASTPASS', breno_bernardo: 'Breno & Bernardo',
 };
 const money = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const dateTime = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
