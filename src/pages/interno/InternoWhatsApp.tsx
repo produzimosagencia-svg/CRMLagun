@@ -12,6 +12,7 @@ import { baixarRelatorioPdf } from '@/lib/relatorioPdf';
 import { RelatorioDisparos } from '@/components/interno/RelatorioDisparos';
 import { callWhatsappApi } from '@/lib/whatsappApi';
 import { supabase } from '@/integrations/supabase/client';
+import { DisparoProgresso, acordarWorker } from '@/components/interno/DisparoProgresso';
 import { Link } from 'react-router-dom';
 
 interface PhoneNumber {
@@ -48,13 +49,6 @@ interface AudienceOption {
   description: string;
   count: number;
   kind: 'group' | 'tag' | 'category' | 'event';
-}
-
-interface SendResult {
-  to: string;
-  name: string;
-  status: string;
-  error?: string;
 }
 
 interface StatusSummary {
@@ -242,11 +236,10 @@ export default function InternoWhatsApp({ inicial = 'dashboard' }: { inicial?: '
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
-  const [sendingTotal, setSendingTotal] = useState(0);
   const [templateImageUrl, setTemplateImageUrl] = useState('');
   const [templateImageName, setTemplateImageName] = useState('');
   const [uploadingTemplateImage, setUploadingTemplateImage] = useState(false);
-  const [sendResults, setSendResults] = useState<{ total: number; sent: number; errors: number; details: SendResult[] } | null>(null);
+  const [disparoVersao, setDisparoVersao] = useState(0);
   const [step, setStep] = useState(1);
   const [view, setView] = useState<'dashboard' | 'create' | 'status'>(inicial);
   // Status virou item do menu: a rota manda na tela.
@@ -558,26 +551,12 @@ export default function InternoWhatsApp({ inicial = 'dashboard' }: { inicial?: '
       return;
     }
     setSending(true);
-    setSendingTotal(effectiveContacts.length);
-    setSendResults(null);
-    setView('status');
-    toast.info(`Disparo iniciado para ${effectiveContacts.length} contatos. Acompanhe o progresso em Status.`);
     try {
       const templateVariableCount = countTemplateVariables(selectedTemplateData);
-
-      // Lotes menores mantêm cada execução abaixo do limite da Edge Function.
-      // O painel permanece aberto e recebe cada INSERT/UPDATE em tempo real.
-      const batchSize = 40;
-      const aggregate: { total: number; sent: number; errors: number; details: SendResult[] } = {
-        total: 0,
-        sent: 0,
-        errors: 0,
-        details: [],
-      };
-
-      for (let offset = 0; offset < effectiveContacts.length; offset += batchSize) {
-        const batch = effectiveContacts.slice(offset, offset + batchSize);
-        const result = await callApi('send_bulk', {
+      // O disparo vai para a fila do servidor (whatsapp_disparo_jobs): continua
+      // mesmo com a aba fechada, e o Status mostra o progresso contato a contato.
+      const { data: jobId, error } = await (supabase as any).rpc('whatsapp_criar_disparo', {
+        p_job: {
           phone_number_id: selectedPhones[0],
           template_name: selectedTemplate,
           template_language: 'pt_BR',
@@ -585,7 +564,7 @@ export default function InternoWhatsApp({ inicial = 'dashboard' }: { inicial?: '
           template_components: selectedTemplateData?.components ?? [],
           template_variable_count: templateVariableCount,
           template_parameter_format: selectedTemplateData?.parameter_format ?? 'POSITIONAL',
-          header_image_url: templateRequiresImage ? templateImageUrl : undefined,
+          header_image_url: templateRequiresImage ? templateImageUrl : null,
           tracking_campaign: selectedTemplateData?.components?.some((component) =>
             component.type?.toUpperCase() === 'BUTTONS' &&
             component.buttons?.some((button) => button.type?.toUpperCase() === 'URL' && button.url?.includes('{{1}}'))
@@ -596,27 +575,17 @@ export default function InternoWhatsApp({ inicial = 'dashboard' }: { inicial?: '
             if (name.includes('estorno') || name.includes('reembolso')) return 'estornos';
             if (name.includes('departamento')) return 'departamento';
             return 'disparo';
-          })() : undefined,
-          contacts: batch,
-        }, 3 * 60_000);
-
-        aggregate.total += result.total ?? batch.length;
-        aggregate.sent += result.sent ?? 0;
-        aggregate.errors += result.errors ?? 0;
-        aggregate.details.push(...(result.details ?? []));
-        setSendResults({ ...aggregate, details: [...aggregate.details] });
-        await loadDashboard();
-      }
-
-      if (aggregate.sent > 0) toast.success(`${aggregate.sent} mensagens aceitas pela Meta. Acompanhe a entrega no painel.`);
-      if (aggregate.errors > 0) toast.error(`${aggregate.errors} mensagens falharam`);
-      await loadDashboard();
+          })() : null,
+        },
+        p_contatos: effectiveContacts.map((c) => ({ phone: c.phone, name: c.name ?? '', email: (c as any).email ?? '' })),
+      });
+      if (error || !jobId) throw new Error(error?.message ?? 'não foi possível criar o disparo');
+      void acordarWorker();
+      setDisparoVersao((v) => v + 1);
+      setView('status');
+      toast.success(`Disparo para ${effectiveContacts.length} contatos na fila. Pode fechar a tela: ele continua no servidor.`);
     } catch (error) {
-      const aborted = error instanceof DOMException && error.name === 'AbortError';
-      toast.error(aborted
-        ? 'A tela perdeu a conexão com o disparo. Confira o progresso em Status antes de tentar novamente.'
-        : `Erro ao enviar mensagens: ${error instanceof Error ? error.message : 'falha desconhecida'}`);
-      await loadDashboard();
+      toast.error(`Erro ao criar o disparo: ${error instanceof Error ? error.message : 'falha desconhecida'}`);
     } finally {
       setSending(false);
     }
@@ -705,22 +674,7 @@ export default function InternoWhatsApp({ inicial = 'dashboard' }: { inicial?: '
           </section>
         ) : null}
 
-        {sending && (
-          <section className="flex items-center gap-3 rounded-xl border border-[#FFE14D]/25 bg-[#FFE14D]/[0.06] p-4">
-            <RefreshCw className="h-5 w-5 shrink-0 animate-spin text-[#FFE14D]" />
-            <div>
-              <p className="text-sm font-semibold text-white">Disparo em andamento: {sendResults?.total ?? 0} de {sendingTotal} processados</p>
-              <p className="mt-0.5 text-xs text-[#8F8A7C]">Os registros aparecem abaixo conforme a Meta aceita e atualiza cada mensagem.</p>
-            </div>
-          </section>
-        )}
-
-        {!sending && sendResults && (
-          <section className="rounded-xl border border-emerald-500/20 bg-emerald-500/[0.05] p-4">
-            <p className="text-sm font-semibold text-white">Disparo concluído</p>
-            <p className="mt-1 text-xs text-[#8F8A7C]">{sendResults.sent} aceitos pela Meta · {sendResults.errors} falhas de envio</p>
-          </section>
-        )}
+        <DisparoProgresso versao={disparoVersao} />
 
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {counters.map((c) => <div key={c.label} className="rounded-xl border border-[#2A2822] bg-[#1A1916] p-4">

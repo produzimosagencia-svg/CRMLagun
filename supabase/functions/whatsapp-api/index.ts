@@ -276,7 +276,7 @@ Deno.serve(async (req) => {
           throw new Error("phone_number_id, template_name, contacts required");
         }
 
-        const results: Array<{ to: string; name: string; status: string; error?: string; wamid?: string | null; meta_response?: unknown }> = [];
+        const results: Array<{ to: string; name: string; status: string; error?: string; code?: number; wamid?: string | null; meta_response?: unknown }> = [];
         const variableCount = typeof template_variable_count === "number"
           ? template_variable_count
           : countTemplateVariables(Array.isArray(template_components) ? template_components : []);
@@ -380,7 +380,7 @@ Deno.serve(async (req) => {
             if (data.error) {
               rowStatus = "failed";
               errText = data.error.message;
-              results.push({ to: contact.phone, name: contact.name, status: "error", error: data.error.message });
+              results.push({ to: contact.phone, name: contact.name, status: "error", error: data.error.message, code: data.error.code });
             } else {
               wamid = data.messages?.[0]?.id || null;
               results.push({ to: contact.phone, name: contact.name, status: "sent", wamid, meta_response: data });
