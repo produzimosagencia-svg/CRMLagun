@@ -89,13 +89,14 @@ async function enviarUm(sb: any, eventId: string, tipo: "carrinho" | "estorno", 
 export async function dispararCarrinhos(sb: any, eventId: string, porPedido: Map<string, any>, statusAntes: Map<string, string | null> = new Map()) {
   const { data: cfg } = await sb.from("lagun_zig_carrinho").select("*").eq("event_id", eventId).maybeSingle();
   const { data: enviados } = await sb.from("lagun_zig_carrinho_envios")
-    .select("order_id, tipo, telefone_hash, recuperado_em").eq("event_id", eventId);
+    .select("order_id, tipo, telefone_hash, recuperado_em, enviado_em").eq("event_id", eventId);
   const doCarrinho = (enviados ?? []).filter((e: any) => e.tipo === "carrinho");
   const jaEnviado = new Set<string>((enviados ?? []).map((e: any) => `${e.order_id}|${e.tipo}`));
   const telefoneJaRecebeu = new Set<string>(doCarrinho.map((e: any) => e.telefone_hash));
 
   // Quem tem pedido pago no evento (pelo hash do telefone) e quanto foi para o produtor.
   const pagoPorTelefone = new Map<string, number>();
+  const comprasPorTelefone = new Map<string, { valor: number; quando: number }[]>();
   const hashes = new Map<any, string | null>();
   for (const b of porPedido.values()) {
     const tel = telefoneWhats(b?.phone);
@@ -105,6 +106,18 @@ export async function dispararCarrinhos(sb: any, eventId: string, porPedido: Map
     const h = hashes.get(b);
     if (!h || !PAGOS.has(clean(b?.order?.status).toLowerCase())) continue;
     pagoPorTelefone.set(h, (pagoPorTelefone.get(h) ?? 0) + receitaDoPedido(b));
+    const iso = normalizarDataZig(b?.order?.purchase_date);
+    if (iso) comprasPorTelefone.set(h, [...(comprasPorTelefone.get(h) ?? []), { valor: receitaDoPedido(b), quando: new Date(iso).getTime() }]);
+  }
+
+  // Estorno: quem recebeu a mensagem e comprou de novo depois do envio.
+  for (const e of (enviados ?? []).filter((x: any) => x.tipo === "estorno" && !x.recuperado_em)) {
+    const depois = (comprasPorTelefone.get(e.telefone_hash) ?? []).filter((c) => c.quando > new Date(e.enviado_em).getTime());
+    if (depois.length) {
+      await sb.from("lagun_zig_carrinho_envios")
+        .update({ recuperado_em: new Date().toISOString(), valor_recuperado: depois.reduce((s, c) => s + c.valor, 0) })
+        .eq("order_id", e.order_id).eq("tipo", "estorno");
+    }
   }
 
   // Recuperação: carrinho cujo telefone aparece com pedido pago.

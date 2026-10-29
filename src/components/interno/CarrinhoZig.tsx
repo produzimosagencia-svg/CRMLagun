@@ -180,17 +180,23 @@ export function CarrinhoZig({ eventoId, cardCls }: { eventoId: string; cardCls: 
   const [envios, setEnvios] = useState<Envio[]>([]);
   const [salvando, setSalvando] = useState<Tipo | null>(null);
   const [erro, setErro] = useState<string | null>(null);
+  const [nEstornados, setNEstornados] = useState<number | null>(null);
+  const [nAbandonados, setNAbandonados] = useState<number | null>(null);
 
   useEffect(() => {
     let vivo = true;
     (async () => {
-      const [c, e] = await Promise.all([
+      const [c, e, est, ab] = await Promise.all([
         (supabase as any).from('lagun_zig_carrinho').select('*').eq('event_id', eventoId).maybeSingle(),
         (supabase as any).from('lagun_zig_carrinho_envios').select('tipo, ok, recuperado_em, valor_recuperado').eq('event_id', eventoId),
+        (supabase as any).from('lagun_zig_orders').select('order_id', { count: 'exact', head: true }).eq('event_id', eventoId).in('status', ['estornado', 'estornado_parcialmente']),
+        (supabase as any).from('lagun_zig_orders').select('order_id', { count: 'exact', head: true }).eq('event_id', eventoId).in('status', ['pendente', 'descartado']),
       ]);
       if (!vivo) return;
       setCfg(c.data ?? null);
       setEnvios(e.data ?? []);
+      setNEstornados(est.count ?? 0);
+      setNAbandonados(ab.count ?? 0);
       try {
         const [t, n] = await Promise.all([callWhatsappApi('templates'), callWhatsappApi('phone_numbers')]);
         if (!vivo) return;
@@ -238,6 +244,8 @@ export function CarrinhoZig({ eventoId, cardCls }: { eventoId: string; cardCls: 
   const recuperados = carrinhos.filter((e) => e.recuperado_em);
   const valor = recuperados.reduce((s, e) => s + (Number(e.valor_recuperado) || 0), 0);
   const estornos = envios.filter((e) => e.tipo === 'estorno' && e.ok);
+  const voltaram = estornos.filter((e) => e.recuperado_em);
+  const valorVoltou = voltaram.reduce((s, e) => s + (Number(e.valor_recuperado) || 0), 0);
 
   return (
     <section className={`${cardCls} flex min-w-0 flex-col gap-4 p-4 sm:p-5`}>
@@ -245,14 +253,19 @@ export function CarrinhoZig({ eventoId, cardCls }: { eventoId: string; cardCls: 
         tipo="carrinho" titulo="Carrinho abandonado" Icone={ShoppingCart}
         texto={{ ligado: 'Pix pendente há 30 min ou pedido descartado recebe o template, uma vez só.', desligado: 'Quem não concluir a compra na Zig recebe a mensagem no WhatsApp, sozinho.' }}
         cfg={cfg} templates={templates} salvando={salvando === 'carrinho'} salvar={(...a) => void salvar(...a)}
-        numeros={[{ valor: String(carrinhos.length), rotulo: 'enviados' }, { valor: String(recuperados.length), rotulo: 'compraram depois' }, { valor: brl(valor), rotulo: 'recuperado', forte: true }]}
+        numeros={[{ valor: nAbandonados == null ? '–' : String(nAbandonados), rotulo: 'não pagos no evento' }, { valor: String(carrinhos.length), rotulo: 'enviados' }, { valor: String(recuperados.length), rotulo: 'compraram depois' }, { valor: brl(valor), rotulo: 'recuperado', forte: true }]}
       />
       <div className="border-t border-white/5" />
       <Bloco
         tipo="estorno" titulo="Estorno" Icone={RotateCcw}
         texto={{ ligado: 'Pedido estornado na Zig recebe o template, uma vez só.', desligado: 'Quem tiver o pedido estornado na Zig recebe a mensagem no WhatsApp, sozinho.' }}
         cfg={cfg} templates={templates} salvando={salvando === 'estorno'} salvar={(...a) => void salvar(...a)}
-        numeros={[{ valor: String(estornos.length), rotulo: 'enviados' }]}
+        numeros={[
+          { valor: nEstornados == null ? '–' : String(nEstornados), rotulo: 'estornos no evento' },
+          { valor: String(estornos.length), rotulo: 'enviados' },
+          { valor: String(voltaram.length), rotulo: 'compraram de novo' },
+          { valor: brl(valorVoltou), rotulo: 'recuperado', forte: true },
+        ]}
       />
       {erro && <p className="text-xs text-red-400">{erro}</p>}
     </section>
