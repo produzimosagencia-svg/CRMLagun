@@ -19,3 +19,9 @@ ON CONFLICT (campaign_key) DO UPDATE
 INSERT INTO public.wa_tracking_links (token, campaign_key, template_name)
 VALUES ('departamento', 'departamento', 'departamento_lagun_5off')
 ON CONFLICT (token) DO NOTHING;
+
+-- Link para a resposta livre na janela de 24h (quem tocou "Quero saber mais"
+-- no template de utilidade): cliques somados, mesmo destino.
+INSERT INTO public.wa_tracking_links (token, campaign_key, template_name)
+VALUES ('departamento-24h', 'departamento', 'departamento_lagun_atualizacao')
+ON CONFLICT (token) DO NOTHING;
