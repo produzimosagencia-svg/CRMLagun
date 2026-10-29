@@ -594,6 +594,7 @@ export default function InternoWhatsApp({ inicial = 'dashboard' }: { inicial?: '
             if (name.includes('carrinho')) return 'carrinho_abandonado';
             if (name.includes('anivers')) return 'aniversario';
             if (name.includes('estorno') || name.includes('reembolso')) return 'estornos';
+            if (name.includes('departamento')) return 'departamento';
             return 'disparo';
           })() : undefined,
           contacts: batch,
