@@ -8,14 +8,18 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { CarrinhoZig } from '@/components/interno/CarrinhoZig';
+import { CampanhasDoEvento, type Vinculo } from '@/components/interno/CampanhasDoEvento';
+import { DisparosDoEvento, type Disparo } from '@/components/interno/DisparosDoEvento';
 
 /**
  * Visão geral de vendas da Lagun: todos os eventos ligados à Zig (Superticket).
  * Período (24h, 7, 30 dias, tudo) e evento no topo; os números vêm da RPC
  * zig_dashboard, agregada no banco a partir de lagun_zig_orders e
  * lagun_zig_tickets (a lagun-zig-sync alimenta as duas a cada 10 min).
- * Custos de marketing: Meta Ads (meta-ads-api, conta inteira) e WhatsApp
- * estimado pelos templates enviados.
+ * Custos de marketing: Meta Ads (meta-ads-api) e WhatsApp estimado pelos
+ * templates enviados. Na visão geral é a conta inteira; no evento, só as
+ * campanhas e os disparos vinculados a ele (lagun_event_campaigns,
+ * lagun_event_disparos) mais os envios automáticos de carrinho e estorno.
  *
  * Visual da Lagun: fundo escuro, amarelo da marca para destaque. Verde,
  * laranja e vermelho só com significado (bom, atenção, ruim), sempre com
@@ -494,6 +498,11 @@ export default function InternoVisaoGeral() {
   const [rankCupom, setRankCupom] = useState<'ingressos' | 'valor'>('ingressos');
   const [atualizando, setAtualizando] = useState(false);
   const [meta, setMeta] = useState<{ estado: 'carregando' | 'ok' | 'desconectada'; gasto: number; conta?: string; contas: { account_id: string; name: string }[] }>({ estado: 'carregando', gasto: 0, contas: [] });
+  // Campanhas vinculadas a eventos (todas, para mostrar onde cada uma está).
+  const [vinculos, setVinculos] = useState<Vinculo[]>([]);
+  const [nomesEventos, setNomesEventos] = useState<Map<string, string>>(new Map());
+  const [versaoVinculos, setVersaoVinculos] = useState(0);
+  const [disparosEv, setDisparosEv] = useState<Disparo[]>([]);
   const [whats, setWhats] = useState({ marketing: 0, utilidade: 0 });
 
   const hoje = dash?.hoje ?? new Date(Date.now() - 3 * 3600_000).toISOString().slice(0, 10);
@@ -514,7 +523,22 @@ export default function InternoVisaoGeral() {
 
   useEffect(() => { void carregar(); }, [carregar]);
 
+  useEffect(() => {
+    let vivo = true;
+    (async () => {
+      const [{ data }, { data: evs }] = await Promise.all([
+        (supabase as any).from('lagun_event_campaigns').select('campaign_id, event_id, campaign_name, account_id'),
+        (supabase as any).from('lagun_events').select('id, nome'),
+      ]);
+      if (!vivo) return;
+      setVinculos((data ?? []) as Vinculo[]);
+      setNomesEventos(new Map(((evs ?? []) as any[]).map((e) => [e.id, e.nome ?? ''])));
+    })();
+    return () => { vivo = false; };
+  }, [versaoVinculos]);
+
   // Meta Ads: contas da meta-ads-api; sem token configurado fica "desconectada".
+  // No evento soma só as campanhas vinculadas, cada uma na própria conta.
   useEffect(() => {
     let vivo = true;
     (async () => {
@@ -529,22 +553,55 @@ export default function InternoVisaoGeral() {
         let salva: string | null = null;
         try { salva = localStorage.getItem(CONTA_META_KEY); } catch { /* sem storage */ }
         const conta = meta.conta || contas.find((c) => c.account_id === salva)?.account_id || contas[0].account_id;
-        const r = await supabase.functions.invoke(
-          `meta-ads-api?action=account_insights&account_id=${conta}&since=${intervalo.desdeDia}&until=${intervalo.ateDia}`, { method: 'GET' });
-        const gasto = Number((r.data as any)?.data?.[0]?.spend || 0);
-        if (vivo) setMeta({ estado: r.error ? 'desconectada' : 'ok', gasto, conta, contas });
+        const periodo = `since=${intervalo.desdeDia}&until=${intervalo.ateDia}`;
+        if (!evento) {
+          const r = await supabase.functions.invoke(`meta-ads-api?action=account_insights&account_id=${conta}&${periodo}`, { method: 'GET' });
+          const gasto = Number((r.data as any)?.data?.[0]?.spend || 0);
+          if (vivo) setMeta({ estado: r.error ? 'desconectada' : 'ok', gasto, conta, contas });
+          return;
+        }
+        const porConta = new Map<string, string[]>();
+        for (const v of vinculos.filter((x) => x.event_id === evento)) {
+          const c = (v.account_id || conta).replace(/^act_/, '');
+          porConta.set(c, [...(porConta.get(c) ?? []), v.campaign_id]);
+        }
+        const respostas = await Promise.all([...porConta].map(([c, ids]) => supabase.functions.invoke(
+          `meta-ads-api?action=account_insights&account_id=${c}&campaign_ids=${ids.join(',')}&${periodo}`, { method: 'GET' })));
+        const falhou = respostas.some((r) => r.error || (r.data as any)?.error);
+        const gasto = respostas.reduce((s, r) => s + Number((r.data as any)?.data?.[0]?.spend || 0), 0);
+        if (vivo) setMeta({ estado: falhou ? 'desconectada' : 'ok', gasto, conta, contas });
       } catch {
         if (vivo) setMeta({ estado: 'desconectada', gasto: 0, contas: [] });
       }
     })();
     return () => { vivo = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [intervalo.desdeDia, intervalo.ateDia, meta.conta]);
+  }, [intervalo.desdeDia, intervalo.ateDia, meta.conta, evento, vinculos]);
 
   // WhatsApp: templates enviados no período (marketing x utilidade), só contagem.
+  // No evento: os disparos vinculados a ele e os envios automáticos (carrinho é
+  // template de marketing, por causa do cupom; estorno é utilidade).
   useEffect(() => {
     let vivo = true;
     (async () => {
+      if (evento) {
+        const envios = (tipo: string) => {
+          let q = (supabase as any).from('lagun_zig_carrinho_envios').select('order_id', { count: 'exact', head: true })
+            .eq('event_id', evento).eq('tipo', tipo).eq('ok', true);
+          if (intervalo.desde) q = q.gte('enviado_em', intervalo.desde);
+          return q;
+        };
+        const [carrinho, estorno, disp] = await Promise.all([
+          envios('carrinho'), envios('estorno'),
+          (supabase as any).rpc('whatsapp_disparos', { p_desde: intervalo.desde ? intervalo.desdeDia : null }),
+        ]);
+        const doEvento = ((disp.data ?? []) as Disparo[]).filter((d) => d.event_id === evento);
+        const soma = (util: boolean) => doEvento.filter((d) => (d.categoria === 'UTILITY') === util).reduce((s, d) => s + Number(d.enviados), 0);
+        if (!vivo) return;
+        setDisparosEv(doEvento);
+        setWhats({ marketing: (carrinho.count ?? 0) + soma(false), utilidade: (estorno.count ?? 0) + soma(true) });
+        return;
+      }
       const base = () => {
         let q = (supabase as any).from('whatsapp_messages').select('id', { count: 'exact', head: true })
           .eq('direction', 'outgoing').eq('message_type', 'template');
@@ -556,7 +613,7 @@ export default function InternoVisaoGeral() {
       if (vivo) setWhats({ marketing: Math.max(0, total - utilidade), utilidade });
     })();
     return () => { vivo = false; };
-  }, [intervalo.desde]);
+  }, [intervalo.desde, intervalo.desdeDia, evento, versaoVinculos]);
 
   // Atualizar: lê a Zig agora (um evento ou todos os ligados) e recarrega.
   async function atualizar() {
@@ -640,6 +697,7 @@ export default function InternoVisaoGeral() {
   const aVenda = dash.eventos.filter((e) => !e.data || e.data >= hoje).sort((a, b) => (a.data ?? '9').localeCompare(b.data ?? '9'));
   const passados = dash.eventos.filter((e) => e.data && e.data < hoje).sort((a, b) => (b.data ?? '').localeCompare(a.data ?? ''));
   const ev = evento === null ? null : dash.eventos.find((e) => e.id === evento) ?? null;
+  const campanhasEv = ev ? vinculos.filter((v) => v.event_id === ev.id) : [];
   const faltam = ev?.data ? diasEntre(hoje, ev.data.slice(0, 10)) : null;
   const semDetalhe = <p className={vazioCls}>Setor e lote chegam na próxima leitura da Zig.</p>;
 
@@ -827,7 +885,7 @@ export default function InternoVisaoGeral() {
           </div>
         </Painel>
 
-        <Painel titulo="Custos de marketing" icone={<Megaphone size={15} />} subtitulo={`Investimento · ${rotuloPeriodo}${ev ? ' · conta inteira, não só este evento' : ''}`}>
+        <Painel titulo="Custos de marketing" icone={<Megaphone size={15} />} subtitulo={`Investimento · ${rotuloPeriodo}${ev ? ' · só deste evento' : ' · conta inteira'}`}>
           <div className="space-y-3">
             <div className="flex items-center gap-3 rounded-lg border border-[#2A2822] bg-white/[0.02] p-3">
               <span className="flex h-9 w-9 flex-none items-center justify-center rounded-lg bg-[#FFE14D]/10 text-[#FFE14D]"><Megaphone size={16} /></span>
@@ -836,7 +894,15 @@ export default function InternoVisaoGeral() {
                 {meta.estado === 'carregando' ? <p className="mt-1 h-5 w-24 animate-pulse rounded bg-white/10" /> :
                   meta.estado === 'ok' ? <p className="text-xl font-bold tabular-nums text-white">{brl(meta.gasto)}</p> :
                     <p className="text-sm font-medium text-[#FB923C]">Conta de anúncios não conectada</p>}
-                {meta.estado === 'ok' && meta.contas.length > 1 ? (
+                {ev && meta.estado !== 'desconectada' ? (
+                  <>
+                    <p className="text-[11px] text-[#8F8A7C]">{campanhasEv.length ? 'soma das campanhas vinculadas' : 'nenhuma campanha vinculada ainda'}</p>
+                    {meta.conta && (
+                      <CampanhasDoEvento eventoId={ev.id} conta={meta.conta} vinculos={vinculos} nomesEventos={nomesEventos}
+                        onMudou={() => setVersaoVinculos((n) => n + 1)} />
+                    )}
+                  </>
+                ) : meta.estado === 'ok' && meta.contas.length > 1 ? (
                   <select value={meta.conta} onChange={(e) => { try { localStorage.setItem(CONTA_META_KEY, e.target.value); } catch { /* ok */ } setMeta((m) => ({ ...m, conta: e.target.value })); }}
                     className="mt-1 max-w-full truncate bg-transparent text-[11px] text-[#8F8A7C] outline-none">
                     {meta.contas.map((c) => <option key={c.account_id} value={c.account_id} className="bg-[#1A1916]">{c.name}</option>)}
@@ -849,7 +915,8 @@ export default function InternoVisaoGeral() {
               <div className="min-w-0 flex-1">
                 <p className="text-xs text-[#8F8A7C]">WhatsApp <span className="text-[10px]">(estimado)</span></p>
                 <p className="text-xl font-bold tabular-nums text-white">{brl(custoWhats, true)}</p>
-                <p className="text-[11px] text-[#8F8A7C]">{num(whats.marketing)} marketing · {num(whats.utilidade)} utilidade</p>
+                <p className="text-[11px] text-[#8F8A7C]">{num(whats.marketing)} marketing · {num(whats.utilidade)} utilidade{ev ? ' · disparos + carrinho e estorno' : ''}</p>
+                {ev && <DisparosDoEvento eventoId={ev.id} vinculados={disparosEv} nomesEventos={nomesEventos} onMudou={() => setVersaoVinculos((n) => n + 1)} />}
               </div>
             </div>
             <div className="space-y-1.5 border-t border-[#2A2822] pt-3 text-xs">

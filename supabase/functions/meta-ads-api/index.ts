@@ -210,8 +210,13 @@ Deno.serve(async (req) => {
         const dateFilter = since && until
           ? `time_range=${encodeURIComponent(JSON.stringify({ since, until }))}`
           : dateFilterForPreset(datePreset);
+        // campaign_ids=1,2,3 soma só essas campanhas (as vinculadas a um evento).
+        const campaignIds = (url.searchParams.get("campaign_ids") || "").split(",").filter((id) => /^\d+$/.test(id));
+        const campaignFilter = campaignIds.length
+          ? `&filtering=${encodeURIComponent(JSON.stringify([{ field: "campaign.id", operator: "IN", value: campaignIds }]))}`
+          : "";
         const resp = await fetch(
-          `${GRAPH_API}/act_${accountId}/insights?fields=${fields}&${dateFilter}&access_token=${token}`
+          `${GRAPH_API}/act_${accountId}/insights?fields=${fields}&${dateFilter}${campaignFilter}&access_token=${token}`
         );
         result = await resp.json();
         break;
