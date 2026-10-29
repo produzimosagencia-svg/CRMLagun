@@ -1,7 +1,8 @@
 // ============================================================================
-// Carrinho abandonado da Zig: depois de cada sincronização, manda o template do
-// evento (lagun_zig_carrinho) para quem tem pedido pendente há 30 min ou
-// descartado. Regras:
+// Carrinho abandonado e estorno da Zig: depois de cada sincronização, manda o
+// template do evento (lagun_zig_carrinho). Carrinho: pedido pendente há 30 min
+// ou descartado. Estorno: pedido que mudou para estornado nesta sincronização.
+// Regras do carrinho:
 // • só pedidos feitos depois de ligar o envio (ligado_em);
 // • um envio por telefone por evento, e nunca para quem já comprou no evento;
 // • o telefone não é gravado: lagun_zig_carrinho_envios guarda o hash.
@@ -57,79 +58,106 @@ async function enviarTemplate(cfg: any, para: string, primeiroNome: string, toke
   return { ok: true as const, wamid: data?.messages?.[0]?.id as string | undefined };
 }
 
+const ESTORNOS = new Set(["estornado", "estornado_parcialmente"]);
+const receitaDoPedido = (b: any) =>
+  (Array.isArray(b?.tickets) ? b.tickets : []).reduce((s: number, t: any) => s + (Number(t?.price) || 0), 0) || Number(b?.order?.total_amount) || 0;
+
+// Reserva o pedido (um envio por pedido e tipo), manda e registra no histórico do WhatsApp.
+async function enviarUm(sb: any, eventId: string, tipo: "carrinho" | "estorno", tpl: any, orderId: string, b: any, h: string, para: string, token: string) {
+  const status = clean(b?.order?.status).toLowerCase();
+  // Reserva antes de enviar: duas sincronizações ao mesmo tempo não mandam duas vezes.
+  const { error: reserva } = await sb.from("lagun_zig_carrinho_envios").insert({
+    order_id: orderId, tipo, event_id: eventId, status_pedido: status, telefone_hash: h, template_name: tpl.template_name,
+  });
+  if (reserva) return false;
+  const primeiroNome = clean(b?.first_name) || clean(b?.name).split(/\s+/)[0] || "";
+  const r = await enviarTemplate(tpl, para, primeiroNome, token);
+  await sb.from("lagun_zig_carrinho_envios")
+    .update({ ok: r.ok, wamid: r.ok ? r.wamid ?? null : null, erro: r.ok ? null : r.erro, enviado_em: new Date().toISOString() })
+    .eq("order_id", orderId).eq("tipo", tipo);
+  if (!r.ok) return false;
+  // Histórico do WhatsApp (mesmo registro do carrinho da Blueticket), pra a resposta cair no chat.
+  await sb.from("whatsapp_messages").insert({
+    phone: para, contact_name: clean(b?.name) || null, direction: "outgoing", message_type: "template",
+    message_text: `[${tipo === "carrinho" ? "Carrinho abandonado" : "Estorno"}] Template: ${tpl.template_name}`, status: "sent", wamid: r.wamid ?? null,
+  });
+  return true;
+}
+
 // porPedido: order_id → comprador como veio da Zig (com phone, name, order, tickets).
-export async function dispararCarrinhos(sb: any, eventId: string, porPedido: Map<string, any>) {
+// statusAntes: status de cada pedido no banco antes desta sincronização (para ver o estorno acontecer).
+export async function dispararCarrinhos(sb: any, eventId: string, porPedido: Map<string, any>, statusAntes: Map<string, string | null> = new Map()) {
   const { data: cfg } = await sb.from("lagun_zig_carrinho").select("*").eq("event_id", eventId).maybeSingle();
   const { data: enviados } = await sb.from("lagun_zig_carrinho_envios")
-    .select("order_id, telefone_hash, recuperado_em").eq("event_id", eventId);
-  const jaEnviado = new Set<string>((enviados ?? []).map((e: any) => e.order_id));
-  const telefoneJaRecebeu = new Set<string>((enviados ?? []).map((e: any) => e.telefone_hash));
+    .select("order_id, tipo, telefone_hash, recuperado_em").eq("event_id", eventId);
+  const doCarrinho = (enviados ?? []).filter((e: any) => e.tipo === "carrinho");
+  const jaEnviado = new Set<string>((enviados ?? []).map((e: any) => `${e.order_id}|${e.tipo}`));
+  const telefoneJaRecebeu = new Set<string>(doCarrinho.map((e: any) => e.telefone_hash));
 
-  // Quem tem pedido pago no evento (pelo hash do telefone) e o quanto pagou.
-  const pagoPorTelefone = new Map<string, { valor: number; quando: string | null }>();
-  const compradores = [...porPedido.values()];
+  // Quem tem pedido pago no evento (pelo hash do telefone) e quanto foi para o produtor.
+  const pagoPorTelefone = new Map<string, number>();
   const hashes = new Map<any, string | null>();
-  for (const b of compradores) {
+  for (const b of porPedido.values()) {
     const tel = telefoneWhats(b?.phone);
     hashes.set(b, tel ? await sha256(tel) : null);
   }
-  for (const b of compradores) {
+  for (const b of porPedido.values()) {
     const h = hashes.get(b);
     if (!h || !PAGOS.has(clean(b?.order?.status).toLowerCase())) continue;
-    const atual = pagoPorTelefone.get(h);
-    pagoPorTelefone.set(h, { valor: (atual?.valor ?? 0) + (Number(b?.order?.total_amount) || 0), quando: clean(b?.order?.purchase_date) || atual?.quando || null });
+    pagoPorTelefone.set(h, (pagoPorTelefone.get(h) ?? 0) + receitaDoPedido(b));
   }
 
-  // Recuperação: envio cujo telefone aparece com pedido pago.
-  for (const e of enviados ?? []) {
+  // Recuperação: carrinho cujo telefone aparece com pedido pago.
+  for (const e of doCarrinho) {
     if (e.recuperado_em) continue;
-    const pago = pagoPorTelefone.get(e.telefone_hash);
-    if (pago) {
+    const valor = pagoPorTelefone.get(e.telefone_hash);
+    if (valor != null) {
       await sb.from("lagun_zig_carrinho_envios")
-        .update({ recuperado_em: new Date().toISOString(), valor_recuperado: pago.valor })
-        .eq("order_id", e.order_id);
+        .update({ recuperado_em: new Date().toISOString(), valor_recuperado: valor })
+        .eq("order_id", e.order_id).eq("tipo", "carrinho");
     }
   }
 
-  if (!cfg?.enabled || !cfg.template_name || !cfg.phone_number_id || !cfg.ligado_em) return { enviados: 0 };
   const token = Deno.env.get("META_WHATSAPP_TOKEN") || "";
-  if (!token) return { enviados: 0, erro: "META_WHATSAPP_TOKEN ausente" };
+  if (!cfg?.phone_number_id || !token) return { enviados: 0, estornos: 0 };
+  let enviadosAgora = 0, estornosAgora = 0;
 
-  const ligadoEm = new Date(cfg.ligado_em).getTime();
-  const agora = Date.now();
-  let enviadosAgora = 0;
-  for (const [orderId, b] of porPedido) {
-    if (enviadosAgora >= MAX_POR_RODADA) break;
-    if (jaEnviado.has(orderId)) continue;
-    const status = clean(b?.order?.status).toLowerCase();
-    if (status !== "pendente" && status !== "descartado") continue;
-    const iso = normalizarDataZig(b?.order?.purchase_date);
-    const quando = iso ? new Date(iso).getTime() : NaN;
-    if (!Number.isFinite(quando) || quando < ligadoEm) continue;
-    if (status === "pendente" && agora - quando < ESPERA_PENDENTE_MS) continue;
-    const para = telefoneWhats(b?.phone);
-    const h = hashes.get(b);
-    if (!para || !h || pagoPorTelefone.has(h) || telefoneJaRecebeu.has(h)) continue;
-
-    const primeiroNome = clean(b?.first_name) || clean(b?.name).split(/\s+/)[0] || "";
-    // Reserva o pedido antes de enviar: duas sincronizações ao mesmo tempo não mandam duas vezes.
-    const { error: reserva } = await sb.from("lagun_zig_carrinho_envios").insert({
-      order_id: orderId, event_id: eventId, status_pedido: status, telefone_hash: h, template_name: cfg.template_name,
-    });
-    telefoneJaRecebeu.add(h);
-    if (reserva) continue;
-    const r = await enviarTemplate(cfg, para, primeiroNome, token);
-    await sb.from("lagun_zig_carrinho_envios")
-      .update({ ok: r.ok, wamid: r.ok ? r.wamid ?? null : null, erro: r.ok ? null : r.erro, enviado_em: new Date().toISOString() })
-      .eq("order_id", orderId);
-    if (r.ok) {
-      enviadosAgora++;
-      // Histórico do WhatsApp (mesmo registro do carrinho da Blueticket), pra a resposta cair no chat.
-      await sb.from("whatsapp_messages").insert({
-        phone: para, contact_name: clean(b?.name) || null, direction: "outgoing", message_type: "template",
-        message_text: `[Carrinho abandonado] Template: ${cfg.template_name}`, status: "sent", wamid: r.wamid ?? null,
-      });
+  // ── Carrinho abandonado ──
+  if (cfg.enabled && cfg.template_name && cfg.ligado_em) {
+    const tpl = { template_name: cfg.template_name, template_language: cfg.template_language, template_variable_count: cfg.template_variable_count, header_image_url: cfg.header_image_url, phone_number_id: cfg.phone_number_id };
+    const ligadoEm = new Date(cfg.ligado_em).getTime();
+    const agora = Date.now();
+    for (const [orderId, b] of porPedido) {
+      if (enviadosAgora >= MAX_POR_RODADA) break;
+      if (jaEnviado.has(`${orderId}|carrinho`)) continue;
+      const status = clean(b?.order?.status).toLowerCase();
+      if (status !== "pendente" && status !== "descartado") continue;
+      const iso = normalizarDataZig(b?.order?.purchase_date);
+      const quando = iso ? new Date(iso).getTime() : NaN;
+      if (!Number.isFinite(quando) || quando < ligadoEm) continue;
+      if (status === "pendente" && agora - quando < ESPERA_PENDENTE_MS) continue;
+      const para = telefoneWhats(b?.phone);
+      const h = hashes.get(b);
+      if (!para || !h || pagoPorTelefone.has(h) || telefoneJaRecebeu.has(h)) continue;
+      telefoneJaRecebeu.add(h);
+      if (await enviarUm(sb, eventId, "carrinho", tpl, orderId, b, h, para, token)) enviadosAgora++;
     }
   }
-  return { enviados: enviadosAgora };
+
+  // ── Estorno: o pedido estava em outro status no banco e agora veio estornado ──
+  if (cfg.estorno_enabled && cfg.estorno_template_name && cfg.estorno_ligado_em) {
+    const tpl = { template_name: cfg.estorno_template_name, template_language: cfg.estorno_template_language, template_variable_count: cfg.estorno_variable_count, header_image_url: cfg.estorno_header_image_url, phone_number_id: cfg.phone_number_id };
+    for (const [orderId, b] of porPedido) {
+      if (estornosAgora >= MAX_POR_RODADA) break;
+      if (jaEnviado.has(`${orderId}|estorno`)) continue;
+      const status = clean(b?.order?.status).toLowerCase();
+      const antes = (statusAntes.get(orderId) ?? "").toLowerCase();
+      if (!ESTORNOS.has(status) || !statusAntes.has(orderId) || ESTORNOS.has(antes)) continue;
+      const para = telefoneWhats(b?.phone);
+      const h = hashes.get(b);
+      if (!para || !h) continue;
+      if (await enviarUm(sb, eventId, "estorno", tpl, orderId, b, h, para, token)) estornosAgora++;
+    }
+  }
+  return { enviados: enviadosAgora, estornos: estornosAgora };
 }

@@ -35,7 +35,7 @@ type Dash = {
   hoje: string;
   atualizado_em: string | null;
   kpis: {
-    bruto: number; face: number; pedidos: number; ingressos: number; ingressos_detalhados: number;
+    bruto: number; face: number; taxa?: number; pedidos: number; ingressos: number; ingressos_detalhados: number;
     cupom_bruto: number; cupom_pedidos: number; desconto: number; primeira: string | null; ultima: string | null;
   };
   cortesias: number;
@@ -627,7 +627,8 @@ export default function InternoVisaoGeral() {
   const k = dash.kpis;
   const rotuloPeriodo = PERIODOS.find((p) => p.id === periodo)!.rotulo.toLowerCase();
   const temDetalhe = k.ingressos_detalhados > 0;
-  const taxas = k.bruto - k.face;
+  // k.bruto já é a receita do produtor (soma dos ingressos, sem a taxa da Zig).
+  const naoPagos = Object.entries(dash.funil).filter(([st]) => !PAGOS.has(st)).reduce((s, [, n]) => s + n, 0);
   const ticketMedio = k.ingressos ? k.bruto / k.ingressos : 0;
   const custoWhats = whats.marketing * WHATSAPP_R$.marketing + whats.utilidade * WHATSAPP_R$.utilidade;
   const custoTotal = (meta.estado === 'ok' ? meta.gasto : 0) + custoWhats;
@@ -645,7 +646,7 @@ export default function InternoVisaoGeral() {
   // ── painéis ────────────────────────────────────────────────────────────────
   const painelCupons = (
     <Painel titulo="Vendas por cupom" icone={<BadgePercent size={15} />}
-      subtitulo={rankCupom === 'ingressos' ? 'Ranking por quantidade de ingressos' : 'Ranking por faturamento'}
+      subtitulo={rankCupom === 'ingressos' ? 'Ranking por quantidade de ingressos' : 'Ranking por receita'}
       acao={(
         <div className="flex flex-none rounded-md border border-[#2A2822] p-0.5">
           {(['ingressos', 'valor'] as const).map((c) => (
@@ -666,7 +667,7 @@ export default function InternoVisaoGeral() {
   );
 
   const painelPagamento = (
-    <Painel titulo="Formas de pagamento" icone={<CreditCard size={15} />} subtitulo="Parte do faturamento">
+    <Painel titulo="Formas de pagamento" icone={<CreditCard size={15} />} subtitulo="Parte da receita">
       {dash.pagamento.length === 0 ? <p className={vazioCls}>Sem vendas no período.</p> : (
         <>
           <BarraDivisao partes={dash.pagamento.slice(0, 5).map((p, i) => ({ rotulo: nomePagamento(p.nome), valor: p.valor, tom: corPagamento(p.nome, i) }))} />
@@ -763,17 +764,17 @@ export default function InternoVisaoGeral() {
 
       {/* KPIs */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
-        <Kpi destaque icone={<DollarSign size={15} />} rotulo={`Faturamento (${rotuloPeriodo})`} valor={brl(k.bruto)}
-          sub={temDetalhe ? `${brl(taxas)} de taxas pagas pelo público` : 'valor pago nos pedidos'} />
-        <Kpi icone={<Wallet size={15} />} rotulo="Valor dos ingressos" valor={temDetalhe ? brl(k.face) : '-'}
-          sub={temDetalhe ? (k.bruto ? `${pct(k.face / k.bruto)} do faturamento · sem taxa` : '-') : 'chega na próxima leitura'} />
+        <Kpi destaque icone={<DollarSign size={15} />} rotulo={`Receita (${rotuloPeriodo})`} valor={brl(k.bruto)}
+          sub="do produtor · sem a taxa da Zig" />
+        <Kpi icone={<XCircle size={15} />} rotulo="Pedidos não pagos" valor={num(naoPagos)}
+          sub="pendentes e descartados no período" />
         <Kpi icone={<Ticket size={15} />} rotulo={`Ingressos (${rotuloPeriodo})`} valor={num(k.ingressos)}
           sub={dash.cortesias ? `${num(dash.cortesias)} cortesias${dash.passaportes ? ` · ${num(dash.passaportes)} passaportes` : ''}` : dash.passaportes ? `${num(dash.passaportes)} passaportes` : 'nenhuma cortesia'} />
         <Kpi icone={<ShoppingCart size={15} />} rotulo="Pedidos pagos" valor={num(k.pedidos)}
           sub={`${(k.pedidos ? k.ingressos / k.pedidos : 0).toLocaleString('pt-BR', { maximumFractionDigits: 2 })} ingressos por pedido`} />
-        <Kpi icone={<Receipt size={15} />} rotulo="Ticket médio" valor={brl(ticketMedio, true)} sub="faturamento ÷ ingressos" />
+        <Kpi icone={<Receipt size={15} />} rotulo="Ticket médio" valor={brl(ticketMedio, true)} sub="receita ÷ ingressos" />
         <Kpi icone={<BadgePercent size={15} />} rotulo="Vendas com cupom" valor={brl(k.cupom_bruto)}
-          sub={k.bruto ? `${pct(k.cupom_bruto / k.bruto)} do faturamento · ${num(k.cupom_pedidos)} pedidos` : '-'} />
+          sub={k.bruto ? `${pct(k.cupom_bruto / k.bruto)} da receita · ${num(k.cupom_pedidos)} pedidos` : '-'} />
       </div>
 
       {/* Eventos à venda: clicar abre o dashboard do evento */}
@@ -792,7 +793,7 @@ export default function InternoVisaoGeral() {
       {/* Receita + custos */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <Painel className="lg:col-span-2" titulo="Receita" icone={<Activity size={15} />}
-          subtitulo={`Faturamento ${periodo === '24h' ? 'por hora nas últimas 24h' : 'por dia'} · ${brl(k.bruto)}`}>
+          subtitulo={`Receita do produtor ${periodo === '24h' ? 'por hora nas últimas 24h' : 'por dia'} · ${brl(k.bruto)}`}>
           <div className="h-56 sm:h-64">
             <ResponsiveContainer width="100%" height="100%">
               {serie.length > 45 ? (
@@ -854,7 +855,7 @@ export default function InternoVisaoGeral() {
             <div className="space-y-1.5 border-t border-[#2A2822] pt-3 text-xs">
               <div className="flex items-center justify-between"><span className="text-[#8F8A7C]">Custo total</span><span className="font-bold tabular-nums text-white">{brl(custoTotal)}</span></div>
               <div className="flex items-center justify-between">
-                <span className="text-[#8F8A7C]">ROAS <span className="text-[10px]">(faturamento ÷ custo)</span></span>
+                <span className="text-[#8F8A7C]">ROAS <span className="text-[10px]">(receita ÷ custo)</span></span>
                 {roas === null ? <span className="text-[#8F8A7C]">-</span>
                   : <Selo tom={roas >= 5 ? 'bom' : roas >= 2 ? 'atencao' : 'ruim'}>{roas.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}x</Selo>}
               </div>

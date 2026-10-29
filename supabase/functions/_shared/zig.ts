@@ -119,6 +119,14 @@ export async function sincronizarEvento(sb: any, eventId: string) {
       if (orderId) porPedido.set(orderId, buyer);
     }
     const agora = new Date().toISOString();
+    // Status de antes (para o envio do estorno ver a mudança). Paginado: passa de 1000 pedidos.
+    const statusAntes = new Map<string, string | null>();
+    for (let de = 0; de < 100_000; de += 1000) {
+      const { data, error } = await sb.from("lagun_zig_orders").select("order_id, status").eq("event_id", eventId).range(de, de + 999);
+      if (error) break;
+      for (const r of data ?? []) statusAntes.set(r.order_id, r.status);
+      if (!data || data.length < 1000) break;
+    }
     const base = [...porPedido.entries()].map(([orderId, buyer]) => ({
       order_id: orderId,
       event_id: eventId,
@@ -178,9 +186,9 @@ export async function sincronizarEvento(sb: any, eventId: string) {
     await sb.from("lagun_event_zig")
       .update({ last_sync_at: agora, last_sync_error: null, orders_count: linhas.length })
       .eq("event_id", eventId);
-    // Carrinho abandonado: falha aqui não derruba a sincronização.
-    let carrinho: { enviados: number; erro?: string } | null = null;
-    try { carrinho = await dispararCarrinhos(sb, eventId, porPedido); }
+    // Carrinho abandonado e estorno: falha aqui não derruba a sincronização.
+    let carrinho: { enviados: number; estornos?: number; erro?: string } | null = null;
+    try { carrinho = await dispararCarrinhos(sb, eventId, porPedido, statusAntes); }
     catch (e) { carrinho = { enviados: 0, erro: e instanceof Error ? e.message : String(e) }; }
     return { pedidos: linhas.length, ingressos: detalhe ? ingressos.length : null, carrinho };
   } catch (error) {
