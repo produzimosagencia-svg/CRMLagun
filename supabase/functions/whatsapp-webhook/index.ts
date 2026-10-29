@@ -234,6 +234,10 @@ Deno.serve(async (req) => {
             const escolha = msg.interactive?.button_reply ?? msg.interactive?.list_reply ?? null;
             record.message_text = escolha?.title ? String(escolha.title) : "[Opção]";
             record.message_type = "text";
+          } else if (msg.type === "button") {
+            // Botão de resposta rápida de template ("Quero saber mais").
+            record.message_text = msg.button?.text ? String(msg.button.text) : "[Botão]";
+            record.message_type = "text";
           } else if (msg.type === "reaction") {
             record.message_text = `Reação: ${msg.reaction?.emoji || ""}`;
           } else if (msg.type === "sticker") {
