@@ -7,6 +7,8 @@
 // forma de pagamento, cupom e, por ingresso, setor, lote, preço e cortesia.
 // ============================================================================
 
+import { dispararCarrinhos } from "./zigCarrinho.ts";
+
 const API = "https://public-api.superticket.com.br";
 const PER_PAGE = 200;
 
@@ -176,7 +178,11 @@ export async function sincronizarEvento(sb: any, eventId: string) {
     await sb.from("lagun_event_zig")
       .update({ last_sync_at: agora, last_sync_error: null, orders_count: linhas.length })
       .eq("event_id", eventId);
-    return { pedidos: linhas.length, ingressos: detalhe ? ingressos.length : null };
+    // Carrinho abandonado: falha aqui não derruba a sincronização.
+    let carrinho: { enviados: number; erro?: string } | null = null;
+    try { carrinho = await dispararCarrinhos(sb, eventId, porPedido); }
+    catch (e) { carrinho = { enviados: 0, erro: e instanceof Error ? e.message : String(e) }; }
+    return { pedidos: linhas.length, ingressos: detalhe ? ingressos.length : null, carrinho };
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
     await sb.from("lagun_event_zig")

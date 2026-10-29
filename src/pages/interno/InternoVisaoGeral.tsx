@@ -7,6 +7,7 @@ import {
   Minus, Receipt, RefreshCw, ShoppingCart, Ticket, TrendingDown, TrendingUp, Wallet, XCircle,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { CarrinhoZig } from '@/components/interno/CarrinhoZig';
 
 /**
  * Visão geral de vendas da Lagun: todos os eventos ligados à Zig (Superticket).
@@ -635,8 +636,6 @@ export default function InternoVisaoGeral() {
   const setores = dash.setores.slice(0, 8);
   const lotes = dash.lotes.slice(0, 8);
   const totalPag = dash.pagamento.reduce((s, p) => s + p.valor, 0);
-  const eventosPeriodo = dash.eventos.filter((e) => e.pedidos_periodo > 0).sort((a, b) => b.bruto_periodo - a.bruto_periodo);
-  const totalBrutoEventos = eventosPeriodo.reduce((s, e) => s + e.bruto_periodo, 0);
   const aVenda = dash.eventos.filter((e) => !e.data || e.data >= hoje).sort((a, b) => (a.data ?? '9').localeCompare(b.data ?? '9'));
   const passados = dash.eventos.filter((e) => e.data && e.data < hoje).sort((a, b) => (b.data ?? '').localeCompare(a.data ?? ''));
   const ev = evento === null ? null : dash.eventos.find((e) => e.id === evento) ?? null;
@@ -866,60 +865,35 @@ export default function InternoVisaoGeral() {
 
       {ev ? (
         <>
+          <CarrinhoZig eventoId={ev.id} cardCls={cardCls} />
+
           {/* Dashboard do evento */}
           <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-3">
             {painelFunil}
             <div className="space-y-4">
               {painelSetores}
               {painelPagamento}
+              {painelCupons}
             </div>
           </div>
-          <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
+          <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[1fr_1.4fr]">
             {painelLotes}
-            {painelCupons}
+            {painelHorarios}
           </div>
-          {painelHorarios}
         </>
       ) : (
         <>
           <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-3">
             {painelFunil}
-            {painelSetores}
+            <div className="space-y-4">
+              {painelSetores}
+              {painelPagamento}
+              {painelCupons}
+            </div>
           </div>
-          <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-3">
-            {painelCupons}
-            {painelPagamento}
+          <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[1fr_1.4fr]">
             {painelLotes}
-          </div>
-
-          {/* Horários + separação por evento */}
-          <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[1.4fr_1fr]">
             {painelHorarios}
-            <Painel titulo="Faturamento por evento" icone={<Wallet size={15} />} subtitulo={`Separação financeira · ${rotuloPeriodo} · clique para abrir`}>
-              {eventosPeriodo.length === 0 ? <p className={vazioCls}>Sem vendas no período.</p> : (
-                <div className="-mx-1 overflow-x-auto px-1">
-                  <table className="w-full min-w-[420px] text-xs">
-                    <thead><tr className="text-left text-[#8F8A7C]"><th className="pb-2 font-medium">Evento</th><th className="pb-2 text-right font-medium">Ingressos</th><th className="pb-2 text-right font-medium">Faturamento</th><th className="pb-2 text-right font-medium">Sem taxa</th></tr></thead>
-                    <tbody className="divide-y divide-white/5">
-                      {eventosPeriodo.map((e) => (
-                        <tr key={e.id} className="cursor-pointer hover:bg-white/[0.03]" onClick={() => setEvento(e.id)}>
-                          <td className="py-2 pr-2">
-                            <p className="max-w-[200px] truncate font-medium text-white">{e.nome}</p>
-                            <div className="mt-1 h-1 w-full max-w-[200px] rounded-full bg-white/5"><div className="h-full rounded-full bg-[#FFE14D]" style={{ width: `${totalBrutoEventos ? (e.bruto_periodo / totalBrutoEventos) * 100 : 0}%` }} /></div>
-                          </td>
-                          <td className="py-2 text-right tabular-nums text-[#D8D2C7]">{num(e.ingressos_periodo)}</td>
-                          <td className="py-2 text-right tabular-nums text-white">{brl(e.bruto_periodo)}</td>
-                          <td className="py-2 text-right tabular-nums text-[#D8D2C7]">{e.face_periodo ? brl(e.face_periodo) : '-'}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                    {eventosPeriodo.length > 1 && (
-                      <tfoot><tr className="border-t border-[#2A2822] font-bold"><td className="pt-2 text-white">Total</td><td className="pt-2 text-right tabular-nums text-white">{num(k.ingressos)}</td><td className="pt-2 text-right tabular-nums text-white">{brl(k.bruto)}</td><td className="pt-2 text-right tabular-nums text-white">{temDetalhe ? brl(k.face) : '-'}</td></tr></tfoot>
-                    )}
-                  </table>
-                </div>
-              )}
-            </Painel>
           </div>
 
           {/* Eventos realizados */}
