@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
-import { AlertTriangle, CheckCircle2, Pause, Play, RefreshCw, Send, X } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, FileDown, Pause, Play, RefreshCw, Send, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { baixarRelatorioPdf } from '@/lib/relatorioPdf';
+import { RelatorioDisparo, type ResumoDisparo } from './RelatorioDisparo';
 
 /**
  * Progresso dos disparos em fila (whatsapp_disparo_jobs), no topo do Status
@@ -14,6 +16,13 @@ type Motivo = { motivo: string; code: string | null; n: number; conta: string | 
 type Resumo = {
   job: { id: string; template_name: string; total: number; status: string; motivo_pausa: string | null; created_at: string; concluido_em: string | null };
   pendentes: number; aceitos: number; entregues: number; lidos: number; falhas: number; motivos: Motivo[];
+  clicaram: number; cliques: number; responderam: number; inicio: string | null; fim: string | null;
+};
+
+// Título do PDF: a primeira palavra do template ("departamento_lagun_5off" → "Departamento").
+const tituloDoTemplate = (nome: string) => {
+  const p = nome.split(/[_-]/)[0] || nome;
+  return p.charAt(0).toUpperCase() + p.slice(1);
 };
 
 const ROTULO: Record<string, { texto: string; cls: string }> = {
@@ -29,7 +38,17 @@ export const acordarWorker = () =>
 
 function Cartao({ r, onMudou }: { r: Resumo; onMudou: () => void }) {
   const [agindo, setAgindo] = useState(false);
+  const [gerando, setGerando] = useState(false);
   const { job } = r;
+
+  async function pdf() {
+    setGerando(true);
+    try {
+      await baixarRelatorioPdf(<RelatorioDisparo titulo={tituloDoTemplate(job.template_name)} r={r as unknown as ResumoDisparo} />, `disparo-${job.template_name}`);
+    } finally {
+      setGerando(false);
+    }
+  }
   const processados = job.total - r.pendentes;
   const pct = job.total ? Math.round((processados / job.total) * 100) : 0;
   const ativo = job.status === 'na_fila' || job.status === 'enviando';
@@ -65,6 +84,7 @@ function Cartao({ r, onMudou }: { r: Resumo; onMudou: () => void }) {
           </p>
         </div>
         <div className="flex gap-2">
+          {r.pendentes < job.total && <button disabled={gerando} onClick={() => void pdf()} className="flex items-center gap-1 rounded-lg border border-[#2A2822] px-2.5 py-1.5 text-xs font-semibold text-[#D8D2C7] disabled:opacity-50"><FileDown size={12} /> {gerando ? 'Gerando…' : 'Relatório PDF'}</button>}
           {ativo && <button disabled={agindo} onClick={() => void controlar('pausar')} className="flex items-center gap-1 rounded-lg border border-[#2A2822] px-2.5 py-1.5 text-xs font-semibold text-[#D8D2C7] disabled:opacity-50"><Pause size={12} /> Pausar</button>}
           {job.status === 'pausado' && <button disabled={agindo} onClick={() => void controlar('retomar')} className="flex items-center gap-1 rounded-lg bg-[#FFE14D] px-2.5 py-1.5 text-xs font-bold text-[#17160f] disabled:opacity-50"><Play size={12} /> Retomar</button>}
           {(ativo || job.status === 'pausado') && <button disabled={agindo} onClick={() => void controlar('cancelar')} className="flex items-center gap-1 rounded-lg border border-[#2A2822] px-2.5 py-1.5 text-xs font-semibold text-[#8F8A7C] disabled:opacity-50"><X size={12} /> Cancelar</button>}
