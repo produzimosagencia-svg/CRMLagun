@@ -707,7 +707,7 @@ export default function InternoVisaoGeral() {
 
   const painelFunil = (
     <Painel className="lg:col-span-2" titulo="Funil de pedidos" icone={<ShoppingCart size={15} />} subtitulo="Do pedido criado na Zig ao pago">
-      <FunilPedidos funil={dash.funil} />
+      <div className="flex flex-1 flex-col justify-center"><FunilPedidos funil={dash.funil} /></div>
     </Painel>
   );
 
@@ -865,27 +865,25 @@ export default function InternoVisaoGeral() {
 
       {ev ? (
         <>
-          <CarrinhoZig eventoId={ev.id} cardCls={cardCls} />
-
           {/* Dashboard do evento */}
-          <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
             {painelFunil}
-            <div className="space-y-4">
+            <div className="flex flex-col gap-4 [&>section]:flex-1">
               {painelSetores}
               {painelPagamento}
               {painelCupons}
             </div>
           </div>
-          <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[1fr_1.4fr]">
-            {painelLotes}
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_1.4fr]">
+            <CarrinhoZig eventoId={ev.id} cardCls={cardCls} />
             {painelHorarios}
           </div>
         </>
       ) : (
         <>
-          <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
             {painelFunil}
-            <div className="space-y-4">
+            <div className="flex flex-col gap-4 [&>section]:flex-1">
               {painelSetores}
               {painelPagamento}
               {painelCupons}
