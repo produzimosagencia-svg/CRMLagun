@@ -50,6 +50,7 @@ const InternoRastreamento = lazy(() => import("./pages/interno/InternoRastreamen
 const InternoResumoProdutores = lazy(() => import("./pages/interno/InternoResumoProdutores.tsx"));
 const TrackedRedirect = lazy(() => import("./pages/TrackedRedirect.tsx"));
 const RelatorioEvento = lazy(() => import("./pages/RelatorioEvento.tsx"));
+const AtendimentoDisparo = lazy(() => import("./pages/AtendimentoDisparo.tsx"));
 const SaudadeConvite = lazy(() => import("./pages/SaudadeConvite.tsx"));
 const LandingPhotos = lazy(() => import("./pages/LandingPhotos.tsx"));
 const InternoBluetick = lazy(() => import("./pages/interno/InternoBluetick.tsx"));
@@ -102,6 +103,7 @@ createRoot(document.getElementById("root")!).render(
         <Route path="/influenciadores/portal"   element={<InfluenciadorPortal />} />
         <Route path="/r/:token" element={<TrackedRedirect />} />
         <Route path="/relatorio/:token" element={<RelatorioEvento />} />
+        <Route path="/atendimento/:token" element={<AtendimentoDisparo />} />
         <Route path="/saudade" element={<SaudadeConvite />} />
         <Route path="/saudade-2" element={<SaudadeConvite semKit />} />
         {/* Endereços antigos do convite: continuam abrindo, para links já enviados. */}

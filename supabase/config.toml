@@ -58,3 +58,6 @@ verify_jwt = false
 
 [functions.app-cliente]
 verify_jwt = false
+
+[functions.atendimento-disparo]
+verify_jwt = false
