@@ -31,13 +31,23 @@ async function sha256(texto: string) {
   return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-async function enviarTemplate(cfg: any, para: string, primeiroNome: string, token: string) {
+// Variáveis do template: {{1}} primeiro nome, {{2}} nome do evento; botão com
+// link variável recebe o final do link do evento (o que vem depois de botao_url_base).
+async function enviarTemplate(cfg: any, para: string, primeiroNome: string, evento: { nome: string; link: string }, token: string) {
   const components: unknown[] = [];
   if (cfg.header_image_url) {
     components.push({ type: "header", parameters: [{ type: "image", image: { link: cfg.header_image_url } }] });
   }
-  if ((cfg.template_variable_count ?? 0) >= 1) {
-    components.push({ type: "body", parameters: [{ type: "text", text: primeiroNome || "tudo bem" }] });
+  const vars = cfg.template_variable_count ?? 0;
+  if (vars >= 1) {
+    const valores = [primeiroNome || "tudo bem", evento.nome || "o evento"].slice(0, vars);
+    components.push({ type: "body", parameters: valores.map((text) => ({ type: "text", text })) });
+  }
+  if (cfg.botao_url_base) {
+    if (!evento.link.startsWith(cfg.botao_url_base)) {
+      return { ok: false as const, erro: `O link do evento não começa com ${cfg.botao_url_base}, como pede o botão do template.` };
+    }
+    components.push({ type: "button", sub_type: "url", index: "0", parameters: [{ type: "text", text: evento.link.slice(cfg.botao_url_base.length) }] });
   }
   const resp = await fetch(`${GRAPH_API}/${cfg.phone_number_id}/messages`, {
     method: "POST",
@@ -63,7 +73,7 @@ const receitaDoPedido = (b: any) =>
   (Array.isArray(b?.tickets) ? b.tickets : []).reduce((s: number, t: any) => s + (Number(t?.price) || 0), 0) || Number(b?.order?.total_amount) || 0;
 
 // Reserva o pedido (um envio por pedido e tipo), manda e registra no histórico do WhatsApp.
-async function enviarUm(sb: any, eventId: string, tipo: "carrinho" | "estorno", tpl: any, orderId: string, b: any, h: string, para: string, token: string) {
+async function enviarUm(sb: any, eventId: string, tipo: "carrinho" | "estorno", tpl: any, evento: { nome: string; link: string }, orderId: string, b: any, h: string, para: string, token: string) {
   const status = clean(b?.order?.status).toLowerCase();
   // Reserva antes de enviar: duas sincronizações ao mesmo tempo não mandam duas vezes.
   const { error: reserva } = await sb.from("lagun_zig_carrinho_envios").insert({
@@ -71,7 +81,7 @@ async function enviarUm(sb: any, eventId: string, tipo: "carrinho" | "estorno", 
   });
   if (reserva) return false;
   const primeiroNome = clean(b?.first_name) || clean(b?.name).split(/\s+/)[0] || "";
-  const r = await enviarTemplate(tpl, para, primeiroNome, token);
+  const r = await enviarTemplate(tpl, para, primeiroNome, evento, token);
   await sb.from("lagun_zig_carrinho_envios")
     .update({ ok: r.ok, wamid: r.ok ? r.wamid ?? null : null, erro: r.ok ? null : r.erro, enviado_em: new Date().toISOString() })
     .eq("order_id", orderId).eq("tipo", tipo);
@@ -133,11 +143,13 @@ export async function dispararCarrinhos(sb: any, eventId: string, porPedido: Map
 
   const token = Deno.env.get("META_WHATSAPP_TOKEN") || "";
   if (!cfg?.phone_number_id || !token) return { enviados: 0, estornos: 0 };
+  const { data: ev } = await sb.from("lagun_events").select("nome, link").eq("id", eventId).maybeSingle();
+  const evento = { nome: clean(ev?.nome), link: clean(ev?.link) };
   let enviadosAgora = 0, estornosAgora = 0;
 
   // ── Carrinho abandonado ──
   if (cfg.enabled && cfg.template_name && cfg.ligado_em) {
-    const tpl = { template_name: cfg.template_name, template_language: cfg.template_language, template_variable_count: cfg.template_variable_count, header_image_url: cfg.header_image_url, phone_number_id: cfg.phone_number_id };
+    const tpl = { template_name: cfg.template_name, template_language: cfg.template_language, template_variable_count: cfg.template_variable_count, header_image_url: cfg.header_image_url, botao_url_base: cfg.botao_url_base, phone_number_id: cfg.phone_number_id };
     const ligadoEm = new Date(cfg.ligado_em).getTime();
     const agora = Date.now();
     for (const [orderId, b] of porPedido) {
@@ -153,13 +165,13 @@ export async function dispararCarrinhos(sb: any, eventId: string, porPedido: Map
       const h = hashes.get(b);
       if (!para || !h || pagoPorTelefone.has(h) || telefoneJaRecebeu.has(h)) continue;
       telefoneJaRecebeu.add(h);
-      if (await enviarUm(sb, eventId, "carrinho", tpl, orderId, b, h, para, token)) enviadosAgora++;
+      if (await enviarUm(sb, eventId, "carrinho", tpl, evento, orderId, b, h, para, token)) enviadosAgora++;
     }
   }
 
   // ── Estorno: o pedido estava em outro status no banco e agora veio estornado ──
   if (cfg.estorno_enabled && cfg.estorno_template_name && cfg.estorno_ligado_em) {
-    const tpl = { template_name: cfg.estorno_template_name, template_language: cfg.estorno_template_language, template_variable_count: cfg.estorno_variable_count, header_image_url: cfg.estorno_header_image_url, phone_number_id: cfg.phone_number_id };
+    const tpl = { template_name: cfg.estorno_template_name, template_language: cfg.estorno_template_language, template_variable_count: cfg.estorno_variable_count, header_image_url: cfg.estorno_header_image_url, botao_url_base: cfg.estorno_botao_url_base, phone_number_id: cfg.phone_number_id };
     for (const [orderId, b] of porPedido) {
       if (estornosAgora >= MAX_POR_RODADA) break;
       if (jaEnviado.has(`${orderId}|estorno`)) continue;
@@ -169,7 +181,7 @@ export async function dispararCarrinhos(sb: any, eventId: string, porPedido: Map
       const para = telefoneWhats(b?.phone);
       const h = hashes.get(b);
       if (!para || !h) continue;
-      if (await enviarUm(sb, eventId, "estorno", tpl, orderId, b, h, para, token)) estornosAgora++;
+      if (await enviarUm(sb, eventId, "estorno", tpl, evento, orderId, b, h, para, token)) estornosAgora++;
     }
   }
   return { enviados: enviadosAgora, estornos: estornosAgora };

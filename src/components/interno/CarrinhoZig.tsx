@@ -15,22 +15,22 @@ import { callWhatsappApi } from '@/lib/whatsappApi';
 
 interface Template {
   name: string; language: string; status: string; category?: string;
-  components?: { type: string; format?: string; text?: string; example?: { header_handle?: string[] } }[];
+  components?: { type: string; format?: string; text?: string; example?: { header_handle?: string[] }; buttons?: { type: string; url?: string }[] }[];
 }
 interface Config {
   event_id: string; phone_number_id: string | null;
   enabled: boolean; template_name: string | null; template_language: string;
-  template_variable_count: number; header_image_url: string | null; ligado_em: string | null;
+  template_variable_count: number; header_image_url: string | null; botao_url_base: string | null; ligado_em: string | null;
   estorno_enabled: boolean; estorno_template_name: string | null; estorno_template_language: string;
-  estorno_variable_count: number; estorno_header_image_url: string | null; estorno_ligado_em: string | null;
+  estorno_variable_count: number; estorno_header_image_url: string | null; estorno_botao_url_base: string | null; estorno_ligado_em: string | null;
 }
 interface Envio { tipo: Tipo; ok: boolean; recuperado_em: string | null; valor_recuperado: number | null }
 type Tipo = 'carrinho' | 'estorno';
 
 // Colunas de cada automação em lagun_zig_carrinho.
 const COLUNAS = {
-  carrinho: { enabled: 'enabled', nome: 'template_name', idioma: 'template_language', vars: 'template_variable_count', imagem: 'header_image_url', ligado: 'ligado_em' },
-  estorno: { enabled: 'estorno_enabled', nome: 'estorno_template_name', idioma: 'estorno_template_language', vars: 'estorno_variable_count', imagem: 'estorno_header_image_url', ligado: 'estorno_ligado_em' },
+  carrinho: { enabled: 'enabled', nome: 'template_name', idioma: 'template_language', vars: 'template_variable_count', imagem: 'header_image_url', botao: 'botao_url_base', ligado: 'ligado_em' },
+  estorno: { enabled: 'estorno_enabled', nome: 'estorno_template_name', idioma: 'estorno_template_language', vars: 'estorno_variable_count', imagem: 'estorno_header_image_url', botao: 'estorno_botao_url_base', ligado: 'estorno_ligado_em' },
 } as const;
 const MARCA: Record<Tipo, RegExp> = { carrinho: /carrinho/i, estorno: /estorn|reembols/i };
 const chaveDe = (t: Template) => `${t.name}|${t.language}`;
@@ -38,16 +38,21 @@ const quando = (iso: string) => new Date(iso).toLocaleString('pt-BR', { day: '2-
 
 const brl = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
 
-// O envio automático só preenche {{1}} com o primeiro nome e o cabeçalho com a imagem do exemplo.
+// O envio automático preenche {{1}} com o primeiro nome, {{2}} com o nome do
+// evento, o cabeçalho com a imagem do exemplo e o botão de link variável com o
+// final do link do evento.
 function analisar(t: Template) {
   const corpo = t.components?.find((c) => c.type === 'BODY')?.text ?? '';
   const header = t.components?.find((c) => c.type === 'HEADER');
   const vars = new Set(corpo.match(/\{\{\d+\}\}/g) ?? []).size;
+  const botoes = t.components?.find((c) => c.type === 'BUTTONS')?.buttons ?? [];
+  const comVariavel = botoes.filter((b) => b.type === 'URL' && /\{\{\d+\}\}/.test(b.url ?? ''));
+  const botaoBase = comVariavel[0]?.url?.replace(/\{\{\d+\}\}.*$/, '') ?? null;
   const imagem = header?.format === 'IMAGE' ? header.example?.header_handle?.[0] ?? null : null;
   const headerVar = header?.format === 'TEXT' && /\{\{\d+\}\}/.test(header.text ?? '');
   const midiaSemSuporte = header && ['VIDEO', 'DOCUMENT'].includes(header.format ?? '');
-  const motivo = vars > 1 ? 'tem mais de uma variável' : headerVar ? 'tem variável no cabeçalho' : midiaSemSuporte ? 'cabeçalho com vídeo ou documento' : header?.format === 'IMAGE' && !imagem ? 'cabeçalho sem imagem de exemplo' : null;
-  return { corpo, vars, imagem, motivo };
+  const motivo = vars > 2 ? 'tem mais de duas variáveis' : comVariavel.length > 1 ? 'tem mais de um botão com variável' : headerVar ? 'tem variável no cabeçalho' : midiaSemSuporte ? 'cabeçalho com vídeo ou documento' : header?.format === 'IMAGE' && !imagem ? 'cabeçalho sem imagem de exemplo' : null;
+  return { corpo, vars, imagem, botaoBase, motivo };
 }
 
 /** Uma automação: cabeçalho com o botão, menu de templates, prévia e números. */
@@ -148,7 +153,7 @@ function Bloco({ tipo, titulo, Icone, texto, cfg, templates, salvando, salvar, n
                       <span className="truncate">{t.name}</span>
                       {marca.test(t.name) && <span className="flex-none rounded bg-[#FFE14D]/15 px-1 text-[9px] font-bold uppercase text-[#FFE14D]">{tipo}</span>}
                     </span>
-                    <span className="block truncate text-[11px] text-[#8F8A7C]">{a.motivo ? `Não serve: ${a.motivo}` : a.corpo.replace(/\{\{1\}\}/g, '[nome]').replace(/\s+/g, ' ')}</span>
+                    <span className="block truncate text-[11px] text-[#8F8A7C]">{a.motivo ? `Não serve: ${a.motivo}` : a.corpo.replace(/\{\{1\}\}/g, '[nome]').replace(/\{\{2\}\}/g, '[evento]').replace(/\s+/g, ' ')}</span>
                   </span>
                 </button>
               );
@@ -160,7 +165,7 @@ function Bloco({ tipo, titulo, Icone, texto, cfg, templates, salvando, salvar, n
       {info && (
         <div className="mt-2 flex min-w-0 gap-2.5 rounded-xl bg-white/[0.03] p-2.5 ring-1 ring-white/5">
           {info.imagem && <img src={info.imagem} alt="" className="h-11 w-11 flex-none rounded-lg object-cover ring-1 ring-white/10" />}
-          <p className="line-clamp-2 text-xs leading-relaxed text-[#D8D2C7]">{info.corpo.replace(/\{\{1\}\}/g, '[primeiro nome]').replace(/\s+/g, ' ')}</p>
+          <p className="line-clamp-2 text-xs leading-relaxed text-[#D8D2C7]">{info.corpo.replace(/\{\{1\}\}/g, '[primeiro nome]').replace(/\{\{2\}\}/g, '[nome do evento]').replace(/\s+/g, ' ')}</p>
         </div>
       )}
 
@@ -227,6 +232,7 @@ export function CarrinhoZig({ eventoId, cardCls }: { eventoId: string; cardCls: 
       [col.idioma]: t?.language ?? 'pt_BR',
       [col.vars]: a?.vars ?? 0,
       [col.imagem]: a?.imagem ?? null,
+      [col.botao]: a?.botaoBase ?? null,
       // Conta a partir de quando ligou: carrinho antigo ou estorno antigo não recebe mensagem.
       [col.ligado]: enabled ? (antes && ligadoEm ? ligadoEm : new Date().toISOString()) : ligadoEm ?? null,
       updated_at: new Date().toISOString(),
