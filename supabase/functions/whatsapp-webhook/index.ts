@@ -1,7 +1,7 @@
 import { corsHeaders } from "../_shared/cors.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-import { encontrarSocio } from "../_shared/socios.ts";
+import { encontrarSocio, variantesDoTelefone } from "../_shared/socios.ts";
 
 // Sem valor padrão: cada sistema tem o seu, gravado no secret.
 const VERIFY_TOKEN = Deno.env.get("WHATSAPP_VERIFY_TOKEN") || "";
@@ -48,6 +48,52 @@ async function acionarBotDosSocios(
   } catch (e) {
     console.error("acionarBotDosSocios:", e);
   }
+}
+
+// Bot de Lounges (bot-lounges): só no número de lounges, com o bot ligado ou
+// para os telefones de teste. Mesma lógica de não aguardar a resposta.
+type CfgLounges = { ativo: boolean; testadores: string[]; numero: string | null; phone_number_id: string | null };
+async function configLounges(supabase: any): Promise<CfgLounges | null> {
+  const { data, error } = await supabase.from("lagun_bot_lounges_config")
+    .select("ativo, testadores, numero, phone_number_id").eq("id", true).maybeSingle();
+  if (error) return null; // tabela ainda não existe: segue sem o bot
+  return (data as CfgLounges) ?? null;
+}
+function botLoungesAtende(cfg: CfgLounges | null, phoneNumberId: string | null, numeroExibido: string | null, phone: string) {
+  if (!cfg) return false;
+  // Pelo id do número ou, até o bot aprender o id, pelo número exibido (+1 555-429-6867).
+  const peloId = !!cfg.phone_number_id && cfg.phone_number_id === phoneNumberId;
+  const peloNumero = !!cfg.numero && !!numeroExibido && numeroExibido.replace(/\D/g, "") === cfg.numero.replace(/\D/g, "");
+  if (!peloId && !peloNumero) return false;
+  if (cfg.ativo) return true;
+  const v = new Set(variantesDoTelefone(phone));
+  return (cfg.testadores ?? []).some((t) => variantesDoTelefone(t).some((x) => v.has(x)));
+}
+function entradaDoBot(msg: any): { tipo: string; texto: string; id?: string } | null {
+  switch (msg.type) {
+    case "text": return { tipo: "texto", texto: String(msg.text?.body ?? "") };
+    case "interactive": {
+      const e = msg.interactive?.button_reply ?? msg.interactive?.list_reply;
+      return e?.id ? { tipo: "escolha", id: String(e.id), texto: String(e.title ?? "") } : null;
+    }
+    case "button": return { tipo: "texto", texto: String(msg.button?.text ?? "") };
+    case "image": case "document": return { tipo: "comprovante", texto: `[${msg.type}]` };
+    case "audio": case "video": case "sticker": return { tipo: "midia", texto: `[${msg.type}]` };
+    case "reaction": return null;
+    default: return { tipo: "midia", texto: `[${msg.type}]` };
+  }
+}
+async function acionarBotDeLounges(phone: string, nome: string | null, entrada: { tipo: string; texto: string; id?: string }, phoneNumberId: string | null) {
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const chamada = fetch(`${supabaseUrl}/functions/v1/bot-lounges`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${supabaseKey}` },
+    body: JSON.stringify({ action: "mensagem", phone, contact_name: nome, entrada, phone_number_id: phoneNumberId }),
+  }).then(async (r) => console.log("bot-lounges:", r.status, (await r.text()).slice(0, 200)))
+    .catch((e) => console.error("bot-lounges erro:", e));
+  const runtime = (globalThis as any).EdgeRuntime;
+  if (runtime?.waitUntil) runtime.waitUntil(chamada); else await chamada;
 }
 
 // ── Evolution API (Baileys) handler ────────────────────────────────────────
@@ -188,6 +234,9 @@ Deno.serve(async (req) => {
 
       // Process incoming messages
       if (value.messages) {
+        const phoneNumberId: string | null = value.metadata?.phone_number_id ?? null;
+        const numeroExibido: string | null = value.metadata?.display_phone_number ?? null;
+        const cfgLounges = await configLounges(supabase);
         for (const msg of value.messages) {
           const contact = value.contacts?.find(
             (c: { wa_id: string }) => c.wa_id === msg.from
@@ -203,7 +252,8 @@ Deno.serve(async (req) => {
               ? new Date(Number(msg.timestamp) * 1000).toISOString()
               : new Date().toISOString(),
             status: "received",
-            raw_payload: msg,
+            // phone_number_id: o chat interno separa as conversas por número.
+            raw_payload: { ...msg, phone_number_id: phoneNumberId },
           };
 
           if (msg.type === "text") {
@@ -251,6 +301,13 @@ Deno.serve(async (req) => {
             .insert(record);
 
           if (error) console.error("Insert error:", error);
+
+          // Número de lounges: o bot de lounges responde (ligado, ou telefone de teste).
+          if (botLoungesAtende(cfgLounges, phoneNumberId, numeroExibido, msg.from)) {
+            const entrada = entradaDoBot(msg);
+            if (entrada) await acionarBotDeLounges(msg.from, contact?.profile?.name || null, entrada, phoneNumberId);
+            continue;
+          }
 
           // Resposta automática só para os sócios (cadastro de Parceiros).
           // Qualquer outro número fica em silêncio: o chat é atendido pela equipe.

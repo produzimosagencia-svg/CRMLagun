@@ -8,6 +8,7 @@ import { MessageCircle, ArrowLeft, Send, Clock, Check, CheckCheck, Bot, UserRoun
 import { Separator } from '@/components/ui/separator';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { InteracoesInstagram } from '@/components/interno/InteracoesInstagram';
+import { BotLoungesAviso } from '@/components/interno/BotLoungesAviso';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -1723,6 +1724,7 @@ export default function InternoWhatsAppChat() {
                 </Button>
               )}
             </div>
+            {activeChannel === 'whatsapp' && selectedPhone && <BotLoungesAviso telefone={selectedPhone} />}
 
             <ScrollArea className="flex-1 px-4 py-5" viewportRef={messagesViewportRef}>
               <div className="space-y-1.5 max-w-2xl mx-auto">

@@ -75,6 +75,10 @@ export default defineConfig(({ mode }) => ({
     mode === "development" && componentTagger(),
     VitePWA({
       registerType: "autoUpdate",
+      // 2026-11-16: service worker desligado. O precache de todos os arquivos deixava
+      // celulares presos numa versão antiga (inclusive a quebrada das 16h20). Este
+      // worker se remove, limpa o cache e recarrega a página aberta.
+      selfDestroying: true,
       includeAssets: ["favicon.png", "og-image.png"],
       workbox: {
         navigateFallbackDenylist: [/^\/~oauth/],

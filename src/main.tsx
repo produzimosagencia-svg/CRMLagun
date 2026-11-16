@@ -52,6 +52,7 @@ const TrackedRedirect = lazy(() => import("./pages/TrackedRedirect.tsx"));
 const RelatorioEvento = lazy(() => import("./pages/RelatorioEvento.tsx"));
 const AtendimentoDisparo = lazy(() => import("./pages/AtendimentoDisparo.tsx"));
 const SaudadeConvite = lazy(() => import("./pages/SaudadeConvite.tsx"));
+const SaudadeKaduConvite = lazy(() => import("./pages/SaudadeKaduConvite.tsx"));
 const LandingPhotos = lazy(() => import("./pages/LandingPhotos.tsx"));
 const InternoBluetick = lazy(() => import("./pages/interno/InternoBluetick.tsx"));
 const InternoZigTickets = lazy(() => import("./pages/interno/InternoZigTickets.tsx"));
@@ -66,6 +67,8 @@ const InternoGrafos = lazy(() => import("./pages/interno/InternoGrafos.tsx"));
 const InternoGrafosLista = lazy(() => import("./pages/interno/InternoGrafosLista.tsx"));
 const InternoDados = lazy(() => import("./pages/interno/InternoDados.tsx"));
 const InternoLanding = lazy(() => import("./pages/interno/InternoLanding.tsx"));
+const InternoLounges = lazy(() => import("./pages/interno/InternoLounges.tsx"));
+const LoungesPage = lazy(() => import("./pages/LoungesPage.tsx"));
 const InternoCalendario = lazy(() => import("./pages/interno/InternoCalendario.tsx"));
 const InternoAutomacoes = lazy(() => import("./pages/interno/InternoAutomacoes.tsx"));
 const InternoAutomacaoEditor = lazy(() => import("./pages/interno/InternoAutomacaoEditor.tsx"));
@@ -109,8 +112,10 @@ createRoot(document.getElementById("root")!).render(
         {/* Endereços antigos do convite: continuam abrindo, para links já enviados. */}
         <Route path="/saudade-convite" element={<SaudadeConvite />} />
         <Route path="/saudade-convite-2" element={<SaudadeConvite semKit />} />
+        <Route path="/saudade-kadu" element={<SaudadeKaduConvite />} />
         <Route path="/l/:slug" element={<IgLinkRedirect />} />
         <Route path="/fotos" element={<LandingPhotos />} />
+        <Route path="/lounges" element={<LoungesPage />} />
 
         <Route path="/interno/login" element={<InternoLogin />} />
         <Route path="/interno/trafego-gpt" element={<InternoTrafegoGPT />} />
@@ -172,6 +177,7 @@ createRoot(document.getElementById("root")!).render(
           <Route path="grafos/:id" element={<InternoGrafos />} />
           <Route path="dados" element={<InternoDados />} />
           <Route path="landing" element={<InternoLanding />} />
+          <Route path="lounges" element={<InternoLounges />} />
           <Route path="calendario" element={<InternoCalendario />} />
           <Route path="marketing" element={<InternoMarketing />}>
             <Route index element={null} />

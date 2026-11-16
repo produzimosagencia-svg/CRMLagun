@@ -47,6 +47,28 @@
         y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
     })(window, document, "clarity", "script", "vop5hz3c8s");
   </script>
+    <script>
+      // Recuperação de página em branco (2026-11-16): se o app não desenhar nada em 7 s,
+      // apaga o service worker e o cache (versão quebrada guardada no celular) e recarrega uma vez.
+      setTimeout(function () {
+        var r = document.getElementById('root');
+        if (!r || r.children.length) return;
+        try { if (sessionStorage.getItem('lagun-recuperou')) return; sessionStorage.setItem('lagun-recuperou', '1'); } catch (e) {}
+        var p = [];
+        if ('serviceWorker' in navigator) p.push(navigator.serviceWorker.getRegistrations().then(function (rs) { return Promise.all(rs.map(function (x) { return x.unregister(); })); }));
+        if (window.caches) p.push(caches.keys().then(function (ks) { return Promise.all(ks.map(function (k) { return caches.delete(k); })); }));
+        Promise.all(p).catch(function () {}).then(function () { location.reload(); });
+      }, 7000);
+      // Quando um service worker novo assume a página, recarrega uma vez para pegar a versão nova.
+      if ('serviceWorker' in navigator) {
+        var temControle = !!navigator.serviceWorker.controller;
+        navigator.serviceWorker.addEventListener('controllerchange', function () {
+          if (!temControle) { temControle = true; return; }
+          try { if (sessionStorage.getItem('lagun-sw-novo')) return; sessionStorage.setItem('lagun-sw-novo', '1'); } catch (e) {}
+          location.reload();
+        });
+      }
+    </script>
 </head>
 
   <body>

@@ -1,4 +1,4 @@
-project_id = "kpircnwoqyzszrvvzsxc"
+project_id = "xwxiijbovreucnrbyput"
 
 [functions.process-email-queue]
 verify_jwt = true
@@ -64,3 +64,7 @@ verify_jwt = false
 
 [functions.whatsapp-disparo-worker]
 verify_jwt = false
+
+[functions.bot-lounges]
+verify_jwt = false
+static_files = ["./functions/bot-lounges/mapa-lounges.jpg"]

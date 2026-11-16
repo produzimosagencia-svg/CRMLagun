@@ -14,7 +14,7 @@ import SplashScreen from '@/components/SplashScreen';
 import { AberturaSistema, SinalPaginaPronta, deveMostrarAbertura } from '@/components/interno/AberturaSistema';
 import { EscolhaSessao } from '@/components/interno/EscolhaSessao';
 import { SESSOES, CHAVES_COMUNS, esquecerSessao, noAppDesktop, useSessao } from '@/components/interno/sessoes';
-import { LayoutGrid } from 'lucide-react';
+import { LayoutGrid, Armchair } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { DefinirSenha } from '@/components/interno/DefinirSenha';
 import { supabase } from '@/integrations/supabase/client';
@@ -212,6 +212,7 @@ function InternoLayoutConteudo() {
       canSeeHome && { key: 'visao_geral', label: 'Visão geral', icon: Activity, to: '/interno/visao-geral', isActive: exact('/interno/visao-geral') },
       canSeeDesign && !canSeeHome && { key: 'referencias', label: 'Referências', icon: Sparkles, to: '/interno/marketing/referencias', isActive: startsWith('/interno/marketing/referencias') },
       canSeeHome && isEnabled('landing') && { key: 'landing', label: 'Landing Page', icon: Globe, to: '/interno/landing', isActive: startsWith('/interno/landing') },
+      canSeeHome && { key: 'lounges', label: 'Lounges', icon: Armchair, to: '/interno/lounges', isActive: startsWith('/interno/lounges') },
     ],
     // O que chega do público
     [
@@ -413,6 +414,7 @@ function InternoLayoutConteudo() {
     if (path.startsWith('/interno/prive')) return 'Privê';
     if (path === '/interno/base') return 'Base';
     if (path === '/interno/landing') return 'Landing Page';
+    if (path === '/interno/lounges') return 'Lounges';
     if (path === '/interno/calendario') return 'Calendário';
     if (path === '/interno/admin') return 'Admin';
     if (path === '/interno') return 'Home';
