@@ -10,6 +10,7 @@ import "./index.css";
 import "./app-desktop/app.css";
 
 const InternoLogin = lazy(() => import("./pages/InternoLogin.tsx"));
+const InternoCadastro = lazy(() => import("./pages/InternoCadastro.tsx"));
 const InternoLayout = lazy(() => import("./pages/interno/InternoLayout.tsx"));
 const InternoDashboardSocial = lazy(() => import("./pages/interno/InternoDashboardSocial.tsx"));
 const InternoCrmVisaoGeral = lazy(() => import("./pages/interno/InternoCrmVisaoGeral.tsx"));
@@ -118,6 +119,7 @@ createRoot(document.getElementById("root")!).render(
         <Route path="/lounges" element={<LoungesPage />} />
 
         <Route path="/interno/login" element={<InternoLogin />} />
+        <Route path="/interno/cadastro" element={<InternoCadastro />} />
         <Route path="/interno/trafego-gpt" element={<InternoTrafegoGPT />} />
         <Route path="/interno" element={<InternoLayout />}>
           <Route index element={<Navigate to="/interno/dashboard" replace />} />
