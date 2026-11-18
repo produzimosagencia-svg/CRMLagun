@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { ErroTempo, LAGUN, previsao, weatherkitConfigurado } from "./tempo.ts";
 
 // Login do app do cliente da Lagun (iPhone), por telefone.
 //
@@ -408,6 +409,26 @@ Deno.serve(async (req) => {
       const { error } = await admin.auth.admin.deleteUser(user.id);
       if (error) throw error;
       return json({ ok: true });
+    }
+
+    // ── App Lagun Administração: aba Tempo (Apple WeatherKit, sempre Vitória) ──
+    //   tempo { data? }  data = AAAA-MM-DD da noite (opcional). Só quem tem acesso ao app ou a conta de revisão.
+    if (action === "tempo") {
+      const user = await usuarioLogado(req);
+      if (!user) return json({ error: "Entre de novo no app." }, 401);
+      if (!ehRevisao(user)) {
+        const { data: acesso } = await sb().from("lagun_admin_acessos").select("user_id").eq("user_id", user.id).maybeSingle();
+        if (!acesso) return json({ error: "A previsão é só para a administração da Lagun." }, 403);
+      }
+      const data = /^\d{4}-\d{2}-\d{2}$/.test(String(body.data || "")) ? String(body.data) : null;
+      const lugar = { cidade: LAGUN.cidade, uf: LAGUN.uf };
+      if (!weatherkitConfigurado()) return json({ ok: true, ...lugar, ligado: false });
+      try {
+        return json({ ok: true, ...lugar, ligado: true, previsao: await previsao(LAGUN.latitude, LAGUN.longitude, data) });
+      } catch (e) {
+        if (e instanceof ErroTempo) return json({ error: e.message }, e.status);
+        throw e;
+      }
     }
 
     // Teste de pagamento: só a conta de revisão da Apple marca o próprio pedido como pago.

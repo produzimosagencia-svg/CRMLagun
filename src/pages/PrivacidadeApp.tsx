@@ -22,7 +22,7 @@ const SECOES: { titulo: string; texto: string }[] = [
   },
   {
     titulo: '5. Com quem compartilhamos',
-    texto: 'Usamos prestadores de serviço que processam dados em nome da Lagun, com contrato e medidas de segurança equivalentes às nossas:\n• Supabase: banco de dados, login e funções do servidor.\n• Vercel: hospedagem do site e desta política.\n• Meta (WhatsApp Business): envio do código de login para o seu celular.\n• Meta (API de Anúncios): leitura dos números das campanhas da Lagun, sem dado seu.\n• Open-Meteo: previsão do tempo de Vitória. Recebe só a coordenada da cidade, nenhum dado seu.\nCompartilhamos dados com autoridades apenas quando a lei exigir.',
+    texto: 'Usamos prestadores de serviço que processam dados em nome da Lagun, com contrato e medidas de segurança equivalentes às nossas:\n• Supabase: banco de dados, login e funções do servidor.\n• Vercel: hospedagem do site e desta política.\n• Meta (WhatsApp Business): envio do código de login para o seu celular.\n• Meta (API de Anúncios): leitura dos números das campanhas da Lagun, sem dado seu.\n• Apple (WeatherKit): previsão do tempo de Vitória, pedida pelo nosso servidor. Recebe só a coordenada da casa, nenhum dado seu.\nCompartilhamos dados com autoridades apenas quando a lei exigir.',
   },
   {
     titulo: '6. Armazenamento no aparelho',
@@ -64,7 +64,7 @@ export default function PrivacidadeApp() {
       <div style={{ maxWidth: 720, margin: '0 auto', padding: '60px 24px' }}>
         <p style={{ color: '#F5D470', fontSize: 11, letterSpacing: '0.3em', textTransform: 'uppercase', marginBottom: 12 }}>App Lagun Administração</p>
         <h1 style={{ fontSize: 28, fontWeight: 700, color: '#fff', marginBottom: 8 }}>Política de Privacidade do app</h1>
-        <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 13, marginBottom: 40 }}>Última atualização: 17 de novembro de 2026</p>
+        <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 13, marginBottom: 40 }}>Última atualização: 18 de novembro de 2026</p>
         {SECOES.map((s) => (
           <div key={s.titulo} style={{ marginBottom: 32 }}>
             <h2 style={{ fontSize: 15, fontWeight: 700, color: '#F5D470', marginBottom: 8 }}>{s.titulo}</h2>
