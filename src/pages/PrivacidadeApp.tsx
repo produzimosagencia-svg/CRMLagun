@@ -6,7 +6,7 @@
 const SECOES: { titulo: string; texto: string }[] = [
   {
     titulo: '1. Quem somos e a quem este app se destina',
-    texto: 'O app "Lagun Administração" é da Lagun, casa noturna em Vitória, Espírito Santo. É de uso interno: serve só para a administração da Lagun e para parceiros autorizados acompanharem as noites da casa (vendas, tarefas, agenda, tempo e tráfego pago). Não é um app para o público. Só entra quem foi cadastrado pela administração da Lagun dentro do próprio app.',
+    texto: 'O app "Lagun Administração" é da Lagun Club LTDA (CNPJ 64.913.557/0001-04), casa noturna em Vitória, Espírito Santo, responsável pelos dados tratados no app. É de uso interno: serve só para a administração da Lagun e para parceiros autorizados acompanharem as noites da casa (vendas, tarefas, agenda, tempo e tráfego pago). Não é um app para o público. Só entra quem foi cadastrado pela administração da Lagun dentro do próprio app.',
   },
   {
     titulo: '2. Como funciona o login',
@@ -54,7 +54,7 @@ const SECOES: { titulo: string; texto: string }[] = [
   },
   {
     titulo: '13. Contato',
-    texto: 'Lagun Entretenimento\nRua Manoel Gonçalves Carneiro, 65, Praia do Canto, Vitória/ES\nE-mail: contato@lagun.com.br\nInstagram: @lagun.vix',
+    texto: 'Lagun Club LTDA · CNPJ 64.913.557/0001-04\nRua Manoel Gonçalves Carneiro, 65, Praia do Canto, Vitória/ES, CEP 29055-740\nE-mail: contato@lagun.com.br\nInstagram: @lagun.vix',
   },
 ];
 
