@@ -14,9 +14,14 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 //                                                   da equipe por e-mail (senha no 1º acesso)
 //   POST ?action=template  (Authorization: service role) → cria o template no WABA
 //
-// Sem SMS pago: o código vai pelo WhatsApp oficial da Lagun. Enquanto o template
-// não é aprovado pela Meta, APP_DEMO_CODIGO (secret) funciona como código de
-// demonstração para qualquer telefone, só para testar o app no simulador.
+//   POST ?action=usuarios_listar | usuario_salvar | usuario_remover (só o dono, profiles.is_app_owner)
+//                                                   → cadastro de quem entra no app Lagun Administração
+//   POST ?action=excluir_conta (logado) → apaga a própria conta de verdade (regra 5.1.1(v)
+//                                                   da Apple). Conta de revisão: só simula.
+//
+// Sem SMS pago: o código vai pelo WhatsApp oficial da Lagun. Conta de revisão da
+// Apple: APP_DEMO_CODIGO (secret) vale SÓ para o telefone APP_DEMO_TELEFONE (secret).
+// Sem os dois secrets, não existe código fixo para ninguém.
 
 const GRAPH = "https://graph.facebook.com/v21.0";
 const TEMPLATE = "codigo_acesso_app";
@@ -84,6 +89,19 @@ async function usuarioDaEquipePeloTelefone(admin: ReturnType<typeof sb>, telefon
   if (!data.user?.email) return null;
   return { id: perfil.id, email: data.user.email };
 }
+
+/** Telefone da conta de revisão da Apple (secret APP_DEMO_TELEFONE), normalizado. */
+function telefoneRevisao(): string | null {
+  const t = Deno.env.get("APP_DEMO_TELEFONE");
+  return t ? normalizarTelefone(t) : null;
+}
+/** O código fixo de revisão vale só para o telefone de revisão. */
+function codigoRevisaoValido(telefone: string, codigo: string) {
+  const demo = Deno.env.get("APP_DEMO_CODIGO");
+  const tel = telefoneRevisao();
+  return Boolean(demo && tel && telefone === tel && codigo === demo);
+}
+const ehRevisao = (u: { app_metadata?: Record<string, unknown> } | null) => u?.app_metadata?.revisao === true;
 
 async function sha256(texto: string) {
   const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(texto));
@@ -159,9 +177,10 @@ Deno.serve(async (req) => {
         expira_em: new Date(Date.now() + 10 * 60_000).toISOString(), tentativas: 0,
       });
       if (error) throw error;
+      // Conta de revisão da Apple: não manda WhatsApp (o número é fictício); o revisor usa o código das notas.
+      if (telefone === telefoneRevisao() && Deno.env.get("APP_DEMO_CODIGO")) return json({ ok: true, telefone, enviado: true, canal: "revisao", demo: false });
       const envio = await enviarCodigo(telefone, codigo);
-      const demo = Boolean(Deno.env.get("APP_DEMO_CODIGO"));
-      return json({ ok: true, telefone, enviado: envio.ok, canal: envio.ok ? "whatsapp" : null, erro_envio: envio.ok ? undefined : envio.erro, demo });
+      return json({ ok: true, telefone, enviado: envio.ok, canal: envio.ok ? "whatsapp" : null, erro_envio: envio.ok ? undefined : envio.erro, demo: false });
     }
 
     // ── Confere o código e entrega a sessão ───────────────────────────────
@@ -171,8 +190,7 @@ Deno.serve(async (req) => {
       if (!telefone || codigo.length !== 6) return json({ error: "Código inválido." }, 400);
       const admin = sb();
 
-      const demo = Deno.env.get("APP_DEMO_CODIGO");
-      let valido = Boolean(demo && codigo === demo);
+      let valido = codigoRevisaoValido(telefone, codigo);
       if (!valido) {
         const { data: reg } = await admin.from("lagun_app_codigos").select("codigo_hash, expira_em, tentativas").eq("telefone", telefone).maybeSingle();
         if (!reg) return json({ error: "Peça um código novo." }, 400);
@@ -269,7 +287,8 @@ Deno.serve(async (req) => {
         valor = Number(ev.ingresso_a_partir) * quantidade; eventId = ev.id; descricao = `${quantidade}x ingresso ${ev.nome}`;
       }
       const chave = Deno.env.get("PIX_CHAVE") || "";
-      const demo = !chave;
+      // Sem chave Pix: só a conta de revisão da Apple vê o aviso e o botão de pagamento de teste.
+      const demo = !chave && ehRevisao(user);
       const txid = crypto.randomUUID().replace(/-/g, "").slice(0, 25).toUpperCase();
       const copiaCola = brCodePix(chave || "00000000000", valor, txid, descricao);
       const { data: pedido, error } = await admin.from("lagun_app_pedidos").insert({
@@ -279,11 +298,123 @@ Deno.serve(async (req) => {
       return json({ ok: true, pedido, demo });
     }
 
-    // Teste: marca o pedido como pago (só com APP_DEMO_CODIGO ligado).
-    if (action === "pagar_teste") {
-      if (!Deno.env.get("APP_DEMO_CODIGO")) return json({ error: "Fora do modo de teste." }, 403);
+    // ── App Lagun Administração: cadastro de usuários (só o dono da conta) ──
+    // Conferido aqui no servidor: profiles.is_app_owner do usuário logado, e nunca a conta de revisão.
+    if (action === "usuarios_listar" || action === "usuario_salvar" || action === "usuario_remover") {
       const user = await usuarioLogado(req);
       if (!user) return json({ error: "Entre de novo no app." }, 401);
+      const admin = sb();
+      const { data: dono } = await admin.from("profiles").select("is_app_owner").eq("id", user.id).maybeSingle();
+      if (!dono?.is_app_owner || ehRevisao(user)) return json({ error: "Só o dono da conta cadastra usuários." }, 403);
+
+      if (action === "usuarios_listar") {
+        const { data: acessos, error } = await admin.from("lagun_admin_acessos").select("user_id, nome, cargo, created_at").order("created_at");
+        if (error) throw error;
+        const ids = (acessos ?? []).map((a) => a.user_id);
+        const [{ data: noites }, { data: perfis }, { data: clientes }] = await Promise.all([
+          admin.from("lagun_admin_acesso_noites").select("user_id, event_id").in("user_id", ids),
+          admin.from("profiles").select("id, full_name, telefone").in("id", ids),
+          admin.from("lagun_app_clientes").select("id, telefone, nome").in("id", ids),
+        ]);
+        const usuarios = [];
+        for (const a of acessos ?? []) {
+          const { data: au } = await admin.auth.admin.getUserById(a.user_id);
+          if (ehRevisao(au.user ?? null)) continue;   // a conta de revisão da Apple não aparece na lista
+          const p = (perfis ?? []).find((x) => x.id === a.user_id), c = (clientes ?? []).find((x) => x.id === a.user_id);
+          usuarios.push({ user_id: a.user_id, nome: a.nome ?? p?.full_name ?? c?.nome ?? null, telefone: p?.telefone ?? c?.telefone ?? null, cargo: a.cargo,
+            noites: (noites ?? []).filter((n) => n.user_id === a.user_id).map((n) => n.event_id), eu: a.user_id === user.id });
+        }
+        return json({ ok: true, usuarios });
+      }
+
+      if (action === "usuario_remover") {
+        const alvo = String(body.user_id || "");
+        if (!alvo) return json({ error: "Usuário inválido." }, 400);
+        if (alvo === user.id) return json({ error: "Você não pode tirar o próprio acesso." }, 400);
+        const { error } = await admin.from("lagun_admin_acessos").delete().eq("user_id", alvo);   // só o acesso ao app; a conta continua
+        if (error) throw error;
+        return json({ ok: true });
+      }
+
+      // usuario_salvar { user_id?, telefone, nome, cargo, noites[] }
+      const cargo = body.cargo === "administrador" ? "administrador" : body.cargo === "parceiro" ? "parceiro" : null;
+      const nome = typeof body.nome === "string" ? body.nome.trim().slice(0, 80) : "";
+      if (!cargo) return json({ error: "Escolha o cargo." }, 400);
+      if (nome.length < 2) return json({ error: "Informe o nome." }, 400);
+      let alvo: string | null = typeof body.user_id === "string" && body.user_id ? body.user_id : null;
+      let telefone: string | null = null;
+      if (!alvo) {
+        telefone = normalizarTelefone(body.telefone);
+        if (!telefone) return json({ error: "Telefone inválido. Use DDD + número." }, 400);
+        if (telefone === telefoneRevisao()) return json({ error: "Este telefone é reservado." }, 400);
+        // Reaproveita quem já existe: equipe (profiles.telefone), cliente do app, ou o e-mail sintético do login.
+        alvo = (await usuarioDaEquipePeloTelefone(admin, telefone))?.id ?? null;
+        if (!alvo) alvo = (await admin.from("lagun_app_clientes").select("id").eq("telefone", telefone).maybeSingle()).data?.id ?? null;
+        const email = `${telefone}@${DOMINIO_EMAIL}`;
+        if (!alvo) {
+          const criado = await admin.auth.admin.createUser({ email, email_confirm: true, phone_confirm: true, user_metadata: { telefone, app: "administracao" } });
+          if (criado.data.user) alvo = criado.data.user.id;
+          else {
+            const lista = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+            alvo = lista.data.users.find((u) => u.email === email)?.id ?? null;
+            if (!alvo) throw criado.error ?? new Error("Não foi possível criar o usuário.");
+          }
+        }
+        const { data: cli } = await admin.from("lagun_app_clientes").select("id").eq("id", alvo).maybeSingle();
+        if (!cli) { const { error } = await admin.from("lagun_app_clientes").insert({ id: alvo, telefone, nome }); if (error) throw error; }
+      }
+      if (alvo === user.id && cargo !== "administrador") return json({ error: "Você continua como administrador." }, 400);
+      const { error: e1 } = await admin.from("lagun_admin_acessos").upsert({ user_id: alvo, nome, cargo, criado_por: user.id, updated_at: new Date().toISOString() }, { onConflict: "user_id" });
+      if (e1) throw e1;
+      await admin.from("lagun_admin_acesso_noites").delete().eq("user_id", alvo);   // refaz a lista de noites do parceiro
+      const noites = cargo === "parceiro" && Array.isArray(body.noites) ? body.noites.filter((x: unknown) => typeof x === "string") : [];
+      if (noites.length) {
+        const { error: e2 } = await admin.from("lagun_admin_acesso_noites").insert(noites.map((event_id: string) => ({ user_id: alvo, event_id })));
+        if (e2) throw e2;
+      }
+      return json({ ok: true, user_id: alvo });
+    }
+
+    // ── Excluir a própria conta (regra 5.1.1(v) da Apple) ──────────────────
+    // O id vem do login, nunca do corpo. Apaga papéis, perfil, cadastro do app e o
+    // usuário do Auth; reservas, pedidos, pontos e ingressos caem por "on delete cascade";
+    // registros da equipe que citam a pessoa ficam sem autor ("on delete set null").
+    // Conta de revisão da Apple: só simula. Último sócio/master não se apaga sozinho.
+    if (action === "excluir_conta") {
+      const user = await usuarioLogado(req);
+      if (!user) return json({ error: "Entre de novo no app." }, 401);
+      if (ehRevisao(user)) return json({ ok: true, simulado: true });
+      const admin = sb();
+      // Dono da conta ou último administrador (do app ou do painel) não se apaga sozinho.
+      const { data: perfil } = await admin.from("profiles").select("is_app_owner").eq("id", user.id).maybeSingle();
+      if (perfil?.is_app_owner) return json({ error: "Esta é a conta dona do app. Para excluí-la, fale com a Produzimos para passar a administração antes." }, 409);
+      const { data: acesso } = await admin.from("lagun_admin_acessos").select("cargo").eq("user_id", user.id).maybeSingle();
+      if (acesso?.cargo === "administrador") {
+        const { data: outros } = await admin.from("lagun_admin_acessos").select("user_id").eq("cargo", "administrador").neq("user_id", user.id);
+        if (!(outros ?? []).length) return json({ error: "Você é o único administrador do app. Cadastre outro administrador antes de excluir a conta." }, 409);
+      }
+      const { data: papeis } = await admin.from("user_roles").select("role").eq("user_id", user.id);
+      if ((papeis ?? []).some((p) => ["master", "admin"].includes(String(p.role)))) {
+        const { data: outros } = await admin.from("user_roles").select("user_id").in("role", ["master", "admin"]).neq("user_id", user.id);
+        if (!(outros ?? []).length) return json({ error: "Você é o único administrador do painel da Lagun. Passe a administração para outra pessoa antes de excluir a conta." }, 409);
+      }
+      const { data: cli } = await admin.from("lagun_app_clientes").select("telefone").eq("id", user.id).maybeSingle();
+      await admin.from("lagun_admin_acessos").delete().eq("user_id", user.id);
+      await admin.from("user_roles").delete().eq("user_id", user.id);
+      await admin.from("lagun_vendedores").update({ user_id: null }).eq("user_id", user.id);
+      await admin.from("lagun_app_clientes").delete().eq("id", user.id);
+      await admin.from("profiles").delete().eq("id", user.id);
+      if (cli?.telefone) await admin.from("lagun_app_codigos").delete().eq("telefone", cli.telefone);
+      const { error } = await admin.auth.admin.deleteUser(user.id);
+      if (error) throw error;
+      return json({ ok: true });
+    }
+
+    // Teste de pagamento: só a conta de revisão da Apple marca o próprio pedido como pago.
+    if (action === "pagar_teste") {
+      const user = await usuarioLogado(req);
+      if (!user) return json({ error: "Entre de novo no app." }, 401);
+      if (!ehRevisao(user)) return json({ error: "Fora do modo de teste." }, 403);
       const { data, error } = await sb().from("lagun_app_pedidos").update({ status: "pago" }).eq("id", body.pedido_id).eq("cliente_id", user.id).eq("status", "aguardando").select("*").maybeSingle();
       if (error) throw error;
       if (!data) return json({ error: "Pedido não está aguardando." }, 400);

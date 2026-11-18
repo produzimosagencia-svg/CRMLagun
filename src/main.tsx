@@ -77,6 +77,7 @@ const IgLinkRedirect = lazy(() => import("./pages/IgLinkRedirect.tsx"));
 const InternoPrive = lazy(() => import("./pages/interno/InternoPrive.tsx"));
 const PrivePage = lazy(() => import("./pages/PrivePage.tsx"));
 const Privacidade = lazy(() => import("./pages/Privacidade.tsx"));
+const PrivacidadeApp = lazy(() => import("./pages/PrivacidadeApp.tsx"));
 const Termos = lazy(() => import("./pages/Termos.tsx"));
 const ExclusaoDados = lazy(() => import("./pages/ExclusaoDados.tsx"));
 const InfluenciadorConectar = lazy(() => import("./pages/InfluenciadorConectar.tsx"));
@@ -100,6 +101,7 @@ createRoot(document.getElementById("root")!).render(
         <Route path="/" element={<App />} />
         <Route path="/prive" element={<PrivePage />} />
         <Route path="/privacidade" element={<Privacidade />} />
+        <Route path="/privacidade/app" element={<PrivacidadeApp />} />
         <Route path="/termos" element={<Termos />} />
         <Route path="/exclusao-de-dados" element={<ExclusaoDados />} />
         <Route path="/influenciadores/conectar" element={<InfluenciadorConectar />} />
