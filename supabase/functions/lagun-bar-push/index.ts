@@ -100,7 +100,9 @@ function estadoDe(c: Any, fim = false) {
     atualizadoEm: Math.floor(Date.now() / 1000),
   };
 }
-const assinatura = (e: Any) => JSON.stringify({ t: e.total, b: e.bares, l: e.lounges, s: e.estado });
+// Ordem fixa dos campos: o jsonb do banco reordena as chaves, então não dá para comparar o JSON cru.
+const assinatura = (e: Any) => [Number(e?.total) || 0, (e?.bares ?? []).map((b: Any) => `${b.id}:${b.v}`).join(","),
+  (e?.lounges ?? []).map((l: Any) => `${l.id}:${l.st}:${l.gasto ?? ""}`).join(","), e?.estado ?? ""].join("|");
 
 type Token = { token: string; tipo: string; ambiente: string; user_id: string; zig_evento: string | null; atualizado_em: string };
 
