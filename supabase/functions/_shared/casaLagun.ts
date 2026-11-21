@@ -86,7 +86,7 @@ function pdvDe(x: Any): string {
 /** B1 (pista), B2 (VIP) ou "fora". */
 export type IdBar = "B1" | "B2";
 let mapaLido: { bruto: string; m: Map<string, string> } | null = null;
-function barDaPlanta(x: Any): IdBar | "fora" {
+export function barDaPlanta(x: Any): IdBar | "fora" {
   const bruto = Deno.env.get("ZIG_BAR_MAPA") || "";
   if (!mapaLido || mapaLido.bruto !== bruto) {
     const m = new Map<string, string>();

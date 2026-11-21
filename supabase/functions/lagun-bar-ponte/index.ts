@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { ABERTO_MS, ErroZig, SEM_VENDA_MS, diaSP, ehVendaDeBar, lojasDaRede, norm, quando, zig } from "../_shared/casaLagun.ts";
+import { ABERTO_MS, ErroZig, SEM_VENDA_MS, barDaPlanta, diaSP, ehVendaDeBar, lojasDaRede, norm, quando, zig } from "../_shared/casaLagun.ts";
 
 // Ponte só de hoje: resumo do bar da Lagun para o app da Tríade (pedido do Guilherme, 2026-11-21).
 // A chave da Zig da Lagun NÃO sai daqui: a Tríade recebe só números agregados do evento de hoje.
@@ -10,7 +10,8 @@ import { ABERTO_MS, ErroZig, SEM_VENDA_MS, diaSP, ehVendaDeBar, lojasDaRede, nor
 //         total (recebido no caixa, sem bônus), consumo (soma dos produtos), transacoes, ticketMedio
 //         (consumo / vendas), ultimaHora, porHora [{ em, h, valor }], bares [{ nome, valor }] (cada PDV,
 //         ambulantes juntos, do maior para o menor), produtos (top 8 [{ nome, qtd, valor, imagem, categoria }],
-//         foto do cardápio da Zig), ultimaVenda, atualizadoEm, expiraEm }
+//         foto do cardápio da Zig), planta [{ id B1|B2, nome, valor, ultimaHora }] (os dois bares da planta da casa,
+//         para o mapa; cada bar da lista leva area pista|vip|fora), ultimaVenda, atualizadoEm, expiraEm }
 //
 // Bar = venda de produto ao público: fora estorno, gorjeta, caução do cartão, bilheteria e máquinas PRODUÇÃO.
 // Sem dado pessoal (nada de lounges, check-in, cliente, telefone, login de operador), sem token, sem loja.
@@ -118,7 +119,7 @@ async function lerBar(admin: Any): Promise<Record<string, unknown>> {
 
   if (!abertos.length) {
     const n = await nomeDaNoite(admin, null).catch(() => null);
-    const dados = { ...base, aberto: false, evento: n, total: 0, consumo: 0, transacoes: 0, ticketMedio: 0, ultimaHora: 0, porHora: [], bares: [], produtos: [], ultimaVenda: null };
+    const dados = { ...base, aberto: false, evento: n, total: 0, consumo: 0, transacoes: 0, ticketMedio: 0, ultimaHora: 0, porHora: [], bares: [], produtos: [], planta: [{ id: "B1", nome: "Bar da pista", valor: 0, ultimaHora: 0 }, { id: "B2", nome: "Bar VIP", valor: 0, ultimaHora: 0 }], ultimaVenda: null };
     cache = { em: Date.now(), dados };
     return dados;
   }
@@ -129,6 +130,8 @@ async function lerBar(admin: Any): Promise<Record<string, unknown>> {
   const vendas = lidas.flatMap((p) => p.itens).filter((x) => ids.has(String(x.eventId)) && ehVendaDeBar(x));
   const valor = (x: Any) => (Number(x.unitValue) || 0) * (Number(x.count) || 0) - (Number(x.discountValue) || 0);
   const bares = new Map<string, number>();
+  const areaDoBar = new Map<string, string>();
+  const planta = { B1: { noite: 0, hora: 0 }, B2: { noite: 0, hora: 0 } };
   const produtos = new Map<string, { qtd: number; valor: number; imagem: string | null; categoria: string | null }>();
   const porHora = new Map<number, number>();
   const transacoes = new Set<string>();
@@ -141,6 +144,9 @@ async function lerBar(admin: Any): Promise<Record<string, unknown>> {
     transacoes.add(String(x.transactionId));
     const bar = nomeDoBar(x);
     bares.set(bar, (bares.get(bar) ?? 0) + v);
+    const b = barDaPlanta(x);
+    if (!areaDoBar.has(bar)) areaDoBar.set(bar, b === "B1" ? "pista" : b === "B2" ? "vip" : "fora");
+    if (b !== "fora") { planta[b].noite += v; if (t && t >= umaHora) planta[b].hora += v; }
     const nome = String(x.productName || "Sem nome").trim();
     const doCardapio = fotos.get(String(x.productId));
     const p = produtos.get(nome) ?? { qtd: 0, valor: 0, imagem: doCardapio?.imagem ?? null, categoria: doCardapio?.categoria ?? x.productCategory ?? null };
@@ -160,8 +166,9 @@ async function lerBar(admin: Any): Promise<Record<string, unknown>> {
     ticketMedio: transacoes.size ? reais(consumo / transacoes.size) : 0,
     ultimaHora: reais(ultimaHora),
     porHora: [...porHora].sort((a, b) => a[0] - b[0]).map(([em, v]) => ({ em: new Date(em).toISOString(), h: horaBrasilia(em), valor: reais(v) })),
-    bares: [...bares].map(([nome, v]) => ({ nome, valor: reais(v) })).sort((a, b) => b.valor - a.valor).slice(0, 40),
+    bares: [...bares].map(([nome, v]) => ({ nome, valor: reais(v), area: areaDoBar.get(nome) ?? "fora" })).sort((a, b) => b.valor - a.valor).slice(0, 40),
     produtos: [...produtos].map(([nome, p]) => ({ nome, qtd: p.qtd, valor: reais(p.valor), imagem: p.imagem, categoria: p.categoria })).sort((a, b) => b.valor - a.valor).slice(0, 8),
+    planta: (["B1", "B2"] as const).map((id) => ({ id, nome: id === "B1" ? "Bar da pista" : "Bar VIP", valor: reais(planta[id].noite), ultimaHora: reais(planta[id].hora) })),
     ultimaVenda: ultimaVenda ? new Date(ultimaVenda).toISOString() : null,
   };
   cache = { em: Date.now(), dados };
