@@ -68,3 +68,7 @@ verify_jwt = false
 [functions.bot-lounges]
 verify_jwt = false
 static_files = ["./functions/bot-lounges/mapa-lounges.jpg"]
+
+# Ponte só de hoje para o app da Tríade (segredo próprio no header; expira 2026-11-22 08:00).
+[functions.lagun-bar-ponte]
+verify_jwt = false
