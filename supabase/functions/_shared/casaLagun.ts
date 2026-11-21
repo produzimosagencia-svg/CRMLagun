@@ -20,8 +20,13 @@ export const ZIG_ERP = "https://api.zigcore.com.br/integration";
 /** Loja "LAGUN VIX" (a única que o token da Lagun enxerga, conferido em 2026-11-19). */
 export const LOJA_PADRAO = "589d0a1f-08f5-402f-a73f-8d10fd5f5820";
 const AGENTE = "lagun-app-admin/1.1";
-/** Evento da Zig conta como aberto até 14 h depois de aberto no caixa (a casa fecha antes). */
-export const ABERTO_MS = 14 * 3600_000;
+/**
+ * Evento aberto (regra de 2026-11-20): em cada loja só o evento MAIS NOVO da Zig pode estar aberto
+ * (o anterior foi substituído). Ele conta como aberto até 30 h depois de criado, e, se já vendeu,
+ * até 4 h depois da última venda. A Lagun cria o evento de manhã e vende de madrugada.
+ */
+export const ABERTO_MS = 30 * 3600_000;
+export const SEM_VENDA_MS = 4 * 3600_000;
 
 export class ErroZig extends Error {
   status: number;
@@ -164,9 +169,20 @@ export interface LoungeNoite {
   chegouEm: string | null; obs: string;
 }
 
-/** Noite da Lagun (lagun_events) do mesmo dia da abertura do caixa na Zig (antes das 12 h conta o dia anterior). */
-async function noiteDoDia(admin: Any, abertoEm: number | null) {
-  const dia = abertoEm ? diaSP(0, abertoEm - 12 * HORA) : diaSP(0, Date.now() - 12 * HORA);
+/**
+ * Noite da Lagun (lagun_events) do evento da Zig. Primeiro o vínculo feito à mão
+ * (lagun_zig_evento_noite); sem vínculo, a noite do dia em que o evento foi criado na Zig
+ * (criado antes das 8 h conta o dia anterior, porque é a madrugada da noite de ontem).
+ */
+async function noiteDoDia(admin: Any, abertoEm: number | null, zigEventId?: string | null) {
+  if (zigEventId) {
+    const { data: v } = await admin.from("lagun_zig_evento_noite").select("lagun_events(id, nome, data)").eq("zig_event_id", zigEventId).maybeSingle();
+    const n = v?.lagun_events;
+    if (n) return { id: String(n.id), nome: String(n.nome), data: String(n.data) };
+  }
+  const base = abertoEm || Date.now();
+  const horaSP = Number(new Intl.DateTimeFormat("en-GB", { timeZone: "America/Sao_Paulo", hour: "2-digit", hourCycle: "h23" }).format(new Date(base)));
+  const dia = diaSP(horaSP < 8 ? -1 : 0, base);
   const { data } = await admin.from("lagun_events").select("id, nome, data").eq("data", dia).limit(1).maybeSingle();
   return data ? { id: String(data.id), nome: String(data.nome), data: String(data.data) } : null;
 }
@@ -241,7 +257,19 @@ export async function lerCasa(admin: Any, validade = 25_000): Promise<Record<str
     eventos.set(String(x.eventId), { id: String(x.eventId), data: String(x.eventDate ?? ""), loja: p.loja.id, lojaNome: p.loja.nome });
   }
   const ordenados = [...eventos.values()].sort((a, b) => b.data.localeCompare(a.data));
-  const abertos = ordenados.filter((e) => Date.now() - quando(e.data) < ABERTO_MS);
+  const ultimaVendaDe = new Map<string, number>();
+  for (const p of lidas) for (const x of p.itens) if (x?.eventId) {
+    const t = quando(x.transactionDate); const id = String(x.eventId);
+    if (t > (ultimaVendaDe.get(id) ?? 0)) ultimaVendaDe.set(id, t);
+  }
+  const maisNovoDaLoja = new Map<string, string>();
+  for (const e of ordenados) if (!maisNovoDaLoja.has(e.loja)) maisNovoDaLoja.set(e.loja, e.id);
+  const abertos = ordenados.filter((e) => {
+    if (maisNovoDaLoja.get(e.loja) !== e.id) return false;
+    if (Date.now() - quando(e.data) >= ABERTO_MS) return false;
+    const uv = ultimaVendaDe.get(e.id);
+    return !uv || Date.now() - uv < SEM_VENDA_MS;
+  });
   const alvos = abertos.length ? abertos : ordenados.slice(0, 1);
   const ids = new Set(alvos.map((e) => e.id));
   const principal = alvos[0] ?? null;
@@ -306,7 +334,7 @@ export async function lerCasa(admin: Any, validade = 25_000): Promise<Record<str
     }
   }
 
-  const noite = admin && principal ? await noiteDoDia(admin, quando(principal.data)).catch(() => null) : null;
+  const noite = admin && principal ? await noiteDoDia(admin, quando(principal.data), principal.id).catch(() => null) : null;
   const lounges = admin ? await loungesDaNoite(admin, noite?.id ?? null, fonesQueEntraram).catch((e) => { console.error("lounges", e); return [] as LoungeNoite[]; }) : [];
   const nomeEvento = noite?.nome ?? vendas.find((x) => String(x.eventId) === principal?.id)?.eventName ?? doEvento[0]?.eventName ?? null;
   const maiorHora = Math.max(planta.B1.hora, planta.B2.hora);
