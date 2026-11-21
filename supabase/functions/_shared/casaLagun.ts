@@ -104,7 +104,7 @@ const NOME_BAR: Record<IdBar, string> = { B1: "Bar da pista", B2: "Bar VIP" };
 // ── Lojas que o token alcança (todas da rede; as que recusarem ficam de fora por 10 min) ──
 let lojasCache: { em: number; lojas: { id: string; nome: string }[] } | null = null;
 const lojaRecusada = new Map<string, number>();
-async function lojasDaRede(): Promise<{ id: string; nome: string }[]> {
+export async function lojasDaRede(): Promise<{ id: string; nome: string }[]> {
   if (lojasCache && Date.now() - lojasCache.em < 600_000) return lojasCache.lojas;
   const extra = Deno.env.get("ZIG_ERP_LOJA");
   let lojas: { id: string; nome: string }[] = [];
