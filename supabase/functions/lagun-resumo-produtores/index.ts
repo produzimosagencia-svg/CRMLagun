@@ -22,6 +22,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 import { requireUser } from "../_shared/auth.ts";
 import { sincronizarEvento } from "../_shared/zig.ts";
+import { requireEquipe } from "../_shared/equipe.ts";
 
 const GRAPH_API = "https://graph.facebook.com/v21.0";
 const WABA_ID = Deno.env.get("WHATSAPP_WABA_ID") || "";
@@ -242,7 +243,7 @@ Deno.serve(async (req) => {
 
     // ------------------------------------------------------------- prévia
     if (action === "previa" || action === "teste") {
-      const auth = await requireUser(req);
+      const auth = await requireEquipe(req);
       if (!auth.ok) return auth.response;
       const eventId = url.searchParams.get("event_id") ?? "";
       if (!eventId) return json({ error: "event_id obrigatório" }, 400);

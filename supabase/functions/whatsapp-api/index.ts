@@ -1,6 +1,7 @@
 import { corsHeaders } from "../_shared/cors.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { requireUser } from "../_shared/auth.ts";
+import { requireEquipe } from "../_shared/equipe.ts";
 
 const GRAPH_API = "https://graph.facebook.com/v21.0";
 const WABA_ID = Deno.env.get("WHATSAPP_WABA_ID") || "";
@@ -122,7 +123,7 @@ Deno.serve(async (req) => {
     // acessível. Todas as demais actions exigem um usuário autenticado real
     // (bloqueia a anon key pública, fechando o disparo em massa não autorizado).
     if (action !== "get_media") {
-      const auth = await requireUser(req);
+      const auth = await requireEquipe(req);
       if (!auth.ok) return auth.response;
     }
 

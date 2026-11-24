@@ -1,6 +1,7 @@
 import { corsHeaders } from "../_shared/cors.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { requireUser } from "../_shared/auth.ts";
+import { requireEquipe } from "../_shared/equipe.ts";
 
 interface IGAccount {
   id: string;
@@ -63,7 +64,7 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  const auth = await requireUser(req);
+  const auth = await requireEquipe(req);
   if (!auth.ok) return auth.response;
 
   try {

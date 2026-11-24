@@ -1,10 +1,13 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
+import { requireEquipe } from "../_shared/equipe.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
+  // Auditoria 2026-11-24: só equipe da Lagun (ou service role); cliente do app e chave anon ficam de fora.
+  { const eq = await requireEquipe(req); if (!eq.ok) return eq.response; }
 
   try {
     const supabase = createClient(

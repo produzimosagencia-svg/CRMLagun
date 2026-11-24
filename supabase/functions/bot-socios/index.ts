@@ -26,6 +26,7 @@ import { corsHeaders } from "../_shared/cors.ts";
 import { requireUser } from "../_shared/auth.ts";
 import { sincronizarEvento } from "../_shared/zig.ts";
 import { encontrarSocio, type Socio } from "../_shared/socios.ts";
+import { requireEquipe } from "../_shared/equipe.ts";
 
 const GRAPH_API = "https://graph.facebook.com/v21.0";
 const WABA_ID = Deno.env.get("WHATSAPP_WABA_ID") || "";
@@ -964,7 +965,7 @@ Deno.serve(async (req) => {
     const bearer = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "").trim();
     const interno = bearer === serviceKey || await ehServiceRole(bearer);
     if (!interno) {
-      const auth = await requireUser(req);
+      const auth = await requireEquipe(req);
       if (!auth.ok) return auth.response;
     }
     const dryRun = body.dry_run === true || (!interno && body.dry_run !== false);

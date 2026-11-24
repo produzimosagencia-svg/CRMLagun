@@ -172,7 +172,13 @@ Deno.serve(async (req) => {
     if (action === "codigo") {
       const telefone = normalizarTelefone(body.telefone);
       if (!telefone) return json({ error: "Telefone inválido. Use DDD + número." }, 400);
-      const codigo = String(Math.floor(100000 + Math.random() * 900000));
+      // Um código por minuto por telefone: pedir código novo zera as tentativas, então
+      // sem esse intervalo daria para chutar 5 por código, sem fim (e encher o WhatsApp).
+      const { data: anterior } = await sb().from("lagun_app_codigos").select("expira_em").eq("telefone", telefone).maybeSingle();
+      if (anterior?.expira_em && new Date(anterior.expira_em).getTime() - 10 * 60_000 > Date.now() - 60_000) {
+        return json({ error: "Espere um minuto para pedir outro código." }, 429);
+      }
+      const codigo = String(100000 + (crypto.getRandomValues(new Uint32Array(1))[0] % 900000));
       const { error } = await sb().from("lagun_app_codigos").upsert({
         telefone, codigo_hash: await sha256(`${telefone}:${codigo}`),
         expira_em: new Date(Date.now() + 10 * 60_000).toISOString(), tentativas: 0,

@@ -18,6 +18,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { requireRole, requireUser } from "../_shared/auth.ts";
 import { corsHeaders } from "../_shared/cors.ts";
+import { requireEquipe } from "../_shared/equipe.ts";
 
 const AUTH_BASE = "https://www.instagram.com/oauth/authorize";
 const TOKEN_URL = "https://api.instagram.com/oauth/access_token";
@@ -134,7 +135,7 @@ Deno.serve(async (req) => {
     }
 
     if (action === "backfill") {
-      const auth = await requireUser(req);
+      const auth = await requireEquipe(req);
       if (!auth.ok) return auth.response;
       const { data: cfg } = await supabase.from("ig_config").select("access_token").maybeSingle();
       if (!cfg?.access_token) return json(400, { error: "Instagram não conectado." });

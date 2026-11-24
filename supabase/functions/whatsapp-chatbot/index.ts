@@ -1,5 +1,6 @@
 import { corsHeaders } from "../_shared/cors.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { requireEquipe } from "../_shared/equipe.ts";
 
 const GRAPH_API = "https://graph.facebook.com/v21.0";
 const WABA_ID = Deno.env.get("WHATSAPP_WABA_ID") || "";
@@ -73,6 +74,8 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
+  // Auditoria 2026-11-24: só equipe da Lagun (ou service role); cliente do app e chave anon ficam de fora.
+  { const eq = await requireEquipe(req); if (!eq.ok) return eq.response; }
 
   try {
     const { phone, message, contact_name } = await req.json();

@@ -15,6 +15,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 import { requireUser } from "../_shared/auth.ts";
 import { sincronizarEvento } from "../_shared/zig.ts";
+import { requireEquipe } from "../_shared/equipe.ts";
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -33,7 +34,7 @@ Deno.serve(async (req) => {
 
   try {
     if (action === "salvar_config") {
-      const auth = await requireUser(req);
+      const auth = await requireEquipe(req);
       if (!auth.ok) return auth.response;
       const body = await req.json().catch(() => ({}));
       const eventId = String(body.event_id ?? "").trim();
@@ -73,7 +74,7 @@ Deno.serve(async (req) => {
     }
 
     if (action === "sincronizar") {
-      const auth = await requireUser(req);
+      const auth = await requireEquipe(req);
       if (!auth.ok) return auth.response;
       const eventId = url.searchParams.get("event_id") ?? "";
       if (!eventId) return json({ error: "event_id obrigatório" }, 400);

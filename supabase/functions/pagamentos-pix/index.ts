@@ -18,6 +18,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 import { requireUser } from "../_shared/auth.ts";
+import { requireEquipe } from "../_shared/equipe.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -232,7 +233,7 @@ Deno.serve(async (req) => {
   const action = typeof body?.action === "string" ? body.action : null;
   if (!action && !req.headers.get("Authorization")) return await webhook(body);
 
-  const auth = await requireUser(req);
+  const auth = await requireEquipe(req);
   if (!auth.ok) return auth.response;
   const interno = auth.roles.includes("service_role");
   if (!interno && !(await podeUsar(auth.userId))) return json({ error: "Sem acesso a pagamentos." }, 403);

@@ -32,6 +32,7 @@ import { confirmarPagamento, tick, tratarMensagem } from "./fluxo.ts";
 import { tratarSite } from "./site.ts";
 import type { Conversa, Entrada, Etapa, EventoInfo, Intencao, Porta, Reserva } from "./fluxo.ts";
 import type { Evento, Lounge, Saida } from "./textos.ts";
+import { requireEquipe } from "../_shared/equipe.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -522,7 +523,7 @@ Deno.serve(async (req) => {
       return json(r.body, r.status);
     }
 
-    const auth = await requireUser(req);
+    const auth = await requireEquipe(req);
     if (!auth.ok) return auth.response;
 
     if (body?.action === "webhook_ligar") {
