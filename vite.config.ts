@@ -79,6 +79,10 @@ export default defineConfig(({ mode }) => ({
       // celulares presos numa versão antiga (inclusive a quebrada das 16h20). Este
       // worker se remove, limpa o cache e recarrega a página aberta.
       selfDestroying: true,
+      // Sem registrar de novo: registrar a cada visita fazia o worker se remover e
+      // recarregar a página sem parar (loop = tela branca). Só quem já tinha o worker antigo
+      // recebe este, pela checagem de atualização do próprio navegador.
+      injectRegister: false,
       includeAssets: ["favicon.png", "og-image.png"],
       workbox: {
         navigateFallbackDenylist: [/^\/~oauth/],

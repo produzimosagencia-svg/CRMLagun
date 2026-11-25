@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { CalendarDays, Clock, GlassWater, HeartHandshake, KeyRound, MailOpen, MapPin, Pause, Play, Sun, UtensilsCrossed, Wallet, type LucideIcon } from 'lucide-react';
+import { CalendarDays, Clock, HeartHandshake, KeyRound, MailOpen, MapPin, Pause, Play, UtensilsCrossed, Wallet, type LucideIcon } from 'lucide-react';
 import logoSaudade from '@/assets/saudade/saudade-logo.webp';
 import praiaDesfocada from '@/assets/saudade/praia-desfocada.webp';
 import areia from '@/assets/saudade/areia.webp';
@@ -53,10 +53,32 @@ interface Item {
   logo?: string;
 }
 
+// Ícones desenhados no traço do lucide (a biblioteca não tem garrafinha nem boné).
+type PropsIcone = { size?: number; strokeWidth?: number; className?: string; style?: CSSProperties };
+const svgBase = ({ size = 24, strokeWidth = 2, className, style }: PropsIcone) => ({
+  width: size, height: size, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth,
+  strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const, className, style,
+});
+const IconeGarrafa = ((p: PropsIcone) => (
+  <svg {...svgBase(p)}>
+    <path d="M9.2 4.4V2.9c0-.8.6-1.4 1.4-1.4h2.8c.8 0 1.4.6 1.4 1.4v1.5" />
+    <rect x="8" y="4.4" width="8" height="18.1" rx="2" />
+    <path d="M8 8h8M8 19h8" />
+  </svg>
+)) as unknown as LucideIcon;
+const IconeBone = ((p: PropsIcone) => (
+  <svg {...svgBase(p)}>
+    <path d="M2.5 15.5c0-5 3.4-8.5 8-8.5 4 0 7 2.8 7.5 6.6" />
+    <path d="M2.5 15.5h9.5c3.5 0 6.6-.6 9.2-1.7.5-.2.4-1-.2-1.1L18 13.6" />
+    <path d="M10.5 7c-1.6 2.3-2.4 5.2-2.4 8.5" />
+    <circle cx="10.5" cy="6.4" r=".5" />
+  </svg>
+)) as unknown as LucideIcon;
+
 // Press kit, como veio no planejamento (mate retirado a pedido do cliente em 2026-11-16).
 const KIT: Item[] = [
-  { nome: 'Garrafa', titulo: 'Garrafa de água', icone: GlassWater },
-  { nome: 'Viseira', titulo: 'Viseira', texto: 'Para a vibe de praia da Saudade', icone: Sun },
+  { nome: 'Garrafa', titulo: 'Garrafa térmica', icone: IconeGarrafa },
+  { nome: 'Boné', titulo: 'Boné', texto: 'Para a vibe de praia da Saudade', icone: IconeBone },
   { nome: 'Convite', titulo: 'Convite', texto: 'Seu acesso à noite de 28/11', icone: MailOpen, logo: logoSaudade },
   { nome: 'Consumação', titulo: 'R$ 150 de consumação', texto: 'Para usar no bar durante o evento', icone: Wallet },
 ];
@@ -154,7 +176,7 @@ export default function SaudadeKaduConvite() {
             </p>
             <div className="mt-4 space-y-3.5 text-[15px] leading-relaxed text-white/80">
               <p>Kadu Martins, a voz do trapiseiro, traz para Vitória os hits que dominaram o Brasil, como "Halls na Língua" e "Virando o Olhinho".</p>
-              <p>Separamos para você um kit, um jantar antes da festa e acesso ao backstage. <strong className="font-bold text-white">É só chegar e aproveitar.</strong></p>
+              <p>Separamos para você um press kit, um jantar antes da festa e acesso ao backstage. <strong className="font-bold text-white">É só chegar e aproveitar.</strong></p>
             </div>
           </div>
           <div className="mt-9 grid grid-cols-3 gap-2.5">
@@ -202,7 +224,7 @@ export default function SaudadeKaduConvite() {
         <Solido className="px-6 py-16">
           <div className="text-center">
             <Rotulo>Press kit</Rotulo>
-            <h2 className="mt-3 text-2xl font-extrabold">Seu kit</h2>
+            <h2 className="mt-3 text-2xl font-extrabold">Seu press kit</h2>
             <p className="mx-auto mt-3 max-w-[300px] text-sm font-light leading-relaxed text-white/75" style={FONTE_TEXTO}>
               Tudo que você vai receber:
             </p>

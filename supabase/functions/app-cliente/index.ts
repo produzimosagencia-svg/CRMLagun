@@ -19,6 +19,8 @@ import { ErroTempo, LAGUN, previsao, weatherkitConfigurado } from "./tempo.ts";
 //                                                   → cadastro de quem entra no app Lagun Administração
 //   POST ?action=excluir_conta (logado) → apaga a própria conta de verdade (regra 5.1.1(v)
 //                                                   da Apple). Conta de revisão: só simula.
+//   POST ?action=amb_cadastro (sem login) → "Quero ser embaixadora": cadastro pending
+//   POST ?action=amb_aprovar  (operador do programa) { user_id } → aprova e avisa no WhatsApp
 //
 // Sem SMS pago: o código vai pelo WhatsApp oficial da Lagun. Conta de revisão da
 // Apple: APP_DEMO_CODIGO (secret) vale SÓ para o telefone APP_DEMO_TELEFONE (secret).
@@ -45,6 +47,18 @@ function normalizarTelefone(bruto: string): string | null {
   if (d.length === 10 || d.length === 11) d = "55" + d;
   if (!/^55\d{10,11}$/.test(d)) return null;
   return d;
+}
+
+/** CPF com os dois dígitos verificadores certos (ingresso nominal das embaixadoras). */
+function cpfValido(cpf: string) {
+  if (!/^\d{11}$/.test(cpf) || /^(\d)\1{10}$/.test(cpf)) return false;
+  const dv = (n: number) => {
+    let s = 0;
+    for (let i = 0; i < n; i++) s += Number(cpf[i]) * (n + 1 - i);
+    const r = (s * 10) % 11;
+    return r === 10 ? 0 : r;
+  };
+  return dv(9) === Number(cpf[9]) && dv(10) === Number(cpf[10]);
 }
 
 /** Campo EMV: id + tamanho (2 dígitos) + valor. */
@@ -244,6 +258,93 @@ Deno.serve(async (req) => {
       return json({ ok: true, token_hash: link.data.properties.hashed_token, email });
     }
 
+    // ── Programa de Embaixadoras: cadastro "Quero ser embaixadora" (sem login) ──
+    //   amb_cadastro { nome, telefone, nascimento (dd/mm/aaaa), cpf, pix, instagram, indicada, aceite }
+    // Nasce pending; só o operador aprova (amb_aprovar abaixo). Um cadastro por telefone e por CPF.
+    if (action === "amb_cadastro") {
+      const nome = String(body.nome || "").replace(/\s+/g, " ").trim().slice(0, 80);
+      const telefone = normalizarTelefone(body.telefone);
+      const cpf = String(body.cpf || "").replace(/\D/g, "");
+      const pix = String(body.pix || "").trim().slice(0, 120) || null;
+      const instagram = String(body.instagram || "").trim().replace(/^@+/, "").replace(/^https?:\/\/(www\.)?instagram\.com\//i, "").replace(/[/?#].*$/, "").toLowerCase();
+      const indicada = String(body.indicada || "").trim().slice(0, 80) || null;
+      if (body.aceite !== true) return json({ error: "Aceite as regras do programa para enviar." }, 400);
+      if (nome.split(" ").length < 2 || nome.length < 5) return json({ error: "Escreva o nome completo." }, 400);
+      if (!telefone) return json({ error: "WhatsApp inválido. Use DDD + número." }, 400);
+      if (!cpfValido(cpf)) return json({ error: "CPF inválido." }, 400);
+      if (!/^[a-z0-9._]{1,30}$/.test(instagram)) return json({ error: "Instagram inválido." }, 400);
+      const m = String(body.nascimento || "").match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+      const nasc = m ? new Date(`${m[3]}-${m[2]}-${m[1]}T12:00:00Z`) : null;
+      if (!m || !nasc || isNaN(nasc.getTime()) || nasc.getUTCDate() !== Number(m[1])) return json({ error: "Data de nascimento inválida (dd/mm/aaaa)." }, 400);
+      const idade = (Date.now() - nasc.getTime()) / (365.25 * 86400000);
+      if (idade < 18 || idade > 90) return json({ error: "O programa é só para maiores de 18 anos." }, 400);
+
+      const admin = sb();
+      const { data: jaTel } = await admin.from("ambassadors").select("status").eq("phone", telefone).maybeSingle();
+      if (jaTel?.status === "pending") return json({ error: "Seu cadastro já está em análise. A casa responde no WhatsApp em até 48h." }, 409);
+      if (jaTel?.status === "active") return json({ error: "Você já é embaixadora. Entre com o celular." }, 409);
+      if (jaTel) return json({ error: "Este número já teve cadastro no programa. Fale com a Lagun." }, 409);
+      const { data: jaCpf } = await admin.from("ambassadors").select("user_id").eq("cpf", cpf).maybeSingle();
+      if (jaCpf) return json({ error: "Este CPF já tem cadastro no programa." }, 409);
+
+      // Mesmo usuário do login por telefone: equipe pelo perfil, os demais pelo e-mail sintético.
+      let userId: string | null = (await usuarioDaEquipePeloTelefone(admin, telefone))?.id ?? null;
+      if (!userId) {
+        const email = `${telefone}@${DOMINIO_EMAIL}`;
+        const criado = await admin.auth.admin.createUser({ email, email_confirm: true, phone_confirm: true, user_metadata: { telefone, app: "embaixadora" } });
+        userId = criado.data.user?.id ?? null;
+        if (!userId) {
+          const lista = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+          userId = lista.data.users.find((u) => u.email === email)?.id ?? null;
+          if (!userId) throw criado.error ?? new Error("Não foi possível criar o cadastro.");
+        }
+      }
+      const { data: jaUser } = await admin.from("ambassadors").select("status").eq("user_id", userId).maybeSingle();
+      if (jaUser) return json({ error: "Você já tem cadastro no programa." }, 409);
+
+      // "Indicada por": liga a uma embaixadora ativa pelo @ ou pelo nome, se bater com uma só.
+      let referredBy: string | null = null;
+      if (indicada) {
+        const chave = indicada.replace(/^@+/, "").toLowerCase();
+        const { data: ativas } = await admin.from("ambassadors").select("user_id, nome, instagram").eq("status", "active");
+        const achadas = (ativas ?? []).filter((a) => (a.instagram || "").replace(/^@+/, "").toLowerCase() === chave || (a.nome || "").toLowerCase() === chave);
+        if (achadas.length === 1) referredBy = achadas[0].user_id;
+      }
+      const { error } = await admin.from("ambassadors").insert({
+        user_id: userId, nome, phone: telefone, cpf, pix_key: pix, instagram: "@" + instagram,
+        birth_date: nasc.toISOString().slice(0, 10), referred_by: referredBy, referred_by_text: indicada, status: "pending",
+      });
+      if (error) {
+        if (error.code === "23505") return json({ error: "Já existe um cadastro com estes dados." }, 409);
+        throw error;
+      }
+      return json({ ok: true, nome: nome.split(" ")[0], telefone });
+    }
+
+    // ── Programa de Embaixadoras: operador aprova o cadastro e a menina recebe o aviso ──
+    //   amb_aprovar { user_id }  (logado, profiles.is_amb_operator)
+    // A regra está no banco (amb_aprovar_embaixadora, com o token do operador). O aviso usa o
+    // template de utilidade do secret AMB_TEMPLATE_APROVADA ({{1}} = primeiro nome); sem o
+    // secret, aprova e devolve aviso: false para o operador avisar por fora.
+    if (action === "amb_aprovar") {
+      const token = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
+      const user = await usuarioLogado(req);
+      if (!user) return json({ error: "Entre de novo no app." }, 401);
+      const comoEle = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, { global: { headers: { Authorization: `Bearer ${token}` } }, auth: { persistSession: false } });
+      const { data, error } = await comoEle.rpc("amb_aprovar_embaixadora", { _user_id: String(body.user_id || "") });
+      if (error) return json({ error: error.message }, 400);
+      const r = data as { nome: string; phone: string; card_code: string };
+      const template = Deno.env.get("AMB_TEMPLATE_APROVADA");
+      if (!template) return json({ ok: true, card_code: r.card_code, aviso: false, aviso_erro: "Aviso no WhatsApp ainda não configurado." });
+      const envio = await fetch(`${GRAPH}/${Deno.env.get("WHATSAPP_PHONE_NUMBER_ID")}/messages`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${Deno.env.get("META_WHATSAPP_TOKEN")}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ messaging_product: "whatsapp", to: r.phone, type: "template", template: { name: template, language: { code: "pt_BR" }, components: [{ type: "body", parameters: [{ type: "text", text: r.nome.split(" ")[0] }] }] } }),
+      });
+      const j = await envio.json().catch(() => ({}));
+      return json({ ok: true, card_code: r.card_code, aviso: envio.ok, aviso_erro: envio.ok ? undefined : (j?.error?.message || `HTTP ${envio.status}`) });
+    }
+
     // ── Bastidor: master convida alguém da equipe por e-mail (tela M4) ─────
     if (action === "convidar") {
       const user = await usuarioLogado(req);
@@ -294,6 +395,8 @@ Deno.serve(async (req) => {
         valor = Number(ev.ingresso_a_partir) * quantidade; eventId = ev.id; descricao = `${quantidade}x ingresso ${ev.nome}`;
       }
       const chave = Deno.env.get("PIX_CHAVE") || "";
+      // Sem chave Pix cadastrada, ninguém real recebe um Pix inválido: só a conta de revisão segue no modo de teste.
+      if (!chave && !ehRevisao(user)) return json({ error: "O pagamento pelo app ainda não está liberado. Compre pela ticketeira ou fale com a Lagun no WhatsApp." }, 503);
       // Sem chave Pix: só a conta de revisão da Apple vê o aviso e o botão de pagamento de teste.
       const demo = !chave && ehRevisao(user);
       const txid = crypto.randomUUID().replace(/-/g, "").slice(0, 25).toUpperCase();
@@ -406,6 +509,22 @@ Deno.serve(async (req) => {
         if (!(outros ?? []).length) return json({ error: "Você é o único administrador do painel da Lagun. Passe a administração para outra pessoa antes de excluir a conta." }, 409);
       }
       const { data: cli } = await admin.from("lagun_app_clientes").select("telefone").eq("id", user.id).maybeSingle();
+      // Programa de Embaixadoras: prints no storage (pasta da pessoa) saem antes; o cadastro e o
+      // resto (comprovações, lotes, resgates, presenças) caem por cascata ao apagar o usuário.
+      const { data: amb } = await admin.from("ambassadors").select("phone").eq("user_id", user.id).maybeSingle();
+      if (amb) {
+        const bucket = admin.storage.from("amb-comprovacoes");
+        // Caminho dos prints: <uid>/<atividade>/<arquivo>.jpg
+        const { data: pastas } = await bucket.list(user.id, { limit: 1000 });
+        for (const pasta of pastas ?? []) {
+          const base = `${user.id}/${pasta.name}`;
+          const { data: arqs } = await bucket.list(base, { limit: 1000 });
+          const caminhos = (arqs ?? []).map((a) => `${base}/${a.name}`);
+          if (!pasta.id) { if (caminhos.length) await bucket.remove(caminhos); }
+          else await bucket.remove([base]);
+        }
+        if (amb.phone) await admin.from("lagun_app_codigos").delete().eq("telefone", amb.phone);
+      }
       await admin.from("lagun_admin_acessos").delete().eq("user_id", user.id);
       await admin.from("user_roles").delete().eq("user_id", user.id);
       await admin.from("lagun_vendedores").update({ user_id: null }).eq("user_id", user.id);

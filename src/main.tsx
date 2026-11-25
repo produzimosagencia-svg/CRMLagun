@@ -54,6 +54,7 @@ const RelatorioEvento = lazy(() => import("./pages/RelatorioEvento.tsx"));
 const AtendimentoDisparo = lazy(() => import("./pages/AtendimentoDisparo.tsx"));
 const SaudadeConvite = lazy(() => import("./pages/SaudadeConvite.tsx"));
 const SaudadeKaduConvite = lazy(() => import("./pages/SaudadeKaduConvite.tsx"));
+const SaudadeCoquetelConvite = lazy(() => import("./pages/SaudadeCoquetelConvite.tsx"));
 const LandingPhotos = lazy(() => import("./pages/LandingPhotos.tsx"));
 const InternoBluetick = lazy(() => import("./pages/interno/InternoBluetick.tsx"));
 const InternoZigTickets = lazy(() => import("./pages/interno/InternoZigTickets.tsx"));
@@ -78,6 +79,7 @@ const InternoPrive = lazy(() => import("./pages/interno/InternoPrive.tsx"));
 const PrivePage = lazy(() => import("./pages/PrivePage.tsx"));
 const Privacidade = lazy(() => import("./pages/Privacidade.tsx"));
 const PrivacidadeApp = lazy(() => import("./pages/PrivacidadeApp.tsx"));
+const PrivacidadeAppCliente = lazy(() => import("./pages/PrivacidadeAppCliente.tsx"));
 const Termos = lazy(() => import("./pages/Termos.tsx"));
 const ExclusaoDados = lazy(() => import("./pages/ExclusaoDados.tsx"));
 const InfluenciadorConectar = lazy(() => import("./pages/InfluenciadorConectar.tsx"));
@@ -102,6 +104,7 @@ createRoot(document.getElementById("root")!).render(
         <Route path="/prive" element={<PrivePage />} />
         <Route path="/privacidade" element={<Privacidade />} />
         <Route path="/privacidade/app" element={<PrivacidadeApp />} />
+        <Route path="/privacidade/app-lagun" element={<PrivacidadeAppCliente />} />
         <Route path="/termos" element={<Termos />} />
         <Route path="/exclusao-de-dados" element={<ExclusaoDados />} />
         <Route path="/influenciadores/conectar" element={<InfluenciadorConectar />} />
@@ -116,6 +119,7 @@ createRoot(document.getElementById("root")!).render(
         <Route path="/saudade-convite" element={<SaudadeConvite />} />
         <Route path="/saudade-convite-2" element={<SaudadeConvite semKit />} />
         <Route path="/saudade-kadu" element={<SaudadeKaduConvite />} />
+        <Route path="/saudade-coquetel" element={<SaudadeCoquetelConvite />} />
         <Route path="/l/:slug" element={<IgLinkRedirect />} />
         <Route path="/fotos" element={<LandingPhotos />} />
         <Route path="/lounges" element={<LoungesPage />} />
